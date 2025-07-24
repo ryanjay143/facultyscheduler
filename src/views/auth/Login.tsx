@@ -2,11 +2,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@radix-ui/react-label';
-import React from 'react';
+import React, { useState } from 'react';
 import { Facebook, Instagram, Twitter } from 'lucide-react';
+import axios from '../../plugin/axios';
 import './Login.css';
 
 const Login: React.FC = () => {
+  const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+
+  const handleLogin = async (event: React.FormEvent) => {
+  event.preventDefault();
+  try {
+    const response = await axios.post('login', {
+      email,
+      password,
+    });
+    console.log('Login successful:', response.data);
+    // Handle successful login (e.g., redirect, store token, etc.)
+  } catch (error) {
+    console.error('Login failed:', error);
+    // Handle login error (e.g., show error message)
+  }
+};
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-violet-700 via-purple-600 to-fuchsia-500">
       <Card className="w-full md:w-[90%] max-w-md p-8 space-y-6 bg-white/60 rounded-2xl shadow-2xl border border-gray-200 backdrop-blur-md">
@@ -20,19 +38,21 @@ const Login: React.FC = () => {
           <p className="text-sm text-gray-600 text-center">Sign in to your account</p>
         </CardHeader>
         <CardContent>
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={handleLogin}>
             <div>
-              <Label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Email
-              </Label>
-              <Input
-                type="text"
-                id="username"
-                name="username"
-                className="block w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg shadow-sm focus:ring-fuchsia-400 focus:border-fuchsia-400 text-base bg-white/80"
-                placeholder="Enter your email"
-                autoComplete="username"
-              />
+              <Label htmlFor="email" className="block text-sm font-medium text-gray-700">
+  Email
+</Label>
+<Input
+  type="text"
+  id="email"
+  name="email"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  className="block w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg shadow-sm focus:ring-fuchsia-400 focus:border-fuchsia-400 text-base bg-white/80"
+  placeholder="Enter your email"
+  autoComplete="email"
+/>
             </div>
             <div>
               <Label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -42,6 +62,8 @@ const Login: React.FC = () => {
                 type="password"
                 id="password"
                 name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="block w-full px-4 py-3 mt-1 border border-gray-300 rounded-lg shadow-sm focus:ring-fuchsia-400 focus:border-fuchsia-400 text-base bg-white/80"
                 placeholder="Enter your password"
                 autoComplete="current-password"
