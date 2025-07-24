@@ -39,6 +39,10 @@ function Header() {
               alt="Profile"
               className="w-11 h-11 rounded-full border-2 border-violet-500 shadow"
             />
+            {/* Show user name here */}
+            <span className="font-semibold text-gray-800 max-w-[120px] truncate">
+              John Doe
+            </span>
             <ChevronDown
               size={22}
               className={`text-violet-600 transition-transform duration-200 ${open ? "rotate-180" : ""}`}

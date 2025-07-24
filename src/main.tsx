@@ -5,12 +5,32 @@ import NotFound from './notFound';
 import './index.css';
 import Loader from './components/loader';
 
-import AdminContainer  from './views/admin/AdminContainer';
+import AdminContainerLayouts  from './views/admin/AdminContainerLayouts';
+
 
 // Lazy-loaded components with simulated delay
-const Login = lazy(() => wait(3000).then(() => import('./views/auth/Login')));
+const Login = lazy(() => 
+  wait(3000).then(() => import('./views/auth/Login'))
+);
+const ScheduleContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/schedule/ScheduleContainer'))
+);
 
-const DashboardContainer = lazy(() => wait(3000).then(() => import('./views/admin/dashboard/DashboardContainer')));
+const CourseContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/course/CourseContainer'))
+);
+
+const RoomContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/room/RoomContainer'))
+);
+
+const DashboardContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/dashboard/DashboardContainer'))
+);
+
+const FacultyContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/faculty/FacultyContainer'))
+);
 
 // Route configuration
 const routes = [
@@ -28,7 +48,7 @@ const routes = [
   },
   {
     path: '/admin',
-    element: <AdminContainer />,
+    element: <AdminContainerLayouts />,
     children: [
       {
         path: '',
@@ -41,6 +61,35 @@ const routes = [
             <DashboardContainer />
           </Suspense>
       },
+      {
+        path: 'faculty',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <FacultyContainer />
+          </Suspense>
+      },
+      {
+        path: 'room',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <RoomContainer />
+          </Suspense>
+      },
+      {
+        path: 'course',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <CourseContainer />
+          </Suspense>
+      },
+      {
+        path: 'schedule',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <ScheduleContainer />
+          </Suspense>
+      },
+
     ],
   },
   {

@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { ArrowUp } from "lucide-react";
 
-import { ThemeProvider } from "@/components/themeProvider";
-import AdminSidebar from "./layouts/Sidebar";
 
-function AdminContainer() {
+import AdminSidebar from "./layouts/Sidebar";
+import { ThemeProvider } from "../../components/themeProvider";
+
+function AdminContainerLayouts() {
   const [showScroll, setShowScroll] = useState(false);
 
   useEffect(() => {
@@ -65,4 +66,4 @@ function AdminContainer() {
   );
 }
 
-export default AdminContainer;
+export default AdminContainerLayouts;

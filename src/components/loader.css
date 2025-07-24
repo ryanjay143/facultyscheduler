@@ -27,7 +27,6 @@
   border-radius: 50%; /* Make image circular */
   z-index: 2;
   box-shadow: 0 0 16px 0 rgba(59, 130, 246, 0.15);
-  animation: logo-bounce 1.2s infinite alternate;
   object-fit: cover;
 }
 
