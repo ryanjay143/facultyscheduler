@@ -4,14 +4,26 @@ import React, { Suspense, lazy } from 'react';
 import NotFound from './notFound';
 import './index.css';
 import Loader from './components/loader';
+import { Toaster } from 'sonner';
+
 
 import AdminContainerLayouts  from './views/admin/AdminContainerLayouts';
+
 
 
 // Lazy-loaded components with simulated delay
 const Login = lazy(() => 
   wait(3000).then(() => import('./views/auth/Login'))
 );
+
+const ReportsContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/reports/ReportsContainer'))
+);
+
+const ForgotPassword = lazy(() => 
+  wait(3000).then(() => import('./views/auth/FotgotPassword'))
+);
+
 const ScheduleContainer = lazy(() => 
   wait(3000).then(() => import('./views/admin/schedule/ScheduleContainer'))
 );
@@ -43,6 +55,14 @@ const routes = [
     element: (
       <Suspense fallback={<Loader />}>
         <Login />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/forgot-password',
+    element: (
+      <Suspense fallback={<Loader />}>
+        <ForgotPassword  />
       </Suspense>
     ),
   },
@@ -89,6 +109,13 @@ const routes = [
             <ScheduleContainer />
           </Suspense>
       },
+      {
+        path: 'reports',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <ReportsContainer />
+          </Suspense>
+      },
 
     ],
   },
@@ -112,5 +139,6 @@ function wait(time: number) {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <RouterProvider router={router} />
+    <Toaster richColors position="top-right" /> 
   </React.StrictMode>
 );

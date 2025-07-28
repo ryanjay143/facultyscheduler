@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Pencil, PlusIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Updated Course interface
 interface Course {
@@ -243,6 +244,15 @@ function CourseTable() {
 
   return (
     <>
+      <div className="flex flex-row gap-4 justify-between items-center mb-5 md:mb-10">
+        <h1 className="text-2xl md:text-2xl font-extrabold text-gray-800 tracking-tight">
+          Manage Courses
+        </h1>
+        <Button>
+          <PlusIcon className="h-4 w-4 mr-2" />
+          Add Course
+        </Button>
+      </div>
       <div className="flex flex-row md:flex-row gap-4 justify-between mb-3">
         <div className="flex-1 flex items-center gap-2">
           <span className="text-sm font-medium text-gray-700">Show</span>
@@ -265,14 +275,14 @@ function CourseTable() {
         <div className="flex items-center gap-2">
           <Input
             placeholder="Search Course"
-            className="w-56 border-primary focus:border-primary focus:ring-blue-500"
+            className="w-56 md:w-full border-primary focus:border-primary focus:ring-blue-500"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="rounded-md border bg-white shadow-lg overflow-x-auto">
+      <div className="rounded-md border bg-white shadow-lg overflow-x-auto md:w-[365px]">
         <Table>
           <TableHeader>
             <TableRow>

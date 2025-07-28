@@ -1,50 +1,40 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { ArrowUp } from "lucide-react";
-
 
 import AdminSidebar from "./layouts/Sidebar";
 import { ThemeProvider } from "../../components/themeProvider";
 
 function AdminContainerLayouts() {
   const [showScroll, setShowScroll] = useState(false);
+  const mainContentRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    const mainEl = mainContentRef.current;
     const handleScroll = () => {
-      setShowScroll(window.scrollY > 200);
+      if (mainEl) {
+        setShowScroll(mainEl.scrollTop > 200);
+      }
     };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    mainEl?.addEventListener("scroll", handleScroll);
+    return () => mainEl?.removeEventListener("scroll", handleScroll);
   }, []);
 
   const scrollToTop = () => {
-    // Scroll only the main content, not the whole window
-    const main = document.getElementById("admin-main-content");
-    if (main) {
-      main.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    mainContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
     <>
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <div className="flex h-screen">
-          {/* Sidebar */}
-          <div className="sticky top-0 h-screen z-30">
-            <AdminSidebar />
-          </div>
+        <div className="flex min-h-screen">
+          <AdminSidebar />
 
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Header */}
-            <div className="sticky top-0 z-20">
-              {/* The header is rendered by your Outlet's child, e.g., DashboardContainer */}
-            </div>
-            {/* Scrollable Main Content */}
+          {/* Main Content */}
+          <div className={`ml-64 flex-1 flex flex-col min-h-0 transition-all duration-300 lg:ml-0`}>
             <main
-              id="admin-main-content"
-              className="flex-1 overflow-y-auto bg-[#faf5ff] min-h-0"
+              ref={mainContentRef}
+              className="flex-1 overflow-y-auto"
             >
               <Outlet />
             </main>
@@ -52,7 +42,7 @@ function AdminContainerLayouts() {
         </div>
       </ThemeProvider>
 
-      {/* Scroll to Top Button */}
+      {/* Scroll to Top */}
       {showScroll && (
         <button
           onClick={scrollToTop}

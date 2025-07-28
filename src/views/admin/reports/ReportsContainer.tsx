@@ -1,8 +1,8 @@
 import Header from "../layouts/Header"
-import RoomTable from "./table/RoomTable"
+import ReportsPage from "./page/ReportsPage"
 
 
-function RoomContainer() {
+function ReportsContainer() {
   return (
     <div className="flex flex-col">
       {/* Header */}
@@ -10,11 +10,10 @@ function RoomContainer() {
 
       {/* Main dashboard content */}
       <div className="flex-1 p-8">
-        <RoomTable />
+       <ReportsPage /> 
       </div>
     </div>
-    
   )
 }
 
-export default RoomContainer
+export default ReportsContainer
