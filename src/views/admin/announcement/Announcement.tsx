@@ -35,7 +35,7 @@ function Announcement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-screen bg-gray-50">
       <Header />
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         
@@ -55,7 +55,7 @@ function Announcement() {
         </div>
 
         {/* --- Announcement Table --- */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200/80 overflow-hidden">
+        <div className="bg-white rounded-md shadow-lg border border-gray-200/80 overflow-hidden">
             <Table>
                 <TableHeader>
                     <TableRow className="bg-gray-50 hover:bg-gray-50">

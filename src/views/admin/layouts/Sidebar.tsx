@@ -11,13 +11,16 @@ function Sidebar() {
 
   const navLinks = [
     { href: "/facultyscheduler/admin/user-dashboard", label: "Dashboard", icon: <Home size={20} /> },
-    { href: "/facultyscheduler/admin/announcement", label: "Announcement", icon: <Megaphone size={20} /> },
+    
     { href: "/facultyscheduler/admin/faculty", label: "Faculty", icon: <Users size={20} /> },
     { href: "/facultyscheduler/admin/room", label: "Room", icon: <Building2 size={20} /> },
     { href: "/facultyscheduler/admin/course", label: "Course", icon: <BookOpen size={20} /> },
     { href: "/facultyscheduler/admin/schedule", label: "Schedule", icon: <Calendar size={20} /> },
     { href: "/facultyscheduler/admin/reports", label: "Reports", icon: <FileText size={20} /> }, 
-];
+
+    { href: "/facultyscheduler/admin/announcement", label: "Announcement", icon: <Megaphone size={20} /> },
+
+  ];
 
 
   return (

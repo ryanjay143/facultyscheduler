@@ -3,7 +3,7 @@ import MainSchedule from "./main/MainSchedule";
 
 function ScheduleContainer() {
   return (
-    <div className="flex flex-col h-screen"> 
+    <div className="flex flex-col h-screen bg-gray-50"> 
       <div>
         <Header />
       </div>

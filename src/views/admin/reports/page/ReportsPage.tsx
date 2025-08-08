@@ -36,7 +36,7 @@ function ReportsPage() {
       </div>
 
       {/* Report Controls */}
-      <Card className="mb-8 shadow-sm md:w-[365px] bg-purple-100">
+      <Card className="mb-8 shadow-sm md:w-[365px] bg-white">
         <CardHeader>
           <CardTitle className="text-xl">Report Controls</CardTitle>
           <p className="text-sm text-gray-500">Select report type and apply filters to generate your report.</p>

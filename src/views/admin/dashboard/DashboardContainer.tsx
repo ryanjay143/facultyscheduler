@@ -6,7 +6,7 @@ import { UpcomingSchedules } from "./cards/UpcomingSchedules";
 function DashboardContainer() {
   return (
     // 1. I-set ang gitas-on sa tibuok screen ug gamiton ang flexbox column
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Header - Kini dili na ma-scroll */}
       <div>
         <Header />

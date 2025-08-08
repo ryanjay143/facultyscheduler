@@ -11,7 +11,7 @@ function StatsCards() {
   return (
     <div className="grid grid-cols-3 md:grid-cols-1 gap-6">
       {stats.map((stat, index) => (
-        <div key={index} className={`flex items-center gap-4 cursor-pointer p-6 bg-purple-100 rounded-xl shadow-lg border-l-4 border-violet-500 hover:scale-[1.02] transition-transform`}>
+        <div key={index} className={`flex items-center gap-4 cursor-pointer p-6 bg-white rounded-xl shadow-lg border-l-4 border-violet-500 hover:scale-[1.02] transition-transform`}>
           <div className={`p-3 rounded-full ${stat.bgColor}`}>
             {stat.icon}
           </div>

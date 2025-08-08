@@ -15,8 +15,32 @@ const Login = lazy(() =>
   wait(3000).then(() => import('./views/auth/Login'))
 );
 
+const FacultyNotification = lazy(() => 
+  wait(3000).then(() => import('./views/faculty/notification/FacultyNotification'))
+);
+
+const FacultySettings = lazy(() => 
+  wait(3000).then(() => import('./views/faculty/settings/FacultySettings'))
+);
+
+const FacultyProfileContainer = lazy(() => 
+  wait(3000).then(() => import('./views/faculty/profile/FacultyProfileContainer'))
+);
+
 const ReportsContainer = lazy(() => 
   wait(3000).then(() => import('./views/admin/reports/ReportsContainer'))
+);
+
+const ProfileContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/profile/ProfileContainer'))
+);
+
+const NotificationContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/notification/NotificationContainer'))
+);
+
+const SettingsContainer = lazy(() => 
+  wait(3000).then(() => import('./views/admin/settings/SettingsContainer'))
 );
 
 const FacultySchedule = lazy(() => 
@@ -138,6 +162,27 @@ const routes = [
             <ReportsContainer />
           </Suspense>
       },
+      {
+        path: 'notifications',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <NotificationContainer />
+          </Suspense>
+      },
+      {
+        path: 'settings',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <SettingsContainer />
+          </Suspense>
+      },
+      {
+        path: 'profile',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <ProfileContainer />
+          </Suspense>
+      },
 
     ],
   },
@@ -170,8 +215,27 @@ const routes = [
             <ClassList />
           </Suspense>
       },
-      
-
+      {
+        path: 'notifications',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <FacultyNotification />
+          </Suspense>
+      },
+      {
+        path: 'profile',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <FacultyProfileContainer />
+          </Suspense>
+      },
+      {
+        path: 'settings',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <FacultySettings />
+          </Suspense>
+      },
     ],
   },
   {

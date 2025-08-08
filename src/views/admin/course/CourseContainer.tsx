@@ -5,7 +5,7 @@ import CourseTable from "./table/CourseTable"
 
 function CourseContainer() {
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
       <div>
         <Header />
