@@ -97,9 +97,9 @@ const ScheduleTableClass = forwardRef<HTMLDivElement, ScheduleTableClassProps>((
   }
 
   return (
-    <div className="rounded-xl border bg-white shadow-lg overflow-hidden ">
+    <div className="rounded-xl border bg-purple-100 shadow-lg overflow-hidden ">
       <DialogScheduleClass dialogOpen={dialogOpen} setDialogOpen={handleDialogClose} selectedCell={selectedCell} />
-      <div className="p-4 bg-gray-50/50 border-b flex items-center gap-4">
+      <div className="p-4 border-b flex items-center gap-4">
         <label htmlFor="section-select" className="font-semibold text-gray-800">Select Section:</label>
         <select id="section-select" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} className="p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
           {sections.map(section => <option key={section} value={section}>Section {section}</option>)}
@@ -109,8 +109,8 @@ const ScheduleTableClass = forwardRef<HTMLDivElement, ScheduleTableClassProps>((
         <Table className="min-w-full divide-y divide-gray-200">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-40 text-center text-sm font-bold text-gray-600 uppercase tracking-wider py-3 px-4 bg-gray-50">Time</TableHead>
-              {days.map(day => <TableHead key={day} className="text-center text-sm font-bold text-gray-600 uppercase tracking-wider py-3 px-4 bg-gray-50">{day}</TableHead>)}
+              <TableHead className="w-40 text-center text-sm font-bold text-gray-600 uppercase tracking-wider py-3 px-4 bg-purple-100">Time</TableHead>
+              {days.map(day => <TableHead key={day} className="text-center text-sm font-bold text-gray-600 uppercase tracking-wider py-3 px-4 bg-purple-100">{day}</TableHead>)}
             </TableRow>
           </TableHeader>
           <TableBody className="bg-white divide-y divide-gray-200">

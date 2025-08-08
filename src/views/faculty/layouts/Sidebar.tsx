@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BookOpen, Building2, Calendar, FileText, Home, LogOut, Megaphone, Menu, Users, X } from "lucide-react"; 
+import {BookOpen, Calendar, Home, LogOut, Menu, X } from "lucide-react"; 
 import { motion } from "framer-motion";
 
 
@@ -8,14 +8,22 @@ function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
 
-  const navLinks = [
-    { href: "/admin/user-dashboard", label: "Dashboard", icon: <Home size={20} /> },
-    { href: "/admin/announcement", label: "Announcement", icon: <Megaphone size={20} /> },
-    { href: "/admin/faculty", label: "Faculty", icon: <Users size={20} /> },
-    { href: "/admin/room", label: "Room", icon: <Building2 size={20} /> },
-    { href: "/admin/course", label: "Course", icon: <BookOpen size={20} /> },
-    { href: "/admin/schedule", label: "Schedule", icon: <Calendar size={20} /> },
-    { href: "/admin/reports", label: "Reports", icon: <FileText size={20} /> }, 
+ const navLinks = [
+  { 
+    href: "/faculty/user-dashboard", 
+    label: "Dashboard", 
+    icon: <Home size={20} /> 
+  },
+  { 
+    href: "/faculty/my-schedule", 
+    label: "My Schedule", 
+    icon: <Calendar size={20} /> 
+  },
+  { 
+    href: "/faculty/class-list", 
+    label: "Class List", 
+    icon: <BookOpen size={20} />
+  },
 ];
 
 
@@ -47,8 +55,8 @@ function Sidebar() {
                 FS
             </div>
             <div className="text-center">
-                <h3 className="font-semibold text-lg">Admin Name</h3>
-                <p className="text-xs text-gray-300">Administrator</p>
+                <h3 className="font-semibold text-lg">Faculty Name</h3>
+                <p className="text-xs text-gray-300">Faculty</p>
             </div>
         </div>
 

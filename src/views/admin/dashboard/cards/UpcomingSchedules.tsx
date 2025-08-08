@@ -32,7 +32,7 @@ export const UpcomingSchedules: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-lg rounded-xl h-full flex flex-col bg-purple-50">
+    <Card className="shadow-lg rounded-xl h-full space-y-8 bg-purple-100">
       <CardHeader>
         <CardTitle>Today's Upcoming Schedules</CardTitle>
         <CardDescription>A quick look at the next classes for today.</CardDescription>

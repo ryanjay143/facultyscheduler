@@ -2,10 +2,10 @@ import { useEffect, useState, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { ArrowUp } from "lucide-react";
 
-import AdminSidebar from "./layouts/Sidebar";
+import FacultySidebar from "./layouts/Sidebar";
 import { ThemeProvider } from "../../components/themeProvider";
 
-function AdminContainerLayouts() {
+function FacultyContainerLayouts() {
   const [showScroll, setShowScroll] = useState(false);
   const mainContentRef = useRef<HTMLElement>(null);
 
@@ -28,7 +28,7 @@ function AdminContainerLayouts() {
     <>
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <div className="flex min-h-screen">
-          <AdminSidebar />
+          <FacultySidebar />
 
           {/* Main Content */}
           <div className={`ml-64 flex-1 flex flex-col min-h-0 transition-all duration-300 md:ml-0`}>
@@ -56,4 +56,4 @@ function AdminContainerLayouts() {
   );
 }
 
-export default AdminContainerLayouts;
+export default FacultyContainerLayouts;

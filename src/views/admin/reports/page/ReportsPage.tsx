@@ -36,7 +36,7 @@ function ReportsPage() {
       </div>
 
       {/* Report Controls */}
-      <Card className="mb-8 shadow-sm md:w-[365px]">
+      <Card className="mb-8 shadow-sm md:w-[365px] bg-purple-100">
         <CardHeader>
           <CardTitle className="text-xl">Report Controls</CardTitle>
           <p className="text-sm text-gray-500">Select report type and apply filters to generate your report.</p>
@@ -45,7 +45,7 @@ function ReportsPage() {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Report Type</label>
             <Select value={reportType} onValueChange={setReportType}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Select a report..." /></SelectTrigger>
+              <SelectTrigger className="w-full bg-white"><SelectValue placeholder="Select a report..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="faculty"><div className="flex items-center gap-2"><Users size={16} className="text-gray-500"/> Faculty Report</div></SelectItem>
                 <SelectItem value="class_schedule"><div className="flex items-center gap-2"><BookOpen size={16} className="text-gray-500"/> Class Schedule Report</div></SelectItem>
@@ -55,8 +55,14 @@ function ReportsPage() {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Date Range</label>
             <div className="grid grid-cols-2 gap-4">
-                <div><label htmlFor="start-date" className="text-xs font-medium text-gray-600">From</label><Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border-gray-300"/></div>
-                <div><label htmlFor="end-date" className="text-xs font-medium text-gray-600">To</label><Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full border-gray-300"/></div>
+                <div>
+                  <label htmlFor="start-date" className="text-xs font-medium text-gray-600">From</label>
+                  <Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border-gray-300 bg-white"/>
+                </div>
+                <div>
+                  <label htmlFor="end-date" className="text-xs font-medium text-gray-600">To</label>
+                  <Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full border-gray-300 bg-white"/>
+                </div>
             </div>
           </div>
           <div className="md:self-end"><Button onClick={handleGenerateReport} className="w-full font-bold py-3">Generate Report</Button></div>

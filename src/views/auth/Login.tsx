@@ -1,9 +1,11 @@
+// src/components/Login.tsx
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import React, { useState } from 'react';
 import { Facebook, Instagram, Lock, LogInIcon, Mail, Twitter, Eye, EyeOff } from 'lucide-react';
-import axios from '../../plugin/axios';
+// import axios from '../../plugin/axios'; // Axios is commented out as requested
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -15,6 +17,22 @@ const Login: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+
+    // --- Dummy Data for Different User Roles ---
+    const dummyUsers = {
+        user: {
+            email: 'admin@example.com',
+            password: 'password123',
+            name: 'Admin User',
+            role: 'admin',
+        },
+        faculty: {
+            email: 'faculty@example.com',
+            password: 'faculty123',
+            name: 'Dr. Faculty',
+            role: 'faculty',
+        },
+    };
 
     const isFirstTime = !localStorage.getItem('alreadyLoggedIn');
     localStorage.setItem('alreadyLoggedIn', 'true');
@@ -34,28 +52,49 @@ const Login: React.FC = () => {
 
         setLoading(true);
 
-        try {
-            const response = await axios.post('login', { email, password });
-            if (response.data && response.data.token) {
-                localStorage.setItem('accessToken', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+        // Simulate an API call with a short delay
+        setTimeout(() => {
+            const foundUser = Object.values(dummyUsers).find(
+                (user) => user.email === email && user.password === password
+            );
+
+            if (foundUser) {
+                const dummyResponse = {
+                    data: {
+                        token: `dummy-access-token-${foundUser.role}-${Date.now()}`,
+                        user: {
+                            name: foundUser.name,
+                            email: foundUser.email,
+                            role: foundUser.role,
+                        },
+                    },
+                };
+
+                localStorage.setItem('accessToken', dummyResponse.data.token);
+                localStorage.setItem('user', JSON.stringify(dummyResponse.data.user));
+
+                console.log('Login successful:', dummyResponse.data);
+                toast.success('Login successful 🎉', {
+                    description: isFirstTime
+                        ? `Welcome, ${dummyResponse.data.user.name}!`
+                        : `Welcome back, ${dummyResponse.data.user.name}!`,
+                });
+
+                setErrors({});
+
+                // --- Role-based redirection ---
+                if (foundUser.role === 'faculty') {
+                    navigate('/faculty/user-dashboard');
+                } else {
+                    navigate('/admin/user-dashboard');
+                }
+            } else {
+                console.error('Login failed: Invalid credentials');
+                toast.error('Login failed. Please check your credentials 😓');
             }
-            console.log('Login successful:', response.data);
-            toast.success('Login successful 🎉', {
-                description: isFirstTime
-                    ? `Welcome, ${response.data.user.name}!`
-                    : `Welcome back, ${response.data.user.name}!`,
-            });
 
             setLoading(false);
-            setErrors({});
-            navigate('/admin/user-dashboard');
-        } catch (error) {
-            console.error('Login failed:', error);
-            toast.error('Login failed. Please check your credentials 😓');
-        } finally {
-            setLoading(false);
-        }
+        }, 1000); // 1-second delay
     };
 
     return (
@@ -131,7 +170,7 @@ const Login: React.FC = () => {
 
                             <Button
                                 type="submit"
-                                className="w-full py-4 text-lg font-bold text-white bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300"
+                                className="w-full py-4 text-lg font-semibold text-white bg-gradient-to-r from-violet-600 to-fuchsia-500 hover:from-violet-700 hover:to-fuchsia-600 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300"
                                 disabled={loading}
                             >
                                 {loading ? (
@@ -159,7 +198,7 @@ const Login: React.FC = () => {
                 </Card>
             </motion.div>
 
-            <p className="mt-8 text-md text-white/70">Developed by: Ryan Reyes</p>
+            <p className="mt-8 text-md text-white/70">Developed by: RR Web Solution</p>
 
             <div className="flex space-x-6 mt-6">
                 {[
