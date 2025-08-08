@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {BookOpen, Calendar, Home, LogOut, Menu, X } from "lucide-react"; 
 import { motion } from "framer-motion";
 
@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
  const navLinks = [
   { 
@@ -82,7 +83,7 @@ function Sidebar() {
           </nav>
 
          <div className="px-4 pb-6 mt-auto">
-          <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-red-500/80 hover:text-white transition-all duration-200">
+          <button onClick={() => navigate('/facultyscheduler/user-login')} className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-red-500/80 hover:text-white transition-all duration-200">
             <LogOut size={20} /> Logout
           </button>
         </div>
