@@ -84,9 +84,9 @@ const Login: React.FC = () => {
 
                 // --- Role-based redirection ---
                 if (foundUser.role === 'faculty') {
-                    navigate('/faculty/user-dashboard');
+                    navigate('/facultyscheduler/faculty/user-dashboard');
                 } else {
-                    navigate('/admin/user-dashboard');
+                    navigate('/facultyscheduler/admin/user-dashboard');
                 }
             } else {
                 console.error('Login failed: Invalid credentials');

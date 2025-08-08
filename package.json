@@ -1,5 +1,6 @@
 {
   "name": "facultyscheduler",
+  "homepage": "https://ryanjay143.github.io/facultyscheduler/",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,7 +8,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",
@@ -21,6 +24,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.9",
+    "gh-pages": "^6.3.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.525.0",
     "next-themes": "^0.4.6",

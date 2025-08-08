@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Building2, Calendar, FileText, Home, LogOut, Megaphone, Menu, Users, X } from "lucide-react"; 
 import { motion } from "framer-motion";
 
@@ -7,15 +7,16 @@ import { motion } from "framer-motion";
 function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navLinks = [
-    { href: "/admin/user-dashboard", label: "Dashboard", icon: <Home size={20} /> },
-    { href: "/admin/announcement", label: "Announcement", icon: <Megaphone size={20} /> },
-    { href: "/admin/faculty", label: "Faculty", icon: <Users size={20} /> },
-    { href: "/admin/room", label: "Room", icon: <Building2 size={20} /> },
-    { href: "/admin/course", label: "Course", icon: <BookOpen size={20} /> },
-    { href: "/admin/schedule", label: "Schedule", icon: <Calendar size={20} /> },
-    { href: "/admin/reports", label: "Reports", icon: <FileText size={20} /> }, 
+    { href: "/facultyscheduler/admin/user-dashboard", label: "Dashboard", icon: <Home size={20} /> },
+    { href: "/facultyscheduler/admin/announcement", label: "Announcement", icon: <Megaphone size={20} /> },
+    { href: "/facultyscheduler/admin/faculty", label: "Faculty", icon: <Users size={20} /> },
+    { href: "/facultyscheduler/admin/room", label: "Room", icon: <Building2 size={20} /> },
+    { href: "/facultyscheduler/admin/course", label: "Course", icon: <BookOpen size={20} /> },
+    { href: "/facultyscheduler/admin/schedule", label: "Schedule", icon: <Calendar size={20} /> },
+    { href: "/facultyscheduler/admin/reports", label: "Reports", icon: <FileText size={20} /> }, 
 ];
 
 
@@ -74,7 +75,7 @@ function Sidebar() {
           </nav>
 
          <div className="px-4 pb-6 mt-auto">
-          <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-red-500/80 hover:text-white transition-all duration-200">
+          <button onClick={() => navigate('/facultyscheduler/user-login')} className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-gray-300 hover:bg-red-500/80 hover:text-white transition-all duration-200">
             <LogOut size={20} /> Logout
           </button>
         </div>

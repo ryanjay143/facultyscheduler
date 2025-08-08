@@ -10,17 +10,17 @@ function Sidebar() {
 
  const navLinks = [
   { 
-    href: "/faculty/user-dashboard", 
+    href: "/facultyscheduler/faculty/user-dashboard", 
     label: "Dashboard", 
     icon: <Home size={20} /> 
   },
   { 
-    href: "/faculty/my-schedule", 
+    href: "/facultyscheduler/faculty/my-schedule", 
     label: "My Schedule", 
     icon: <Calendar size={20} /> 
   },
   { 
-    href: "/faculty/class-list", 
+    href: "/facultyscheduler/faculty/class-list", 
     label: "Class List", 
     icon: <BookOpen size={20} />
   },

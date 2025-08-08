@@ -62,11 +62,11 @@ const FacultyContainer = lazy(() =>
 // Route configuration
 const routes = [
   {
-    path: '/',
-    element: <Navigate to="/user-login" />,
+    path: '/facultyscheduler',
+    element: <Navigate to="/facultyscheduler/user-login" />,
   },
   {
-    path: '/user-login',
+    path: 'facultyscheduler/user-login',
     element: (
       <Suspense fallback={<Loader />}>
         <Login />
@@ -74,7 +74,7 @@ const routes = [
     ),
   },
   {
-    path: '/forgot-password',
+    path: 'facultyscheduler/forgot-password',
     element: (
       <Suspense fallback={<Loader />}>
         <ForgotPassword  />
@@ -82,12 +82,12 @@ const routes = [
     ),
   },
   {
-    path: '/admin',
+    path: 'facultyscheduler/admin',
     element: <AdminContainerLayouts />,
     children: [
       {
         path: '',
-        element: <Navigate to="/admin/user-dashboard" />,
+        element: <Navigate to="facultyscheduler/admin/user-dashboard" />,
       },
       {
         path: 'user-dashboard',
@@ -142,12 +142,12 @@ const routes = [
     ],
   },
    {
-    path: '/faculty',
+    path: 'facultyscheduler/faculty',
     element: <FacultyContainerLayouts />,
     children: [
       {
         path: '',
-        element: <Navigate to="/faculty/user-dashboard" />,
+        element: <Navigate to="facultyscheduler/faculty/user-dashboard" />,
       },
       {
         path: 'user-dashboard',
