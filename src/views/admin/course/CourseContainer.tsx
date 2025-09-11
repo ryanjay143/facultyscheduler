@@ -1,5 +1,5 @@
 import Header from "../layouts/Header"
-import CourseTable from "./table/CourseTable"
+import CourseTable from "./Curriculum/Curriculum"
 
 
 

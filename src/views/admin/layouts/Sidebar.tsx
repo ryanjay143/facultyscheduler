@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Building2, Calendar, FileText, Home, LogOut, Megaphone, Menu, Users, X } from "lucide-react"; 
+import { BookOpen, Building2, Calendar, FileText, LayoutDashboardIcon, LogOut, Megaphone, Menu, Users, X } from "lucide-react";
 import { motion } from "framer-motion";
-
 
 function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,18 +9,14 @@ function Sidebar() {
   const navigate = useNavigate();
 
   const navLinks = [
-    { href: "/facultyscheduler/admin/user-dashboard", label: "Dashboard", icon: <Home size={20} /> },
-    
+    { href: "/facultyscheduler/admin/user-dashboard", label: "Dashboard", icon: <LayoutDashboardIcon size={20} /> },
     { href: "/facultyscheduler/admin/faculty", label: "Faculty", icon: <Users size={20} /> },
-    { href: "/facultyscheduler/admin/room", label: "Room", icon: <Building2 size={20} /> },
-    { href: "/facultyscheduler/admin/course", label: "Course", icon: <BookOpen size={20} /> },
-    { href: "/facultyscheduler/admin/schedule", label: "Schedule", icon: <Calendar size={20} /> },
-    { href: "/facultyscheduler/admin/reports", label: "Reports", icon: <FileText size={20} /> }, 
-
+    { href: "/facultyscheduler/admin/faculty-loading", label: "Faculty Loading", icon: <Calendar size={20} /> },
+    { href: "/facultyscheduler/admin/room", label: "Classroom", icon: <Building2 size={20} /> },
+    { href: "/facultyscheduler/admin/curriculum-management", label: "Curriculum", icon: <BookOpen size={20} /> },
     { href: "/facultyscheduler/admin/announcement", label: "Announcement", icon: <Megaphone size={20} /> },
-
+    { href: "/facultyscheduler/admin/reports", label: "Reports", icon: <FileText size={20} /> },
   ];
-
 
   return (
     <>
@@ -43,7 +38,7 @@ function Sidebar() {
         className={`h-screen w-64 bg-gradient-to-b from-gray-900 to-purple-900 shadow-xl flex flex-col z-40
           fixed top-0 left-0 transition-transform ease-in-out duration-300
           ${isOpen ? "translate-x-0" : "md:-translate-x-full"
-        } md:w-56 overflow-hidden`}
+        } overflow-hidden`}
       >
 
        <div className="flex flex-col items-center p-6 border-b border-white/10 space-y-4 text-white">
@@ -83,8 +78,7 @@ function Sidebar() {
           </button>
         </div>
 
-       
-       </motion.aside>
+      </motion.aside>
 
            {isOpen && (
         <div

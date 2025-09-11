@@ -1,5 +1,5 @@
 import Header from "../layouts/Header";
-import MainSchedule from "./main/MainSchedule";
+import MainSchedule from "./main/MainFacultyLoading";
 
 function ScheduleContainer() {
   return (

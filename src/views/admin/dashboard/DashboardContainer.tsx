@@ -1,39 +1,45 @@
-import Header from "../layouts/Header";
+// src/components/DashboardContainer.tsx
+
+import Header from "../layouts/Header"; // Make sure this path is correct
 import Activities from "./activity/Activities";
 import Cards from "./cards/Cards";
 import { UpcomingSchedules } from "./cards/UpcomingSchedules";
+import { AnnouncementsWidget } from "./widgets/AnnouncementsWidget";
+
 
 function DashboardContainer() {
   return (
-    // 1. I-set ang gitas-on sa tibuok screen ug gamiton ang flexbox column
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header - Kini dili na ma-scroll */}
-      <div>
-        <Header />
-      </div>
+      <Header />
 
-      {/* 2. Main dashboard content nga naay kaugalingong scrolling */}
-      <div className="flex-1 overflow-y-auto p-8">
-        {/* Stats Cards - nag-okupar sa tibuok gilapdon */}
+      {/* Main dashboard content with its own scrolling */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        {/* Top Row: Welcome message and Stats Cards */}
+        <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back, Admin!</h1>
+            <p className="text-gray-500">Here’s a snapshot of your system today.</p>
+        </div>
+        
         <div className="mb-8">
             <Cards />
         </div>
 
-        {/* Main Grid: 2 columns sa desktop, 1 column sa mobile */}
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-8 md:gap-0 md:space-y-8">
+        {/* Main 3-Column Grid for larger screens */}
+        <div className="grid grid-cols-1 gap-8">
           
-          {/* Left/Main Column - mas dako */}
-          <div className="space-y-8">
-           <UpcomingSchedules />
+          {/* --- Left Column (Activities & Announcements) --- */}
+          <div className="col-span-1 space-y-8">
+            <AnnouncementsWidget />
+            <Activities /> 
           </div>
 
-          {/* Right/Side Column - mas gamay */}
-          <div className="md:col-span-2 space-y-8">
-            <Activities /> 
+          {/* --- Center Column (Main Content - Schedule) --- */}
+          <div>
+           <UpcomingSchedules />
           </div>
           
         </div>
-      </div>
+      </main>
     </div>
   );
 }

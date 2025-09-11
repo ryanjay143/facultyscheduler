@@ -48,7 +48,7 @@ const FacultySchedule = lazy(() =>
 );
 
 const Announcement = lazy(() => 
-  wait(3000).then(() => import('./views/admin/announcement/Announcement'))
+  wait(3000).then(() => import('./views/admin/announcement/AnnouncementPage'))
 );
 
 const ClassList = lazy(() => 
@@ -142,14 +142,14 @@ const routes = [
           </Suspense>
       },
       {
-        path: 'course',
+        path: 'curriculum-management',
         element: 
           <Suspense fallback={<Loader />}>
             <CourseContainer />
           </Suspense>
       },
       {
-        path: 'schedule',
+        path: 'faculty-loading',
         element: 
           <Suspense fallback={<Loader />}>
             <ScheduleContainer />

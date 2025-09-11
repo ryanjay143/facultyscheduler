@@ -1,42 +1,35 @@
+// src/components/cards/Cards.tsx
+
 import { BookOpen, Building2, ClipboardList, Users } from 'lucide-react'
+
+// Array of card data now includes a 'borderColor' class
+const cardData = [
+    { title: "Total Faculty", value: 24, icon: Users, color: "text-violet-500", bgColor: "bg-violet-50", borderColor: "border-violet-500" },
+    { title: "Total Rooms", value: 10, icon: Building2, color: "text-fuchsia-500", bgColor: "bg-fuchsia-50", borderColor: "border-fuchsia-500" },
+    { title: "Total Courses", value: 36, icon: BookOpen, color: "text-purple-500", bgColor: "bg-purple-50", borderColor: "border-purple-500" },
+    { title: "Scheduled Classes", value: 12, icon: ClipboardList, color: "text-blue-500", bgColor: "bg-blue-50", borderColor: "border-blue-500" }
+];
 
 function Cards() {
   return (
-    <div className="grid grid-cols-4 md:grid-cols-2 gap-6 mb-8">
-      {/* Total Faculty */}
-      <div className="flex items-center gap-4 cursor-pointer p-6 bg-white rounded-xl shadow-lg border-l-4 border-violet-500 hover:scale-[1.02] transition-transform">
-        <Users className="text-violet-500" size={32} />
-        <div>
-          <div className="text-2xl font-bold text-gray-800">24</div>
-          <div className="text-sm text-gray-500">Total Faculty</div>
+    <div className="grid grid-cols-4 md:grid-cols-2 gap-6">
+      {cardData.map((card, index) => (
+        <div 
+          key={index} 
+          // --- The border class is now applied here ---
+          className={`flex items-center gap-4 p-5 bg-white rounded-2xl shadow-lg border-b-4 ${card.borderColor} hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
+        >
+          <div className={`p-3 rounded-full ${card.bgColor}`}>
+            <card.icon className={card.color} size={28} />
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-gray-800">{card.value}</div>
+            <div className="text-sm text-gray-500">{card.title}</div>
+          </div>
         </div>
-      </div>
-      {/* Total Rooms */}
-      <div className="flex items-center gap-4 p-6 cursor-pointer bg-white rounded-xl shadow-lg border-l-4 border-fuchsia-500 hover:scale-[1.02] transition-transform">
-        <Building2 className="text-fuchsia-500" size={32} />
-        <div>
-          <div className="text-2xl font-bold text-gray-800">10</div>
-          <div className="text-sm text-gray-500">Total Rooms</div>
-        </div>
-      </div>
-      {/* Total Courses */}
-      <div className="flex items-center gap-4 p-6 cursor-pointer bg-white rounded-xl shadow-lg border-l-4 border-purple-500 hover:scale-[1.02] transition-transform">
-        <BookOpen className="text-purple-500" size={32} />
-        <div>
-          <div className="text-2xl font-bold text-gray-800">36</div>
-          <div className="text-sm text-gray-500">Total Courses</div>
-        </div>
-      </div>
-      {/* Scheduled Classes */}
-      <div className="flex items-center gap-4 p-6 cursor-pointer bg-white rounded-xl shadow-lg border-l-4 border-blue-500 hover:scale-[1.02] transition-transform">
-        <ClipboardList className="text-blue-500" size={32} />
-        <div>
-          <div className="text-2xl font-bold text-gray-800">12</div>
-          <div className="text-sm text-gray-500">Scheduled Classes</div>
-        </div>
-      </div>
+      ))}
     </div>
   )
 }
 
-export default Cards
+export default Cards;
