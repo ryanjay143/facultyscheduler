@@ -17,7 +17,7 @@ export default defineConfig({
     })
   ],
  
-  base: 'facultyscheduler/',
+  base: '/facultyscheduler',
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
