@@ -1,22 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Variants } from 'framer-motion';
-import { Search, Book, Plus, Edit, Trash2, Hash, Star, Layers } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Search, Plus, Edit, Trash2, Layers, Calendar, AlertCircle, } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 // --- TYPE DEFINITIONS ---
 type Subject = {
     code: string;
     name: string;
-    units: number;
+    unitsTotal: number;
+    unitsLec: number;
+    unitsLab: number;
+    hoursTotal: number;
+    hoursLec: number;
+    hoursLab: number;
+    prerequisite: string;
 };
 
 type Program = {
     id: number;
     name:string;
     abbreviation: string;
+    effectiveYear: string;
     subjects: {
         [semester: string]: Subject[];
     };
@@ -24,451 +48,323 @@ type Program = {
 
 // --- INITIAL MOCK DATA ---
 const initialProgramsData: Program[] = [
-    { id: 1, name: 'Bachelor of Science in Information Technology', abbreviation: 'BSIT', subjects: { '1st Year, 1st Semester': [{ code: 'IT101', name: 'Introduction to Computing', units: 3 }, { code: 'CS101', name: 'Computer Programming 1', units: 3 }], '1st Year, 2nd Semester': [{ code: 'IT102', name: 'Fundamentals of Database Systems', units: 3 }] } },
-    { id: 2, name: 'Bachelor of Science in Computer Science', abbreviation: 'BSCS', subjects: { '1st Year, 1st Semester': [{ code: 'CS110', name: 'Discrete Mathematics', units: 3 }] } },
-    { id: 3, name: 'Bachelor of Science in Business Administration', abbreviation: 'BSBA', subjects: { '1st Year, 1st Semester': [{ code: 'BA101', name: 'Principles of Management', units: 3 }] } },
-    { id: 4, name: 'Bachelor of Arts in Communication', abbreviation: 'BA Comm', subjects: { '1st Year, 1st Semester': [{ code: 'COMM101', name: 'Intro to Mass Communication', units: 3 }] } },
+    { id: 1, name: 'Bachelor of Science in Information Technology', abbreviation: 'BSIT', effectiveYear: '2024-2025', subjects: { 'First Year, First Semester': [{ code: 'IT101', name: 'Introduction to Computing', unitsTotal: 3, unitsLec: 2, unitsLab: 1, hoursTotal: 5, hoursLec: 2, hoursLab: 3, prerequisite: 'None' }], 'First Year, Second Semester': [{ code: 'IT102', name: 'Fundamentals of Database Systems', unitsTotal: 3, unitsLec: 2, unitsLab: 1, hoursTotal: 5, hoursLec: 2, hoursLab: 3, prerequisite: 'IT101' }] } },
+    { id: 2, name: 'Bachelor of Science in Computer Science', abbreviation: 'BSCS', effectiveYear: '2023-2024', subjects: { 'First Year, First Semester': [{ code: 'CS110', name: 'Discrete Mathematics', unitsTotal: 3, unitsLec: 3, unitsLab: 0, hoursTotal: 3, hoursLec: 3, hoursLab: 0, prerequisite: 'None' }] } },
+    { id: 3, name: 'Bachelor of Science in Business Administration', abbreviation: 'BSBA', effectiveYear: '2024-2025', subjects: { 'First Year, First Semester': [{ code: 'BA101', name: 'Principles of Management', unitsTotal: 3, unitsLec: 3, unitsLab: 0, hoursTotal: 3, hoursLec: 3, hoursLab: 0, prerequisite: 'None' }] } },
 ];
-
 
 // --- COLOR PALETTE FOR PROGRAM CARDS ---
-const programColorClasses = [
-    'from-purple-600 to-indigo-600',
-    'from-blue-500 to-teal-400',
-    'from-pink-500 to-rose-500',
-    'from-orange-500 to-amber-500',
-    'from-green-500 to-lime-500',
-    'from-cyan-500 to-sky-500'
-];
-
+const programColorClasses = [ 'from-purple-600 to-indigo-600', 'from-blue-500 to-teal-400', 'from-pink-500 to-rose-500', 'from-orange-500 to-amber-500', 'from-green-500 to-lime-500', 'from-cyan-500 to-sky-500' ];
 
 // --- ANIMATION VARIANTS for Framer Motion ---
-const cardVariants: Variants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: (i: number) => ({
-        opacity: 1,
-        y: 0,
-        transition: { delay: i * 0.05, type: 'spring', stiffness: 100 },
-    }),
-};
-
-const modalOverlayVariants: Variants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 },
-    exit: { opacity: 0 },
-};
-
-const modalContentVariants: Variants = {
-    hidden: { opacity: 0, scale: 0.95 },
-    visible: { opacity: 1, scale: 1 },
-    exit: { opacity: 0, scale: 0.95 },
-};
-
+const cardVariants: Variants = { hidden: { opacity: 0, y: 30 }, visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.05, type: 'spring', stiffness: 100 } }) };
 
 // --- MAIN CURRICULUM COMPONENT ---
 function Curriculum() {
     // --- STATE MANAGEMENT ---
     const [programs, setPrograms] = useState<Program[]>(initialProgramsData);
     const [searchTerm, setSearchTerm] = useState('');
+    const [yearFilter, setYearFilter] = useState('All Years');
     const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
 
-    // Modal States
     const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
-    const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
     const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
+    const [isSemesterRenameModalOpen, setIsSemesterRenameModalOpen] = useState(false);
+    const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
 
-    // States for tracking what is being edited
     const [editingProgram, setEditingProgram] = useState<Program | null>(null);
-    const [editingSubjectInfo, setEditingSubjectInfo] = useState<{ semester: string; subject: Subject | null } | null>(null);
     const [editingSemesterName, setEditingSemesterName] = useState<string | null>(null);
+    const [editingSubjectInfo, setEditingSubjectInfo] = useState<{ semester: string; subject: Subject | null } | null>(null);
 
     // --- CRUD HANDLER FUNCTIONS ---
+    const handleAddProgram = () => { setEditingProgram(null); setIsProgramModalOpen(true); };
+    const handleEditProgram = (program: Program) => { setEditingProgram(program); setIsProgramModalOpen(true); };
+    const handleDeleteProgram = (programId: number) => { if (window.confirm('Delete this program and all its contents?')) { setPrograms(programs.filter(p => p.id !== programId)); } };
+    const handleSaveProgram = (programData: Omit<Program, 'id' | 'subjects'>) => { if (editingProgram) { setPrograms(programs.map(p => (p.id === editingProgram.id ? { ...p, ...programData } : p))); } else { const newProgram: Program = { id: Date.now(), ...programData, subjects: {} }; setPrograms([newProgram, ...programs]); } setIsProgramModalOpen(false); };
+    const handleAddSemesterAndSubjects = () => setIsSemesterModalOpen(true);
+    const handleSaveSemesterAndSubjects = (semesterName: string, subjects: Subject[]) => { if (!selectedProgram || !semesterName.trim()) return; setPrograms(programs.map(p => { if (p.id === selectedProgram.id) { if (p.subjects[semesterName]) { alert('A semester with this name already exists.'); return p; } const updatedProgram = { ...p, subjects: { ...p.subjects }}; const processedSubjects = subjects.filter(s => s.code && s.name).map(s => ({ ...s, prerequisite: s.prerequisite.trim() === '' ? 'None' : s.prerequisite })); updatedProgram.subjects[semesterName] = processedSubjects; return updatedProgram; } return p; })); setIsSemesterModalOpen(false); };
+    const handleEditSemester = (semesterName: string) => { setEditingSemesterName(semesterName); setIsSemesterRenameModalOpen(true); };
+    const handleDeleteSemester = (semesterName: string) => { if (!selectedProgram || !window.confirm(`Delete semester "${semesterName}" and all its subjects?`)) return; setPrograms(programs.map(p => { if (p.id === selectedProgram.id) { const newSubjects = { ...p.subjects }; delete newSubjects[semesterName]; return { ...p, subjects: newSubjects }; } return p; })); };
+    const handleRenameSemester = (newSemesterName: string) => { if (!selectedProgram || !editingSemesterName || !newSemesterName.trim()) return; setPrograms(programs.map(p => { if (p.id === selectedProgram.id) { const newSubjects = { ...p.subjects }; if (newSubjects[newSemesterName] && newSemesterName !== editingSemesterName) { alert('A semester with this name already exists.'); return p; } const subjectsToKeep = newSubjects[editingSemesterName]; delete newSubjects[editingSemesterName]; newSubjects[newSemesterName] = subjectsToKeep; return { ...p, subjects: newSubjects }; } return p; })); setIsSemesterRenameModalOpen(false); };
+    const handleAddSubject = (semester: string) => { setEditingSubjectInfo({ semester, subject: null }); setIsSubjectModalOpen(true); };
+    const handleEditSubject = (semester: string, subject: Subject) => { setEditingSubjectInfo({ semester, subject }); setIsSubjectModalOpen(true); };
+    const handleDeleteSubject = (semester: string, subjectCode: string) => { if (!selectedProgram || !window.confirm(`Delete subject ${subjectCode}?`)) return; setPrograms(programs.map(p => { if (p.id === selectedProgram.id) { const updatedProgram = { ...p }; updatedProgram.subjects[semester] = updatedProgram.subjects[semester].filter(s => s.code !== subjectCode); return updatedProgram; } return p; })); };
+    const handleSaveSubject = (semester: string, subjectData: Subject) => { if (!selectedProgram) return; const isEditing = !!editingSubjectInfo?.subject; const processedSubject = { ...subjectData, prerequisite: subjectData.prerequisite.trim() === '' ? 'None' : subjectData.prerequisite }; setPrograms(programs.map(p => { if (p.id === selectedProgram.id) { const updatedProgram = { ...p, subjects: { ...p.subjects } }; if (isEditing) { const originalCode = editingSubjectInfo!.subject!.code; updatedProgram.subjects[semester] = updatedProgram.subjects[semester].map(s => s.code === originalCode ? processedSubject : s); } else { updatedProgram.subjects[semester].push(processedSubject); } return updatedProgram; } return p; })); setIsSubjectModalOpen(false); };
 
-    // PROGRAM HANDLERS
-    const handleAddProgram = () => {
-        setEditingProgram(null);
-        setIsProgramModalOpen(true);
-    };
+    const effectiveYears = useMemo(() => {
+        const years = new Set(programs.map(p => p.effectiveYear));
+        return ['All Years', ...Array.from(years).sort().reverse()];
+    }, [programs]);
 
-    const handleEditProgram = (program: Program) => {
-        setEditingProgram(program);
-        setIsProgramModalOpen(true);
-    };
+    const filteredPrograms = useMemo(() => {
+        return programs
+            .filter(program =>
+                program.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                program.abbreviation.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .filter(program =>
+                yearFilter === 'All Years' || program.effectiveYear === yearFilter
+            );
+    }, [programs, searchTerm, yearFilter]);
 
-    const handleDeleteProgram = (programId: number) => {
-        if (window.confirm('Are you sure you want to delete this program and all its subjects? This action cannot be undone.')) {
-            setPrograms(programs.filter(p => p.id !== programId));
-        }
-    };
-
-    const handleSaveProgram = (programData: Omit<Program, 'id' | 'subjects'>) => {
-        if (editingProgram) {
-            setPrograms(programs.map(p => (p.id === editingProgram.id ? { ...p, ...programData } : p)));
-        } else {
-            const newProgram: Program = {
-                id: Date.now(),
-                ...programData,
-                subjects: { '1st Year, 1st Semester': [] },
-            };
-            setPrograms([...programs, newProgram]);
-        }
-        setIsProgramModalOpen(false);
-    };
-
-    // SUBJECT HANDLERS
-    const handleAddSubject = (semester: string) => {
-        setEditingSubjectInfo({ semester, subject: null });
-        setIsSubjectModalOpen(true);
-    };
-    
-    const handleEditSubject = (semester: string, subject: Subject) => {
-        setEditingSubjectInfo({ semester, subject });
-        setIsSubjectModalOpen(true);
-    };
-
-    const handleDeleteSubject = (programId: number, semester: string, subjectCode: string) => {
-        if (!window.confirm(`Are you sure you want to delete subject ${subjectCode}?`)) return;
-
-        const updatedPrograms = programs.map(p => {
-            if (p.id === programId) {
-                const updatedProgram = { ...p };
-                updatedProgram.subjects[semester] = updatedProgram.subjects[semester].filter(s => s.code !== subjectCode);
-                return updatedProgram;
-            }
-            return p;
-        });
-        setPrograms(updatedPrograms);
-    };
-
-    const handleSaveSubject = (semester: string, subjectData: Subject) => {
-        if (!selectedProgram) return;
-        const isEditing = !!editingSubjectInfo?.subject;
-        const updatedPrograms = programs.map(p => {
-            if (p.id === selectedProgram.id) {
-                const updatedProgram = { ...p, subjects: { ...p.subjects } };
-                if (isEditing) {
-                    const originalCode = editingSubjectInfo!.subject!.code;
-                    updatedProgram.subjects[semester] = updatedProgram.subjects[semester].map(s => s.code === originalCode ? subjectData : s);
-                } else {
-                    updatedProgram.subjects[semester].push(subjectData);
-                }
-                return updatedProgram;
-            }
-            return p;
-        });
-        setPrograms(updatedPrograms);
-        setIsSubjectModalOpen(false);
-    };
-
-    // SEMESTER HANDLERS
-    const handleAddSemester = () => {
-        setEditingSemesterName(null);
-        setIsSemesterModalOpen(true);
-    };
-
-    const handleEditSemester = (semesterName: string) => {
-        setEditingSemesterName(semesterName);
-        setIsSemesterModalOpen(true);
-    };
-
-    const handleDeleteSemester = (semesterName: string) => {
-        if (!selectedProgram || !window.confirm(`Are you sure you want to delete the semester "${semesterName}" and all its subjects? This action cannot be undone.`)) return;
-
-        setPrograms(programs.map(p => {
-            if (p.id === selectedProgram.id) {
-                const newSubjects = { ...p.subjects };
-                delete newSubjects[semesterName];
-                return { ...p, subjects: newSubjects };
-            }
-            return p;
-        }));
-    };
-
-    const handleSaveSemester = (newSemesterName: string) => {
-        if (!selectedProgram || !newSemesterName.trim()) return;
-        const isEditing = !!editingSemesterName;
-        setPrograms(programs.map(p => {
-            if (p.id === selectedProgram.id) {
-                const newSubjects = { ...p.subjects };
-                if (newSubjects[newSemesterName] && newSemesterName !== editingSemesterName) {
-                    alert('A semester with this name already exists.');
-                    return p;
-                }
-                if (isEditing) {
-                    const subjectsToKeep = newSubjects[editingSemesterName!];
-                    delete newSubjects[editingSemesterName!];
-                    newSubjects[newSemesterName] = subjectsToKeep;
-                } else {
-                    newSubjects[newSemesterName] = [];
-                }
-                return { ...p, subjects: newSubjects };
-            }
-            return p;
-        }));
-        setIsSemesterModalOpen(false);
-    };
-    
-    const filteredPrograms = programs.filter(program =>
-        program.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        program.abbreviation.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    useEffect(() => {
-        if (selectedProgram) {
-            const updatedSelectedProgram = programs.find(p => p.id === selectedProgram.id);
-            setSelectedProgram(updatedSelectedProgram || null);
-        }
-    }, [programs, selectedProgram]);
-
+    useEffect(() => { if (selectedProgram) { setSelectedProgram(programs.find(p => p.id === selectedProgram.id) || null); } }, [programs, selectedProgram]);
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen ">
+        <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
             <header className="mb-8 flex flex-wrap justify-between items-center gap-4">
-                <div>
-                    <h1 className="text-4xl font-bold text-gray-800">Curriculum Management</h1>
-                    <p className="text-gray-500 mt-1">Add, edit, and manage academic programs and their subjects.</p>
-                </div>
-                <Button onClick={handleAddProgram} className="flex items-center gap-2 bg-purple-600 text-white font-semibold px-5 py-3 rounded-lg shadow-lg hover:bg-purple-700 transition-transform hover:scale-105">
-                    <Plus size={20} /> Add Program
-                </Button>
+                <div><h1 className="text-4xl font-bold text-gray-800">Curriculum Management</h1><p className="text-gray-500 mt-1">Manage academic programs and their subjects.</p></div>
+                <Button onClick={handleAddProgram} className="flex items-center gap-2 bg-purple-600 text-white font-semibold px-5 py-3 rounded-lg shadow-lg hover:bg-purple-700 transition-transform hover:scale-105"><Plus size={20} /> Add Program</Button>
             </header>
-
-            <div className="mb-8 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={22} />
-                <Input
-                    type="text"
-                    placeholder="Search for a program..."
-                    className="pl-12 pr-4 py-3 border border-gray-200 rounded-full w-full max-w-lg focus:ring-2 focus:ring-purple-400 transition shadow-sm"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                <div className="relative flex-grow">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={22} /><Input type="text" placeholder="Search for a program..." className="pl-12 pr-4 py-3 border border-gray-200 rounded-full w-full focus:ring-2 focus:ring-purple-400 transition shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+                <div className="flex-shrink-0">
+                    <Select value={yearFilter} onValueChange={setYearFilter}><SelectTrigger className="w-full sm:w-[220px] py-3 rounded-full border-gray-200 shadow-sm"><Calendar className="h-4 w-4 mr-2 text-gray-500" /><SelectValue placeholder="Filter by A.Y." /></SelectTrigger><SelectContent>{effectiveYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>))}</SelectContent></Select>
+                </div>
             </div>
-
-            <motion.div className="grid grid-cols-1 md:grid-cols-1 gap-8" initial="hidden" animate="visible">
+            <motion.div className="grid grid-cols-2 md:grid-cols-1 gap-8" initial="hidden" animate="visible">
                 {filteredPrograms.map((program, i) => (
-                    <motion.div
-                        key={program.id}
-                        variants={cardVariants}
-                        custom={i}
-                        className="bg-white rounded-2xl shadow-lg overflow-hidden group transition-all duration-300 hover:shadow-2xl flex flex-col"
-                    >
-                        {/* --- DYNAMIC COLOR APPLIED HERE --- */}
-                        <div className={`p-6 bg-gradient-to-br text-white relative ${programColorClasses[i % programColorClasses.length]}`}>
-                            <h2 className="text-2xl font-bold">{program.abbreviation}</h2>
-                            <p className="opacity-80 truncate">{program.name}</p>
-                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleEditProgram(program)} className="p-2 bg-black/20 rounded-full hover:bg-black/40 transition-colors"><Edit size={16} /></button>
-                                <button onClick={() => handleDeleteProgram(program.id)} className="p-2 bg-black/20 rounded-full hover:bg-red-500/80 transition-colors"><Trash2 size={16} /></button>
-                            </div>
-                        </div>
-                        <div className="p-6 flex-grow flex flex-col justify-between">
-                             <div className="flex justify-between items-center text-gray-600 mb-4">
-                                <span className="font-semibold">Total Subjects</span>
-                                <span className="px-3 py-1 bg-gray-300 text-gray-700 rounded-full font-bold text-sm">
-                                    {Object.values(program.subjects).flat().length}
-                                </span>
-                            </div>
-                            <Button onClick={() => setSelectedProgram(program)} variant="outline" className="w-full mt-2 shadow-lg hover:bg-primary hover:text-white transition-colors">
-                                Manage Subjects
-                            </Button>
-                        </div>
+                    <motion.div key={program.id} variants={cardVariants} custom={i} className="bg-white rounded-2xl shadow-lg overflow-hidden group transition-all duration-300 hover:shadow-2xl flex flex-col">
+                        <div className={`p-6 bg-gradient-to-br text-white relative ${programColorClasses[i % programColorClasses.length]}`}><h2 className="text-2xl font-bold">{program.abbreviation}</h2><p className="opacity-80 truncate">{program.name}</p><div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleEditProgram(program)} className="p-2 bg-black/20 rounded-full hover:bg-black/40"><Edit size={16} /></button><button onClick={() => handleDeleteProgram(program.id)} className="p-2 bg-black/20 rounded-full hover:bg-red-500/80"><Trash2 size={16} /></button></div></div>
+                        <div className="p-6 flex-grow flex flex-col justify-between"><div className="mb-4"><div className="flex items-center gap-2 text-sm text-gray-500"><Calendar size={16} /><span>Effectivity {program.effectiveYear}</span></div></div><div className="flex justify-between items-center text-gray-600"><span className="font-semibold">Total Subjects</span><span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full font-bold text-sm">{Object.values(program.subjects).flat().length}</span></div><Button onClick={() => setSelectedProgram(program)} variant="outline" className="w-full mt-4">Manage Curriculum</Button></div>
                     </motion.div>
                 ))}
             </motion.div>
 
             {/* --- MODALS SECTION --- */}
-            
-            <AnimatePresence>
-                {selectedProgram && (
-                    <motion.div
-                        variants={modalOverlayVariants}
-                        initial="hidden" animate="visible" exit="exit"
-                        className="fixed inset-0 bg-black/70 flex justify-center items-center z-[100] p-4"
-                        onClick={() => setSelectedProgram(null)}
-                    >
-                        <motion.div
-                            variants={modalContentVariants}
-                            className="bg-gray-100 p-8 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex justify-between items-center mb-6 pb-4 border-b">
-                                <div>
-                                    <h3 className="text-2xl font-bold text-gray-800">{selectedProgram.name}</h3>
-                                    <p className="text-purple-600 font-semibold">{selectedProgram.abbreviation}</p>
-                                </div>
-                                <Button onClick={handleAddSemester} className="flex items-center gap-2 bg-primary">
-                                    <Layers size={16}/> Add New Semester
-                                </Button>
-                            </div>
-                            <div className="overflow-y-auto space-y-6 pr-4">
-                                {Object.keys(selectedProgram.subjects).length === 0 ? (
-                                    <div className="text-center py-16 text-gray-500">
-                                        <Layers size={48} className="mx-auto mb-4 text-gray-400"/>
-                                        <h4 className="font-semibold text-lg">No Semesters Found</h4>
-                                        <p>Click "Add New Semester" to get started.</p>
-                                    </div>
-                                ) : (
-                                    Object.entries(selectedProgram.subjects).map(([semester, subjects]) => (
-                                        <div key={semester} className="group/semester">
-                                            <div className="flex justify-between items-center mb-3 top-0 bg-gray-100 py-2 -mx-8 px-8 border-b border-t">
-                                                <h4 className="text-xl font-semibold text-gray-700">{semester}</h4>
-                                                <div className="flex items-center gap-2 opacity-0 group-hover/semester:opacity-100 transition-opacity">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSemester(semester)}>
-                                                        <Edit size={16}/>
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-100 hover:text-red-600" onClick={() => handleDeleteSemester(semester)}>
-                                                        <Trash2 size={16}/>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {subjects.map(subject => (
-                                                    <div key={subject.code} className="bg-white p-4 rounded-lg shadow-sm flex justify-between items-center border border-gray-200 group/subject">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="p-3 bg-purple-100 rounded-lg text-purple-600"><Book /></div>
-                                                            <div>
-                                                                <p className="font-bold text-gray-800">{subject.name}</p>
-                                                                <p className="text-sm text-gray-500 flex items-center gap-4">
-                                                                    <span className="flex items-center gap-1.5"><Hash size={14}/>{subject.code}</span>
-                                                                    <span className="flex items-center gap-1.5"><Star size={14}/>{subject.units} Units</span>
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-2 opacity-0 group-hover/subject:opacity-100 transition-opacity">
-                                                            <button onClick={() => handleEditSubject(semester, subject)} className="p-2 text-gray-500 hover:text-blue-600"><Edit size={18} /></button>
-                                                            <button onClick={() => handleDeleteSubject(selectedProgram.id, semester, subject.code)} className="p-2 text-gray-500 hover:text-red-600"><Trash2 size={18} /></button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {subjects.length === 0 && <p className="text-gray-500 italic text-center py-4">No subjects added for this semester.</p>}
-                                            </div>
-                                            <Button onClick={() => handleAddSubject(semester)} variant="link" className="mt-2 text-purple-600 px-0">
-                                                <Plus size={16} className="mr-1"/> Add Subject to this Semester
-                                            </Button>
+            <Dialog open={!!selectedProgram} onOpenChange={(isOpen) => !isOpen && setSelectedProgram(null)}>
+                <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
+                    <DialogHeader><DialogTitle className="text-3xl font-bold text-gray-800">{selectedProgram?.name}</DialogTitle><DialogDescription>{selectedProgram?.effectiveYear}</DialogDescription></DialogHeader>
+                    <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-8">
+                        {selectedProgram && Object.keys(selectedProgram.subjects).length === 0 ? (
+                            <div className="text-center py-16 text-gray-500"><Layers size={48} className="mx-auto mb-4 text-gray-400"/><h4 className="font-semibold text-lg">No Semesters Found</h4><p>Click "Add Year/Semester" to get started.</p></div>
+                        ) : (
+                            selectedProgram && Object.entries(selectedProgram.subjects).map(([semester, subjects]) => (
+                                <div key={semester} className="group/semester">
+                                    <div className="flex justify-between items-center mb-3 sticky top-0 bg-gray-100 py-2 border-b border-t -mx-6 px-6">
+                                        <h4 className="text-xl font-semibold text-gray-700">{semester}</h4>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover/semester:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSemester(semester)}><Edit size={16}/></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-100 hover:text-red-600" onClick={() => handleDeleteSemester(semester)}><Trash2 size={16}/></Button>
                                         </div>
-                                    ))
-                                )}
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-            
-            <AnimatePresence>
-                {isProgramModalOpen && ( <ProgramFormModal onClose={() => setIsProgramModalOpen(false)} onSave={handleSaveProgram} initialData={editingProgram} /> )}
-            </AnimatePresence>
+                                    </div>
+                                    <div className="rounded-lg border overflow-x-auto bg-white">
+                                        <Table><TableHeader><TableRow><TableHead>Code</TableHead><TableHead className="w-2/5">Descriptive Title</TableHead><TableHead className="text-center">Total Units</TableHead><TableHead className="text-center">Lec</TableHead><TableHead className="text-center">Lab</TableHead><TableHead className="text-center">Total Hours</TableHead><TableHead className="text-center">Lec</TableHead><TableHead className="text-center">Lab</TableHead><TableHead>Pre-requisite</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                                {subjects.map(subject => (
+                                                    <TableRow key={subject.code}><TableCell className="font-semibold">{subject.code}</TableCell><TableCell>{subject.name}</TableCell><TableCell className="text-center font-bold">{subject.unitsTotal}</TableCell><TableCell className="text-center">{subject.unitsLec}</TableCell><TableCell className="text-center">{subject.unitsLab}</TableCell><TableCell className="text-center font-bold">{subject.hoursTotal}</TableCell><TableCell className="text-center">{subject.hoursLec}</TableCell><TableCell className="text-center">{subject.hoursLab}</TableCell><TableCell>{subject.prerequisite}</TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-blue-600" onClick={() => handleEditSubject(semester, subject)}><Edit size={16}/></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-red-600" onClick={() => handleDeleteSubject(semester, subject.code)}><Trash2 size={16}/></Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    <Button onClick={() => handleAddSubject(semester)} variant="link" className="mt-2 text-purple-600 px-0"><Plus size={16} className="mr-1"/> Add Subject to this Semester</Button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <DialogFooter className="mt-auto pt-4 border-t"><Button onClick={handleAddSemesterAndSubjects} variant="outline" size="sm" className="flex items-center gap-2"><Layers size={16}/> Add Year/Semester (Bulk)</Button></DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-            <AnimatePresence>
-                {isSubjectModalOpen && editingSubjectInfo && ( <SubjectFormModal onClose={() => setIsSubjectModalOpen(false)} onSave={(subjectData) => handleSaveSubject(editingSubjectInfo.semester, subjectData)} initialData={editingSubjectInfo.subject} /> )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {isSemesterModalOpen && ( <SemesterFormModal onClose={() => setIsSemesterModalOpen(false)} onSave={handleSaveSemester} initialData={editingSemesterName} /> )}
-            </AnimatePresence>
+            <ProgramFormModal isOpen={isProgramModalOpen} onClose={() => setIsProgramModalOpen(false)} onSave={handleSaveProgram} initialData={editingProgram} />
+            <SemesterAndSubjectsFormModal isOpen={isSemesterModalOpen} onClose={() => setIsSemesterModalOpen(false)} onSave={handleSaveSemesterAndSubjects} />
+            <SemesterRenameModal isOpen={isSemesterRenameModalOpen} onClose={() => setIsSemesterRenameModalOpen(false)} onSave={handleRenameSemester} initialData={editingSemesterName} />
+            {editingSubjectInfo && <SubjectFormModal isOpen={isSubjectModalOpen} onClose={() => setIsSubjectModalOpen(false)} onSave={(subjectData) => handleSaveSubject(editingSubjectInfo.semester, subjectData)} initialData={editingSubjectInfo.subject} />}
         </div>
     );
 }
 
 // --- REUSABLE MODAL FORM COMPONENTS ---
 
-type ProgramFormProps = { onClose: () => void; onSave: (data: { name: string; abbreviation: string }) => void; initialData: Program | null; };
-function ProgramFormModal({ onClose, onSave, initialData }: ProgramFormProps) {
-    const [name, setName] = useState(initialData?.name || '');
-    const [abbreviation, setAbbreviation] = useState(initialData?.abbreviation || '');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (name && abbreviation) onSave({ name, abbreviation });
-    };
-
+type ProgramFormProps = { isOpen: boolean; onClose: () => void; onSave: (data: Omit<Program, 'id' | 'subjects'>) => void; initialData: Program | null; };
+function ProgramFormModal({ isOpen, onClose, onSave, initialData }: ProgramFormProps) {
+    const [name, setName] = useState(''); const [abbreviation, setAbbreviation] = useState(''); const [effectiveYear, setEffectiveYear] = useState('');
+    useEffect(() => { if (initialData) { setName(initialData.name); setAbbreviation(initialData.abbreviation); setEffectiveYear(initialData.effectiveYear); } else { setName(''); setAbbreviation(''); setEffectiveYear(''); } }, [initialData, isOpen]);
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (name && abbreviation && effectiveYear) onSave({ name, abbreviation, effectiveYear }); };
     return (
-        <motion.div variants={modalOverlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex justify-center items-center z-[101] p-4" onClick={onClose}>
-            <motion.div variants={modalContentVariants} className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-2xl font-bold text-gray-800 mb-6">{initialData ? 'Edit Program' : 'Add New Program'}</h3>
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <Label htmlFor="progName" className="block text-sm font-medium text-gray-700 mb-1">Program Name</Label>
-                        <Input id="progName" type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400" required />
-                    </div>
-                    <div className="mb-6">
-                        <Label htmlFor="progAbbr" className="block text-sm font-medium text-gray-700 mb-1">Abbreviation (e.g., BSIT)</Label>
-                        <Input id="progAbbr" type="text" value={abbreviation} onChange={e => setAbbreviation(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400" required />
-                    </div>
-                    <div className="flex justify-end gap-4">
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit">Save Program</Button>
-                    </div>
-                </form>
-            </motion.div>
-        </motion.div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{initialData ? 'Edit Program' : 'Add New Program'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="progName">Program Name</Label>
+              <Input id="progName" value={name} onChange={e => setName(e.target.value)} required />
+            </div>
+            <div>
+              <Label htmlFor="progAbbr">Abbreviation</Label>
+              <Input id="progAbbr" value={abbreviation} onChange={e => setAbbreviation(e.target.value)} placeholder="e.g., BSIT" required />
+            </div>
+            <div>
+              <Label htmlFor="effectiveYear">Effectivity A.Y.</Label><Input id="effectiveYear" value={effectiveYear} onChange={e => setEffectiveYear(e.target.value)} placeholder="e.g., 2024-2025" required />
+            </div>
+            <DialogFooter className='flex flex-col gap-2'>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+              </DialogClose>
+               <Button type="submit">Save Program</Button >
+            </DialogFooter>
+          </form>
+      </DialogContent>
+    </Dialog>
     );
 }
 
-type SubjectFormProps = { onClose: () => void; onSave: (data: Subject) => void; initialData: Subject | null; };
-function SubjectFormModal({ onClose, onSave, initialData }: SubjectFormProps) {
-    const [code, setCode] = useState(initialData?.code || '');
-    const [name, setName] = useState(initialData?.name || '');
-    const [units, setUnits] = useState(initialData?.units || 3);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (code && name && units > 0) onSave({ code, name, units });
-    };
-
-    return (
-        <motion.div variants={modalOverlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex justify-center items-center z-[101] p-4" onClick={onClose}>
-            <motion.div variants={modalContentVariants} className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-2xl font-bold text-gray-800 mb-6">{initialData ? 'Edit Subject' : 'Add New Subject'}</h3>
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <Label htmlFor="subCode" className="block text-sm font-medium text-gray-700 mb-1">Subject Code</Label>
-                        <Input id="subCode" type="text" value={code} onChange={e => setCode(e.target.value)} disabled={!!initialData} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100" required />
-                        {!!initialData && <p className="text-xs text-gray-500 mt-1">Subject code cannot be changed.</p>}
-                    </div>
-                    <div className="mb-4">
-                        <Label htmlFor="subName" className="block text-sm font-medium text-gray-700 mb-1">Subject Name</Label>
-                        <Input id="subName" type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400" required />
-                    </div>
-                    <div className="mb-6">
-                        <Label htmlFor="subUnits" className="block text-sm font-medium text-gray-700 mb-1">Units</Label>
-                        <Input id="subUnits" type="number" min="1" value={units} onChange={e => setUnits(Number(e.target.value))} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400" required />
-                    </div>
-                    <div className="flex justify-end gap-4">
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit">Save Subject</Button>
-                    </div>
-                </form>
-            </motion.div>
-        </motion.div>
+type SemesterAndSubjectsFormProps = { isOpen: boolean; onClose: () => void; onSave: (semesterName: string, subjects: Subject[]) => void; };
+type SubjectError = { unitError: string | null; hourError: string | null; };
+function SemesterAndSubjectsFormModal({ isOpen, onClose, onSave }: SemesterAndSubjectsFormProps) {
+    const [semesterName, setSemesterName] = useState('');
+    const [subjects, setSubjects] = useState<Subject[]>([{ code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' }]);
+    const [errors, setErrors] = useState<SubjectError[]>([]);
+    useEffect(() => { const newErrors = subjects.map(s => ({ unitError: (s.unitsLec + s.unitsLab) > s.unitsTotal ? "Lec+Lab units > Total." : null, hourError: (s.hoursLec + s.hoursLab) > s.hoursTotal ? "Lec+Lab hours > Total." : null })); setErrors(newErrors); }, [subjects]);
+    const hasErrors = useMemo(() => errors.some(e => e.unitError || e.hourError), [errors]);
+    const handleAddSubjectRow = () => setSubjects([...subjects, { code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' }]);
+    const handleRemoveSubjectRow = (index: number) => setSubjects(subjects.filter((_, i) => i !== index));
+    const handleSubjectChange = (index: number, field: keyof Subject, value: string | number) => setSubjects(subjects.map((s, i) => i === index ? { ...s, [field]: value } : s));
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (hasErrors) { alert("Fix errors before saving."); return; } onSave(semesterName, subjects); };
+    useEffect(() => { if(isOpen) { setSemesterName(''); setSubjects([{ code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' }]); } }, [isOpen]);
+    return (<Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Add New Semester and Subjects</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex-grow flex flex-col min-h-0 py-4">
+            <div className="mb-4">
+              <Label htmlFor="semesterName">Year Level and Semester</Label>
+              <Input id="semesterName" value={semesterName} onChange={e => setSemesterName(e.target.value)} placeholder="e.g., First Year, Second Semester" required />
+            </div>
+            <div className="flex-grow overflow-y-auto border rounded-lg p-2 bg-gray-50">
+              <div className="grid grid-cols-12 gap-2 px-2 pb-2 border-b font-semibold text-xs text-gray-500 uppercase">
+                <div className="col-span-1">Code</div>
+                <div className="col-span-3">Title</div>
+                <div>Units</div>
+                <div>Lec</div>
+                <div>Lab</div>
+                <div>Hrs</div>
+                <div>Lec</div>
+                <div>Lab</div>
+                <div className="col-span-2">Pre-req</div>
+                </div>
+                <div className="space-y-2 pt-2">
+                  {subjects.map((s, index) => (<div key={index} className={`p-2 rounded-md ${errors[index]?.unitError || errors[index]?.hourError ? 'bg-red-50' : ''}`}>
+                    <div className="grid grid-cols-12 gap-2 items-center">
+                      <Input placeholder="Code" value={s.code} onChange={e => handleSubjectChange(index, 'code', e.target.value)} className="col-span-1" /><Input placeholder="Title" value={s.name} onChange={e => handleSubjectChange(index, 'name', e.target.value)} className="col-span-3" /><Input type="number" value={s.unitsTotal || ''} onChange={e => handleSubjectChange(index, 'unitsTotal', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.unitError ? 'border-red-500' : ''}`} /><Input type="number" value={s.unitsLec || ''} onChange={e => handleSubjectChange(index, 'unitsLec', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.unitError ? 'border-red-500' : ''}`} /><Input type="number" value={s.unitsLab || ''} onChange={e => handleSubjectChange(index, 'unitsLab', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.unitError ? 'border-red-500' : ''}`} /><Input type="number" value={s.hoursTotal || ''} onChange={e => handleSubjectChange(index, 'hoursTotal', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.hourError ? 'border-red-500' : ''}`} /><Input type="number" value={s.hoursLec || ''} onChange={e => handleSubjectChange(index, 'hoursLec', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.hourError ? 'border-red-500' : ''}`} /><Input type="number" value={s.hoursLab || ''} onChange={e => handleSubjectChange(index, 'hoursLab', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.hourError ? 'border-red-500' : ''}`} /><div className="col-span-2 flex items-center"><Input placeholder="None" value={s.prerequisite} onChange={e => handleSubjectChange(index, 'prerequisite', e.target.value)} /><Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSubjectRow(index)} className="ml-1 text-red-500 h-8 w-8"><Trash2 size={16} /></Button></div></div>{(errors[index]?.unitError || errors[index]?.hourError) && (<div className="flex items-center gap-2 text-red-600 text-xs mt-1 px-2"><AlertCircle size={14} /><span>{errors[index].unitError} {errors[index].hourError}</span></div>)}</div>))}</div></div>
+    <Button type="button" variant="outline" onClick={handleAddSubjectRow} className="mt-4 flex items-center gap-2 self-start"><Plus size={16} /> Add Subject Row</Button>
+    <DialogFooter className="mt-5 pt-4 border-t flex flex-col gap-2">
+      <DialogClose asChild>
+        <Button type="button" variant="outline">Cancel</Button>
+        </DialogClose><Button type="submit" disabled={hasErrors}>{hasErrors ? "Fix Errors to Save" : "Save Curriculum"}</Button>
+    </DialogFooter>
+    </form></DialogContent>
+    </Dialog>
     );
 }
 
-type SemesterFormProps = { onClose: () => void; onSave: (semesterName: string) => void; initialData: string | null; };
-function SemesterFormModal({ onClose, onSave, initialData }: SemesterFormProps) {
-    const [name, setName] = useState(initialData || '');
+type SemesterRenameModalProps = { isOpen: boolean; onClose: () => void; onSave: (semesterName: string) => void; initialData: string | null; };
+function SemesterRenameModal({ isOpen, onClose, onSave, initialData }: SemesterRenameModalProps) {
+    const [name, setName] = useState('');
+    useEffect(() => { if(isOpen) setName(initialData || '') }, [isOpen, initialData]);
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(name); };
+    return (<Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent><DialogHeader>
+        <DialogTitle>Rename Semester</DialogTitle>
+        </DialogHeader><form onSubmit={handleSubmit} className="py-4">
+          <div className="mb-4"><Label htmlFor="semesterName">Semester Name</Label><Input id="semesterName" value={name} onChange={e => setName(e.target.value)} required /></div>
+    <DialogFooter className='flex flex-col gap-2'>
+      <DialogClose asChild>
+        <Button type="button" variant="outline">Cancel</Button>
+        </DialogClose><Button type="submit">Save Changes</Button>
+        </DialogFooter>
+      </form>
+      </DialogContent>
+      </Dialog>
+      );
+}
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(name);
-    };
-
+type SubjectFormProps = { isOpen: boolean; onClose: () => void; onSave: (data: Subject) => void; initialData: Subject | null; };
+function SubjectFormModal({ isOpen, onClose, onSave, initialData }: SubjectFormProps) {
+    const [subject, setSubject] = useState<Subject>({ code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' });
+    const [errors, setErrors] = useState<SubjectError | null>(null);
+    useEffect(() => { const unitError = (subject.unitsLec + subject.unitsLab) > subject.unitsTotal ? "Lec+Lab units > Total." : null; const hourError = (subject.hoursLec + subject.hoursLab) > subject.hoursTotal ? "Lec+Lab hours > Total." : null; if(unitError || hourError) { setErrors({ unitError, hourError }); } else { setErrors(null); } }, [subject]);
+    useEffect(() => { if(isOpen) setSubject(initialData || { code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' }) }, [isOpen, initialData]);
+    const handleChange = (field: keyof Subject, value: string | number) => setSubject(s => ({ ...s, [field]: value }));
+    const handleNumberChange = (field: keyof Subject, value: string) => handleChange(field, Number(value) || 0);
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if(errors) { alert("Please fix the errors before saving."); return; } onSave(subject); };
     return (
-        <motion.div variants={modalOverlayVariants} initial="hidden" animate="visible" exit="exit" className="fixed inset-0 bg-black/60 flex justify-center items-center z-[101] p-4" onClick={onClose}>
-            <motion.div variants={modalContentVariants} className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-2xl font-bold text-gray-800 mb-6">{initialData ? 'Edit Semester' : 'Add New Semester'}</h3>
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <Label htmlFor="semesterName" className="block text-sm font-medium text-gray-700 mb-1">Semester Name</Label>
-                        <Input id="semesterName" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., 2nd Year, 1st Semester" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400" required />
-                    </div>
-                    <div className="flex justify-end gap-4 mt-8">
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit">Save Semester</Button>
-                    </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{initialData ? 'Edit Subject' : 'Add New Subject'}</DialogTitle>
+          </DialogHeader><form onSubmit={handleSubmit} className="py-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Course Code</Label>
+                  <Input value={subject.code} onChange={e => handleChange('code', e.target.value)} disabled={!!initialData} required />
+                </div>
+                <div>
+                  <Label>Pre-requisite</Label>
+                  <Input value={subject.prerequisite} onChange={e => handleChange('prerequisite', e.target.value)} placeholder="None" />
+                </div>
+              </div>
+              <div>
+                <Label>Descriptive Title</Label>
+                <Input value={subject.name} onChange={e => handleChange('name', e.target.value)} required />
+              </div>
+              <div className="grid grid-cols-3 gap-4 pt-4">
+                <div>
+                  <Label>Total Units</Label>
+                  <Input type="number" value={subject.unitsTotal || ''} onChange={e => handleNumberChange('unitsTotal', e.target.value)} className={errors?.unitError ? 'border-red-500' : ''} />
+                </div>
+                <div>
+                  <Label>Lec Units</Label>
+                  <Input type="number" value={subject.unitsLec || ''} onChange={e => handleNumberChange('unitsLec', e.target.value)} className={errors?.unitError ? 'border-red-500' : ''} />
+                </div>
+                <div>
+                  <Label>Lab Units</Label>
+                  <Input type="number" value={subject.unitsLab || ''} onChange={e => handleNumberChange('unitsLab', e.target.value)} className={errors?.unitError ? 'border-red-500' : ''} />
+                </div>
+              </div>
+              {errors?.unitError && 
+                <p className="text-red-600 text-xs flex items-center gap-2">
+                  <AlertCircle size={14}/>{errors.unitError}
+                </p>}
+              <div className="grid grid-cols-3 gap-4 pt-4">
+                <div>
+                  <Label>Total Hours</Label>
+                  <Input type="number" value={subject.hoursTotal || ''} onChange={e => handleNumberChange('hoursTotal', e.target.value)} className={errors?.hourError ? 'border-red-500' : ''} />
+                </div>
+                <div>
+                  <Label>Lec Hours</Label>
+                  <Input type="number" value={subject.hoursLec || ''} onChange={e => handleNumberChange('hoursLec', e.target.value)} className={errors?.hourError ? 'border-red-500' : ''} />
+                </div>
+                <div>
+                  <Label>Lab Hours</Label>
+                  <Input type="number" value={subject.hoursLab || ''} onChange={e => handleNumberChange('hoursLab', e.target.value)} className={errors?.hourError ? 'border-red-500' : ''} />
+                </div>
+                </div>
+                {errors?.hourError &&
+                <p className="text-red-600 text-xs flex items-center gap-2">
+                  <AlertCircle size={14}/>{errors.hourError}
+                </p>}
+                </div>
+                <DialogFooter className="mt-8 pt-4 border-t flex flex-col gap-2">
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button type="submit" disabled={!!errors}>{errors ? "Fix Errors" : "Save Subject"}</Button>
+                    </DialogFooter>
                 </form>
-            </motion.div>
-        </motion.div>
-    );
+                </DialogContent>
+                </Dialog>
+                );
 }
 
 export default Curriculum;

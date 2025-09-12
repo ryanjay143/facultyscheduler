@@ -78,7 +78,7 @@ function MainFacultyLoading() {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100/50 min-h-screen">
+        <div className="p-4 sm:p-6 lg:p-8 min-h-screen">
             <header className="mb-8">
                 <h1 className="text-4xl font-bold text-gray-800">Faculty Loading</h1>
                 <p className="text-gray-500 mt-1">Assign subjects to faculty based on expertise and availability.</p>

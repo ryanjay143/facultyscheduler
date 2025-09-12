@@ -42,7 +42,7 @@ interface Faculty {
   id: number;
   name: string;
   designation: string;
-  credentials: string;
+  expertise: string;
   department: string;
   email: string;
   status: "Active" | "Inactive";
@@ -50,11 +50,11 @@ interface Faculty {
 }
 
 const initialFacultyData: Faculty[] = [
-  { id: 1, name: "Dr. Alice Johnson", designation: "Professor", credentials: "Ph.D. in CS", department: "Computer Science", email: "alice.j@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/44.jpg" },
-  { id: 2, name: "Prof. Bob Smith", designation: "Associate Professor", credentials: "M.Sc. in Maths", department: "Mathematics", email: "bob.s@university.edu", status: "Inactive", avatar: "https://randomuser.me/api/portraits/men/32.jpg" },
-  { id: 3, name: "Dr. Carol Lee", designation: "Professor", credentials: "Ph.D. in Physics", department: "Physics", email: "carol.l@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/68.jpg" },
-  { id: 4, name: "Dr. Emily Clark", designation: "Asst. Professor", credentials: "Ph.D. in CompSci", department: "Computer Science", email: "emily.c@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/65.jpg" },
-  { id: 5, name: "Dr. Michael Brown", designation: "Department Head", credentials: "Ph.D. in History", department: "History", email: "michael.b@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/men/45.jpg" },
+  { id: 1, name: "Dr. Alice Johnson", designation: "Professor", expertise: "Ph.D. in CS", department: "Computer Science", email: "alice.j@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/44.jpg" },
+  { id: 2, name: "Prof. Bob Smith", designation: "Associate Professor", expertise: "M.Sc. in Maths", department: "Mathematics", email: "bob.s@university.edu", status: "Inactive", avatar: "https://randomuser.me/api/portraits/men/32.jpg" },
+  { id: 3, name: "Dr. Carol Lee", designation: "Professor", expertise: "Ph.D. in Physics", department: "Physics", email: "carol.l@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/68.jpg" },
+  { id: 4, name: "Dr. Emily Clark", designation: "Asst. Professor", expertise: "Ph.D. in CompSci", department: "Computer Science", email: "emily.c@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/65.jpg" },
+  { id: 5, name: "Dr. Michael Brown", designation: "Department Head", expertise: "Ph.D. in History", department: "History", email: "michael.b@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/men/45.jpg" },
 ];
 
 const statusColor = {
@@ -170,7 +170,7 @@ function FacultyTable() {
               <TableRow className="bg-gray-50">
                 <TableHead>Faculty Member</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead className="hidden lg:table-cell">Credentials</TableHead>
+                <TableHead className="hidden lg:table-cell">expertise</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
@@ -200,7 +200,7 @@ function FacultyTable() {
                     <TableCell className="text-gray-600 hidden lg:table-cell min-w-[150px]">
                         <div className="flex items-center gap-2">
                             <Award size={16} className="text-gray-400"/>
-                            <span>{facultyMember.credentials}</span>
+                            <span>{facultyMember.expertise}</span>
                         </div>
                     </TableCell>
                     <TableCell className="min-w-[120px]">
@@ -254,14 +254,14 @@ type FacultyFormModalProps = {
 
 function FacultyFormModal({ isOpen, onClose, onSave, initialData, departments }: FacultyFormModalProps) {
   const [formData, setFormData] = useState<Omit<Faculty, 'id'>>({
-    name: '', designation: '', credentials: '', department: departments[0] || '', email: '', status: 'Active', avatar: ''
+    name: '', designation: '', expertise: '', department: departments[0] || '', email: '', status: 'Active', avatar: ''
   });
 
   React.useEffect(() => {
     if (initialData) {
       setFormData(initialData);
     } else {
-      setFormData({ name: '', designation: '', credentials: '', department: departments[0] || '', email: '', status: 'Active', avatar: `https://avatar.iran.liara.run/public/${Math.floor(Math.random() * 100)}` });
+      setFormData({ name: '', designation: '', expertise: '', department: departments[0] || '', email: '', status: 'Active', avatar: `https://avatar.iran.liara.run/public/${Math.floor(Math.random() * 100)}` });
     }
   }, [initialData, isOpen, departments]);
 
@@ -296,8 +296,8 @@ function FacultyFormModal({ isOpen, onClose, onSave, initialData, departments }:
               <Input id="designation" name="designation" value={formData.designation} onChange={handleChange} className="col-span-3" placeholder="e.g., Professor" required />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="credentials" className="text-right">Credentials</Label>
-              <Input id="credentials" name="credentials" value={formData.credentials} onChange={handleChange} className="col-span-3" placeholder="e.g., Ph.D. in CS" required />
+              <Label htmlFor="expertise" className="text-right">Expertise</Label>
+              <Input id="expertise" name="expertise" value={formData.expertise} onChange={handleChange} className="col-span-3" placeholder="e.g., Ph.D. in CS" required />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">Email</Label>

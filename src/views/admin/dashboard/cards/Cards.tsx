@@ -6,7 +6,7 @@ import { BookOpen, Building2, ClipboardList, Users } from 'lucide-react'
 const cardData = [
     { title: "Total Faculty", value: 24, icon: Users, color: "text-violet-500", bgColor: "bg-violet-50", borderColor: "border-violet-500" },
     { title: "Total Rooms", value: 10, icon: Building2, color: "text-fuchsia-500", bgColor: "bg-fuchsia-50", borderColor: "border-fuchsia-500" },
-    { title: "Total Courses", value: 36, icon: BookOpen, color: "text-purple-500", bgColor: "bg-purple-50", borderColor: "border-purple-500" },
+    { title: "Total Subjects", value: 36, icon: BookOpen, color: "text-purple-500", bgColor: "bg-purple-50", borderColor: "border-purple-500" },
     { title: "Scheduled Classes", value: 12, icon: ClipboardList, color: "text-blue-500", bgColor: "bg-blue-50", borderColor: "border-blue-500" }
 ];
 
