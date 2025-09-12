@@ -1,27 +1,40 @@
-import { Bell } from 'lucide-react';
+// src/components/cards/Announcements.tsx
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Megaphone, ArrowRight } from 'lucide-react';
+
+const announcements = [
+    { title: "Midterm Examination Schedule Released", date: "August 5, 2025" },
+    { title: "Faculty Meeting on Friday", date: "August 4, 2025" },
+    { title: "System Maintenance this Weekend", date: "August 2, 2025" },
+];
 
 function Announcements() {
-    const announcements = [
-        { title: "Midterm Examination Schedule", date: "August 5, 2025" },
-        { title: "Faculty Meeting on Friday", date: "August 4, 2025" },
-        { title: "System Maintenance this Weekend", date: "August 2, 2025" },
-    ];
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md">
-      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-        <Bell size={20} className="text-red-500" />
-        Announcements
-      </h3>
-      <div className="space-y-3">
-        {announcements.map((item, index) => (
-            <div key={index} className="p-3 bg-red-50/50 rounded-lg hover:bg-red-100/70 transition">
-                <p className="font-semibold text-sm text-red-800">{item.title}</p>
-                <p className="text-xs text-gray-500 mt-1">{item.date}</p>
-            </div>
-        ))}
-      </div>
-    </div>
+    <Card className="shadow-lg rounded-2xl border border-gray-100">
+        <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                <Megaphone className="text-purple-500" />
+                <span>Announcements</span>
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+            <ul className="space-y-4">
+                {announcements.map((item, index) => (
+                    <li key={index} className="border-l-2 border-purple-200 pl-4">
+                        <p className="font-semibold text-gray-800 text-sm">{item.title}</p>
+                        <p className="text-xs text-gray-400">{item.date}</p>
+                    </li>
+                ))}
+            </ul>
+            <Button variant="link" className="px-0 mt-4 text-purple-600 font-semibold">
+                View All Announcements
+                <ArrowRight size={16} className="ml-1" />
+            </Button>
+        </CardContent>
+    </Card>
   );
 }
 
-export default Announcements
+export default Announcements;

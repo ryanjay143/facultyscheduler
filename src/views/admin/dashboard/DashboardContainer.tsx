@@ -25,7 +25,7 @@ function DashboardContainer() {
         </div>
 
         {/* Main 3-Column Grid for larger screens */}
-        <div className="grid grid-cols-1 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-1 gap-8">
           
           {/* --- Left Column (Activities & Announcements) --- */}
           <div className="col-span-1 space-y-8">

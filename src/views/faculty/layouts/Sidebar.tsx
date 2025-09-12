@@ -21,8 +21,8 @@ function Sidebar() {
     icon: <Calendar size={20} /> 
   },
   { 
-    href: "/facultyscheduler/faculty/class-list", 
-    label: "Class List", 
+    href: "/facultyscheduler/faculty/faculty-loading", 
+    label: "Faculty Loading ", 
     icon: <BookOpen size={20} />
   },
 ];

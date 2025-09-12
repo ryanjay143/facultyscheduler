@@ -51,8 +51,8 @@ const Announcement = lazy(() =>
   wait(3000).then(() => import('./views/admin/announcement/AnnouncementPage'))
 );
 
-const ClassList = lazy(() => 
-  wait(3000).then(() => import('./views/faculty/classList/ClassList'))
+const FacultyLoading = lazy(() => 
+  wait(3000).then(() => import('./views/faculty/facultyLoading/FacultyLoading'))
 );
 
 const FacultyDashboardContainer = lazy(() => 
@@ -209,10 +209,10 @@ const routes = [
           </Suspense>
       },
       {
-        path: 'class-list',
+        path: 'faculty-loading',
         element: 
           <Suspense fallback={<Loader />}>
-            <ClassList />
+            <FacultyLoading />
           </Suspense>
       },
       {

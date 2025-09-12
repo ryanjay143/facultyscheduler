@@ -1,14 +1,19 @@
-import Header from "../layouts/Header";
-import Announcements from "./cards/Announcements";
+// src/components/FacultyDashboardContainer.tsx
+
+import Header from "../layouts/Header"; // Make sure this path is correct
 import StatsCards from "./cards/StatsCards";
 import UpcomingSchedule from "./cards/UpcomingSchedule";
+import Announcements from "./cards/Announcements";
+import QuickActions from "./widgets/QuickActions";
+
 
 function FacultyDashboardContainer() {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <Header />
 
-      <div className="flex-1 overflow-y-auto p-6 md:p-8">
+      {/* Main dashboard content with its own scrolling */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-6">
         
         {/* Welcome Message */}
         <div className="mb-8">
@@ -21,20 +26,22 @@ function FacultyDashboardContainer() {
             <StatsCards />
         </div>
 
-        {/* Main Grid: 2 columns sa desktop */}
-       <div className="grid grid-cols-1 md:grid-cols-1 gap-8 md:gap-0 md:space-y-8">
+        {/* Main 3-Column Grid for larger screens */}
+        <div className="grid grid-cols-2 md:grid-cols-1 gap-8 items-start">
           
-          {/* Main Column - mas dako */}
-          <div className="lg:col-span-2 space-y-8">
-            <UpcomingSchedule />
+          {/* --- Left Column (Quick Actions & Announcements) --- */}
+          <div className="space-y-8">
+            <QuickActions />
+            <Announcements /> 
           </div>
 
-          {/* Side Column - mas gamay */}
-          <div className="space-y-8">
-            <Announcements />
+          {/* --- Center/Right Column (Main Content - Schedule) --- */}
+          <div>
+           <UpcomingSchedule />
           </div>
+          
         </div>
-      </div>
+      </main>
     </div>
   );
 }
