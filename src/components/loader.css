@@ -1,92 +1,80 @@
-/* modern-loader.css */
+/* refined-loader.css */
 
-.modern-loader-container {
+.refined-loader-container {
   position: fixed;
   inset: 0;
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(245, 247, 255, 0.25);
-  backdrop-filter: blur(2px);
+  background: rgba(245, 247, 255, 0.45);
+  backdrop-filter: blur(4px);
 }
 
-.modern-loader {
+.refined-loader {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%; /* Ensure circle */
+  border-radius: 50%;
 }
 
-.modern-loader-image {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%; /* Make image circular */
+.refined-loader-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   z-index: 2;
-  box-shadow: 0 0 16px 0 rgba(59, 130, 246, 0.15);
+  box-shadow: 0 4px 16px 0 rgba(67, 56, 202, 0.15);
   object-fit: cover;
+  /* Applying the bounce animation */
+  animation: logo-bounce 1.2s infinite alternate cubic-bezier(0.65, 0.05, 0.36, 1);
 }
 
-.modern-loader::before {
+.refined-loader::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 6px solid #dbeafe;
-  border-top: 6px solid #9333ea; /* Updated color */
-  border-bottom: 6px solid #9333ea; /* Updated color */
-  animation: modern-spin 0.5s linear infinite;
+  border: 5px solid #e0e7ff; /* Lighter indigo base */
+  border-top-color: #4338ca; /* Professional indigo */
   z-index: 1;
-  box-shadow: 0 0 24px 4px #9333ea, 0 0 48px 8px #9333ea33; /* Updated color */
+  animation: refined-spin 0.8s cubic-bezier(0.65, 0.05, 0.36, 1) infinite;
 }
 
-.modern-loader-glow {
+.refined-loader-glow {
   position: absolute;
-  inset: 0;
+  inset: -10px;
   border-radius: 50%;
-  box-shadow: 0 0 32px 8px #972cdeaa, 0 0 64px 16px #60a5fa55;
+  box-shadow: 0 0 32px 0px #4338ca55;
   z-index: 0;
-  animation: glow-pulse 1.5s infinite alternate;
-}
-
-/* Responsive for md screens and up */
-@media (min-width: 768px) {
-  .modern-loader {
-    width: 80px;
-    height: 80px;
-  }
-  .modern-loader-image {
-    width: 48px;
-    height: 48px;
-  }
+  animation: glow-pulse 2s infinite alternate;
 }
 
 /* Animations */
-@keyframes modern-spin {
+@keyframes refined-spin {
   to {
     transform: rotate(1turn);
   }
 }
 
 @keyframes glow-pulse {
-  0% {
-    box-shadow: 0 0 32px 8px #9712bcaa, 0 0 64px 16px #60a5fa55;
-    opacity: 0.8;
+  from {
+    opacity: 0.5;
+    box-shadow: 0 0 32px 0px #4338ca55;
   }
-  100% {
-    box-shadow: 0 0 48px 16px #9712bcaa, 0 0 96px 32px #60a5fa77;
+  to {
     opacity: 1;
+    box-shadow: 0 0 48px 8px #4338ca55;
   }
 }
 
 @keyframes logo-bounce {
-  0% {
+  from {
     transform: scale(1) translateY(0);
   }
-  100% {
-    transform: scale(1.08) translateY(-4px);
+  to {
+    transform: scale(1.05) translateY(-3px);
   }
 }

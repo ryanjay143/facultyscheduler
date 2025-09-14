@@ -16,15 +16,16 @@ function Sidebar() {
     icon: <Home size={20} /> 
   },
   { 
-    href: "/facultyscheduler/faculty/my-schedule", 
-    label: "My Schedule", 
-    icon: <Calendar size={20} /> 
-  },
-  { 
     href: "/facultyscheduler/faculty/faculty-loading", 
     label: "Faculty Loading ", 
     icon: <BookOpen size={20} />
   },
+  { 
+    href: "/facultyscheduler/faculty/my-schedule", 
+    label: "My Schedule", 
+    icon: <Calendar size={20} /> 
+  },
+  
 ];
 
 

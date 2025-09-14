@@ -1,15 +1,15 @@
 import './loader.css'
 import logo from '/logo.png'
 
-const loader = () => {
+const Loader = () => {
   return (
-    <div className="modern-loader-container">
-      <div className="modern-loader">
-        <img src={logo} alt="Logo" className="modern-loader-image" />
-        <div className="modern-loader-glow"></div>
+    <div className="refined-loader-container">
+      <div className="refined-loader">
+        <img src={logo} alt="Logo" className="refined-loader-image" />
+        <div className="refined-loader-glow"></div>
       </div>
     </div>
   )
 }
 
-export default loader
+export default Loader
