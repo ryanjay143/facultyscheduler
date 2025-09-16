@@ -25,7 +25,6 @@ import {
     ChevronRight,
     Briefcase,
     Filter,
-    Award
 } from "lucide-react";
 import {
   Dialog,
