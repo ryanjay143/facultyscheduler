@@ -22,6 +22,7 @@ import {
   DialogClose,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { toast } from 'sonner';
 
 // --- TYPE DEFINITIONS ---
 type Subject = {
@@ -50,7 +51,7 @@ type Program = {
 const initialProgramsData: Program[] = [
     { id: 1, name: 'Bachelor of Science in Information Technology', abbreviation: 'BSIT', effectiveYear: '2024-2025', subjects: { 'First Year, First Semester': [{ code: 'IT101', name: 'Introduction to Computing', unitsTotal: 3, unitsLec: 2, unitsLab: 1, hoursTotal: 5, hoursLec: 2, hoursLab: 3, prerequisite: 'None' }], 'First Year, Second Semester': [{ code: 'IT102', name: 'Fundamentals of Database Systems', unitsTotal: 3, unitsLec: 2, unitsLab: 1, hoursTotal: 5, hoursLec: 2, hoursLab: 3, prerequisite: 'IT101' }] } },
     { id: 2, name: 'Bachelor of Science in Computer Science', abbreviation: 'BSCS', effectiveYear: '2023-2024', subjects: { 'First Year, First Semester': [{ code: 'CS110', name: 'Discrete Mathematics', unitsTotal: 3, unitsLec: 3, unitsLab: 0, hoursTotal: 3, hoursLec: 3, hoursLab: 0, prerequisite: 'None' }] } },
-    { id: 3, name: 'Bachelor of Science in Business Administration', abbreviation: 'BSBA', effectiveYear: '2024-2025', subjects: { 'First Year, First Semester': [{ code: 'BA101', name: 'Principles of Management', unitsTotal: 3, unitsLec: 3, unitsLab: 0, hoursTotal: 3, hoursLec: 3, hoursLab: 0, prerequisite: 'None' }] } },
+    { id: 3, name: 'Bachelor of Science in Business Administration', abbreviation: 'BSBA', effectiveYear: '2022-2023', subjects: { 'First Year, First Semester': [{ code: 'BA101', name: 'Principles of Management', unitsTotal: 3, unitsLec: 3, unitsLab: 0, hoursTotal: 3, hoursLec: 3, hoursLab: 0, prerequisite: 'None' }] } },
 ];
 
 // --- COLOR PALETTE FOR PROGRAM CARDS ---
@@ -58,7 +59,6 @@ const programColorClasses = [ 'from-purple-600 to-indigo-600', 'from-blue-500 to
 
 // --- ANIMATION VARIANTS for Framer Motion ---
 const cardVariants: Variants = { hidden: { opacity: 0, y: 30 }, visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.05, type: 'spring', stiffness: 120, damping: 14 } }) };
-const modalVariants: Variants = { hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.95 } };
 
 // --- MAIN CURRICULUM COMPONENT ---
 function Curriculum() {
@@ -77,11 +77,32 @@ function Curriculum() {
     const [editingSemesterName, setEditingSemesterName] = useState<string | null>(null);
     const [editingSubjectInfo, setEditingSubjectInfo] = useState<{ semester: string; subject: Subject | null } | null>(null);
 
-    // --- CRUD HANDLER FUNCTIONS (No changes here) ---
+    // --- CRUD HANDLER FUNCTIONS ---
     const handleAddProgram = () => { setEditingProgram(null); setIsProgramModalOpen(true); };
     const handleEditProgram = (program: Program) => { setEditingProgram(program); setIsProgramModalOpen(true); };
     const handleDeleteProgram = (programId: number) => { if (window.confirm('Delete this program and all its contents?')) { setPrograms(programs.filter(p => p.id !== programId)); } };
-    const handleSaveProgram = (programData: Omit<Program, 'id' | 'subjects'>) => { if (editingProgram) { setPrograms(programs.map(p => (p.id === editingProgram.id ? { ...p, ...programData } : p))); } else { const newProgram: Program = { id: Date.now(), ...programData, subjects: {} }; setPrograms([newProgram, ...programs]); } setIsProgramModalOpen(false); };
+    
+    // UPDATED FUNCTION with uniqueness check
+    const handleSaveProgram = (programData: Omit<Program, 'id' | 'subjects'>) => {
+        const isYearTaken = programs.some(
+            p => p.effectiveYear === programData.effectiveYear && p.id !== editingProgram?.id
+        );
+
+        if (isYearTaken) {
+            toast.error(`A program with the effective year"${programData.effectiveYear} already exists. Please use a unique academic year.`);
+            
+        return; 
+        }
+
+        if (editingProgram) {
+            setPrograms(programs.map(p => (p.id === editingProgram.id ? { ...p, ...programData } : p)));
+        } else {
+            const newProgram: Program = { id: Date.now(), ...programData, subjects: {} };
+            setPrograms([newProgram, ...programs]);
+        }
+        setIsProgramModalOpen(false);
+    };
+
     const handleAddSemesterAndSubjects = () => setIsSemesterModalOpen(true);
     const handleSaveSemesterAndSubjects = (semesterName: string, subjects: Subject[]) => { if (!selectedProgram || !semesterName.trim()) return; setPrograms(programs.map(p => { if (p.id === selectedProgram.id) { if (p.subjects[semesterName]) { alert('A semester with this name already exists.'); return p; } const updatedProgram = { ...p, subjects: { ...p.subjects }}; const processedSubjects = subjects.filter(s => s.code && s.name).map(s => ({ ...s, prerequisite: s.prerequisite.trim() === '' ? 'None' : s.prerequisite })); updatedProgram.subjects[semesterName] = processedSubjects; return updatedProgram; } return p; })); setIsSemesterModalOpen(false); };
     const handleEditSemester = (semesterName: string) => { setEditingSemesterName(semesterName); setIsSemesterRenameModalOpen(true); };
@@ -117,21 +138,19 @@ function Curriculum() {
                 <Button onClick={handleAddProgram} className="flex items-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-semibold px-5 py-3 rounded-lg shadow-lg hover:shadow-xl hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:-translate-y-0.5"><Plus size={20} /> Add New Program</Button>
             </header>
             
-            {/* --- UPDATED: Search and Filter Panel --- */}
-            <div className="bg-white p-4 rounded-xl shadow-md mb-8 flex flex-col md:flex-row gap-4 items-center">
+            <div className="bg-white p-4 rounded-xl shadow-md mb-8 flex flex-col md:grid-cols-1 gap-4 items-center">
                 <div className="relative flex-grow w-full">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} /><Input type="text" placeholder="Search for a program by name or abbreviation..." className="pl-12 pr-4 py-3 bg-gray-50 border-gray-200 rounded-full w-full focus:ring-2 focus:ring-purple-400 transition-all duration-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
-                <div className="flex-shrink-0 w-full md:w-auto">
-                    <Select value={yearFilter} onValueChange={setYearFilter}><SelectTrigger className="w-full md:w-[220px] h-12 rounded-full bg-gray-50 border-gray-200"><Calendar className="h-4 w-4 mr-2 text-gray-500" /><SelectValue placeholder="Filter by A.Y." /></SelectTrigger><SelectContent>{effectiveYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>))}</SelectContent></Select>
+                <div className="flex-shrink-0 w-full">
+                    <Select value={yearFilter} onValueChange={setYearFilter}><SelectTrigger className="w-full h-12 rounded-full bg-gray-50 border-gray-200"><Calendar className="h-4 w-4 mr-2 text-gray-500" /><SelectValue placeholder="Filter by A.Y." /></SelectTrigger><SelectContent>{effectiveYears.map(year => (<SelectItem key={year} value={year}>{year}</SelectItem>))}</SelectContent></Select>
                 </div>
             </div>
             
-            {/* --- UPDATED: Program Cards Grid --- */}
             <AnimatePresence>
                 {filteredPrograms.length > 0 ? (
                     <motion.div 
-                        className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                        className="grid grid-cols-2 md:grid-cols-1 gap-6"
                         initial="hidden"
                         animate="visible"
                     >
@@ -189,7 +208,6 @@ function Curriculum() {
                 )}
             </AnimatePresence>
 
-            {/* --- MODALS SECTION --- */}
             <AnimatePresence>
                 {selectedProgram && (
                     <Dialog open={!!selectedProgram} onOpenChange={(isOpen) => !isOpen && setSelectedProgram(null)}>
@@ -267,7 +285,6 @@ function Curriculum() {
                 )}
             </AnimatePresence>
 
-            {/* --- CHILD MODALS (No major changes, but will benefit from consistent ShadCN styling) --- */}
             <ProgramFormModal isOpen={isProgramModalOpen} onClose={() => setIsProgramModalOpen(false)} onSave={handleSaveProgram} initialData={editingProgram} />
             <SemesterAndSubjectsFormModal isOpen={isSemesterModalOpen} onClose={() => setIsSemesterModalOpen(false)} onSave={handleSaveSemesterAndSubjects} />
             <SemesterRenameModal isOpen={isSemesterRenameModalOpen} onClose={() => setIsSemesterRenameModalOpen(false)} onSave={handleRenameSemester} initialData={editingSemesterName} />
@@ -277,7 +294,7 @@ function Curriculum() {
 }
 
 
-// --- REUSABLE MODAL FORM COMPONENTS (No functional changes, but UI is more consistent) ---
+// --- REUSABLE MODAL FORM COMPONENTS ---
 
 type ProgramFormProps = { isOpen: boolean; onClose: () => void; onSave: (data: Omit<Program, 'id' | 'subjects'>) => void; initialData: Program | null; };
 function ProgramFormModal({ isOpen, onClose, onSave, initialData }: ProgramFormProps) {

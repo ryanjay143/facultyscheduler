@@ -32,6 +32,12 @@ const Login: React.FC = () => {
             name: 'Dr. Faculty',
             role: 'faculty',
         },
+        dean: {
+            email: 'dean@example.com',
+            password: 'dean123',
+            name: 'Dr. Dean',
+            role: 'dean',
+        },
     };
 
     const isFirstTime = !localStorage.getItem('alreadyLoggedIn');
@@ -85,7 +91,10 @@ const Login: React.FC = () => {
                 // --- Role-based redirection ---
                 if (foundUser.role === 'faculty') {
                     navigate('/facultyscheduler/faculty/user-dashboard');
-                } else {
+                } else if (foundUser.role === 'dean') {
+                    navigate('/facultyscheduler/department/deans/user-dashboard');
+                }
+                else {
                     navigate('/facultyscheduler/admin/user-dashboard');
                 }
             } else {

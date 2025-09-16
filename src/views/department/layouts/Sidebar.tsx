@@ -11,18 +11,18 @@ function Sidebar() {
 
  const navLinks = [
   { 
-    href: "/facultyscheduler/faculty/user-dashboard", 
+    href: "/facultyscheduler/department/deans/user-dashboard", 
     label: "Dashboard", 
     icon: <Home size={20} /> 
   },
   { 
-    href: "/facultyscheduler/faculty/faculty-loading", 
+    href: "/facultyscheduler/department/deans/faculty-loading", 
     label: "Faculty Loading ", 
     icon: <BookOpen size={20} />
   },
   { 
-    href: "/facultyscheduler/faculty/my-schedule", 
-    label: "My Schedule", 
+    href: "/facultyscheduler/department/deans/my-schedule", 
+    label: "Scheduling", 
     icon: <Calendar size={20} /> 
   },
   
@@ -49,7 +49,7 @@ function Sidebar() {
         className={`h-screen w-64 bg-gradient-to-b from-gray-900 to-purple-900 shadow-xl flex flex-col z-40
           fixed top-0 left-0 transition-transform ease-in-out duration-300
           ${isOpen ? "translate-x-0" : "md:-translate-x-full"
-        } md:w-60 overflow-hidden`}
+        } md:w-56 overflow-hidden`}
       >
 
        <div className="flex flex-col items-center p-6 border-b border-white/10 space-y-4 text-white">
@@ -57,8 +57,8 @@ function Sidebar() {
                 FS
             </div>
             <div className="text-center">
-                <h3 className="font-semibold text-lg">Faculty Name</h3>
-                <p className="text-xs text-gray-300">Faculty</p>
+                <h3 className="font-semibold text-lg">Dean Name</h3>
+                <p className="text-xs text-gray-300">Department Dean</p>
             </div>
         </div>
 

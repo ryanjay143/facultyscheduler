@@ -9,6 +9,7 @@ import { Toaster } from 'sonner';
 
 import AdminContainerLayouts  from './views/admin/AdminContainerLayouts';
 import FacultyContainerLayouts from './views/faculty/FacultyContainerLayouts';
+import DeparmentContainerLayouts from './views/department/DeparmentContainerLayouts';
 
 // Lazy-loaded components with simulated delay
 const Login = lazy(() => 
@@ -17,6 +18,15 @@ const Login = lazy(() =>
 
 const FacultyNotification = lazy(() => 
   wait(3000).then(() => import('./views/faculty/notification/FacultyNotification'))
+);
+
+const ClassroomSchedule = lazy(() => 
+  wait(3000).then(() => import('./views/department/classrommSchedule/ClassroomSchedule'))
+);
+
+
+const DepartmentFacultyLoading = lazy(() => 
+  wait(3000).then(() => import('./views/department/facultyLoading/FacultyLoading'))
 );
 
 const FacultySettings = lazy(() => 
@@ -57,6 +67,10 @@ const FacultyLoading = lazy(() =>
 
 const FacultyDashboardContainer = lazy(() => 
   wait(3000).then(() => import('./views/faculty/dashboard/FacultyDashboardContainer'))
+);
+
+const DepartmentDashboardContainer = lazy(() => 
+  wait(3000).then(() => import('./views/department/dashboard/DepartmentDashboardContainer'))
 );
 
 const ForgotPassword = lazy(() => 
@@ -105,6 +119,8 @@ const routes = [
       </Suspense>
     ),
   },
+
+  // Admin
   {
     path: 'facultyscheduler/admin',
     element: <AdminContainerLayouts />,
@@ -186,7 +202,43 @@ const routes = [
 
     ],
   },
-   {
+
+  // Dean Department
+  {
+    path: 'facultyscheduler/department/deans',
+    element: <DeparmentContainerLayouts />,
+    children: [
+      {
+        path: '',
+        element: <Navigate to="department/deans/user-dashboard" />,
+      },
+      {
+        path: 'user-dashboard',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <DepartmentDashboardContainer />
+          </Suspense>
+      },
+      {
+        path: 'faculty-loading',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <DepartmentFacultyLoading />
+          </Suspense>
+      },
+      {
+        path: 'my-schedule',
+        element: 
+          <Suspense fallback={<Loader />}>
+            <ClassroomSchedule />
+          </Suspense>
+      },
+      
+    ],
+  },
+
+  // Faculty
+  {
     path: 'facultyscheduler/faculty',
     element: <FacultyContainerLayouts />,
     children: [

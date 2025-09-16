@@ -13,9 +13,9 @@ function CourseContainer() {
      
 
       {/* Main dashboard content */}
-       <div className="flex-1 overflow-y-auto p-8">
+       <main className="flex-1 overflow-y-auto p-4 md:p-0">
         <CourseTable />
-      </div>
+      </main>
     </div>
       
    
