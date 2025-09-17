@@ -173,7 +173,7 @@ function MainFacultyLoading() {
     };
 
     return (
-        <div className="p-4 min-h-screen">
+        <div className="mx-auto max-w-7xl p-4 md:p-8">
             <header className="mb-8">
                 <h1 className="text-4xl font-bold text-gray-800">Faculty Loading</h1>
                 <p className="text-gray-500 mt-1">Assign subjects to faculty based on expertise and availability.</p>

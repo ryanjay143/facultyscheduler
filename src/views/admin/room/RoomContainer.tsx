@@ -3,17 +3,15 @@ import RoomTable from "./table/RoomTable";
 
 function RoomContainer() {
   return (
-    // 1. I-set ang gitas-on sa tibuok screen ug gamiton ang flexbox column
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header - Kini dili na ma-scroll */}
-      <div>
-        <Header />
-      </div>
+    // Use min-h-0 so this container flexes inside the parent scroller without adding extra height
+    <div className="flex flex-col min-h-0 bg-gray-50">
+      {/* Header (non-scrollable within this container) */}
+      <Header />
 
-      {/* 2. Main content area nga naay kaugalingong scrolling */}
-      <div className="flex-1 overflow-y-auto p-8">
+      {/* Let the parent AdminContainerLayouts main handle scrolling */}
+      <main className="flex-1 min-h-0 p-4 md:p-0">
         <RoomTable />
-      </div>
+      </main>
     </div>
   );
 }

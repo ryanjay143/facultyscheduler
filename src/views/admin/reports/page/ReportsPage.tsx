@@ -19,7 +19,6 @@ import {
 import { Printer, Download, BarChart3, Calendar, FileText, User } from "lucide-react"
 
 // --- MOCK DATA SIMULATING POST-ASSIGNMENT STATE ---
-// In a real app, this data would be fetched or generated based on your database.
 const facultyData = [
   { id: 1, name: "Dr. Evelyn Reed", department: "Computer Science" },
   { id: 2, name: "Dr. Samuel Grant", department: "Data Science" },
@@ -28,62 +27,13 @@ const facultyData = [
 ]
 
 const assignedSubjects = [
-  {
-    id: 1,
-    code: "CS101",
-    name: "Introduction to Programming",
-    units: 3,
-    assignedTo: 1,
-    schedule: { day: "Monday", time: "09:00-11:00" },
-  },
-  {
-    id: 2,
-    code: "CS205",
-    name: "Data Structures",
-    units: 3,
-    assignedTo: 1,
-    schedule: { day: "Wednesday", time: "10:00-12:00" },
-  },
-  {
-    id: 3,
-    code: "DS301",
-    name: "Machine Learning",
-    units: 4,
-    assignedTo: 2,
-    schedule: { day: "Tuesday", time: "13:00-15:00" },
-  },
-  {
-    id: 4,
-    code: "DB402",
-    name: "Advanced Databases",
-    units: 4,
-    assignedTo: 2,
-    schedule: { day: "Thursday", time: "09:00-11:00" },
-  },
-  {
-    id: 5,
-    code: "NT201",
-    name: "Computer Networks",
-    units: 3,
-    assignedTo: 3,
-    schedule: { day: "Friday", time: "11:00-13:00" },
-  },
-  {
-    id: 6,
-    code: "WD303",
-    name: "Modern Web Apps",
-    units: 3,
-    assignedTo: 4,
-    schedule: { day: "Monday", time: "14:00-16:00" },
-  },
-  {
-    id: 7,
-    code: "AI401",
-    name: "Advanced AI",
-    units: 4,
-    assignedTo: 1,
-    schedule: { day: "Monday", time: "11:00-13:00" },
-  },
+  { id: 1, code: "CS101", name: "Introduction to Programming", units: 3, assignedTo: 1, schedule: { day: "Monday", time: "09:00-11:00" } },
+  { id: 2, code: "CS205", name: "Data Structures", units: 3, assignedTo: 1, schedule: { day: "Wednesday", time: "10:00-12:00" } },
+  { id: 3, code: "DS301", name: "Machine Learning", units: 4, assignedTo: 2, schedule: { day: "Tuesday", time: "13:00-15:00" } },
+  { id: 4, code: "DB402", name: "Advanced Databases", units: 4, assignedTo: 2, schedule: { day: "Thursday", time: "09:00-11:00" } },
+  { id: 5, code: "NT201", name: "Computer Networks", units: 3, assignedTo: 3, schedule: { day: "Friday", time: "11:00-13:00" } },
+  { id: 6, code: "WD303", name: "Modern Web Apps", units: 3, assignedTo: 4, schedule: { day: "Monday", time: "14:00-16:00" } },
+  { id: 7, code: "AI401", name: "Advanced AI", units: 4, assignedTo: 1, schedule: { day: "Monday", time: "11:00-13:00" } },
 ]
 
 const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
@@ -109,7 +59,8 @@ function ReportsPage() {
   }, [])
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-gray-50/50 min-h-screen">
+    // Remove min-h-screen, center content, and allow this section to shrink within the parent scroller.
+    <div className="min-h-0 mx-auto max-w-7xl p-4 md:p-2 bg-gray-50/50">
       {/* Hero/banner */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -119,34 +70,34 @@ function ReportsPage() {
       >
         <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -left-10 -bottom-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative p-6 md:p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="relative p-6">
+          <div className="flex items-start justify-between md:flex-col md:items-start gap-4">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold shadow-sm">
                 <FileText size={14} />
                 Admin • Reports
               </div>
-              <h1 className="mt-2 text-3xl md:text-4xl font-extrabold tracking-tight">
+              <h1 className="mt-2 text-3xl font-extrabold tracking-tight">
                 Generate Reports
               </h1>
               <p className="text-white/85">
                 View and export faculty loading, schedules, and workloads.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" className="bg-white/10 text-white hover:bg-white/20">
+            <div className="flex flex-wrap gap-2 w-auto md:w-full">
+              <Button variant="outline" className="bg-white/10 text-white hover:bg-white/20 w-auto md:w-full">
                 <Printer className="h-4 w-4 mr-2" />
                 Print
               </Button>
-              <Button className="bg-white text-purple-700 hover:bg-white/90">
+              <Button className="bg-white text-purple-700 hover:bg-white/90 w-auto md:w-full">
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
             </div>
           </div>
 
-          {/* KPI strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+          {/* KPI strip - auto-fit makes it responsive without breakpoints */}
+          <div className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-3 mt-6">
             <KpiCard label="Faculty" value={totalFaculty} />
             <KpiCard label="Subjects" value={totalSubjects} />
             <KpiCard label="Total Units" value={totalUnits} />
@@ -155,9 +106,9 @@ function ReportsPage() {
         </div>
       </motion.div>
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="inline-flex items-center gap-1 p-1 bg-white rounded-xl shadow-sm border">
+      {/* Tabs - scrollable on phones */}
+      <div className="overflow-x-auto -mx-2 px-2 mb-6">
+        <div className="inline-flex items-center gap-1 p-1 bg-white rounded-xl shadow-sm border shrink-0">
           <TabButton
             id="loading"
             activeTab={activeTab}
@@ -233,9 +184,9 @@ const FacultyLoadingReport = () => {
         title="Faculty Loading Master Report"
         subtitle="Filter and review all assigned subjects"
         right={
-          <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+          <div className="flex items-stretch gap-2 w-auto md:w-full md:flex-col">
             {/* Search */}
-            <div className="relative w-full md:w-72">
+            <div className="relative w-72 md:w-full">
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -245,7 +196,7 @@ const FacultyLoadingReport = () => {
             </div>
             {/* Faculty filter */}
             <Select value={facultyFilter} onValueChange={setFacultyFilter}>
-              <SelectTrigger className="w-full md:w-56">
+              <SelectTrigger className="w-56 md:w-full">
                 <User className="h-4 w-4 mr-2 text-gray-500" />
                 <SelectValue placeholder="Filter by faculty" />
               </SelectTrigger>
@@ -262,8 +213,56 @@ const FacultyLoadingReport = () => {
         }
       />
 
-      <div className="rounded-md border overflow-hidden">
-        <Table>
+      {/* Mobile: Card list (shown only on phones via max-width md) */}
+      <div className="hidden md:block">
+        <ul className="space-y-3">
+          {filtered.map((subject) => {
+            const faculty = facultyData.find((f) => f.id === subject.assignedTo)
+            return (
+              <li key={subject.id} className="border rounded-xl p-3 bg-white shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center justify-center h-6 px-2 rounded-md bg-purple-50 text-purple-700 text-xs font-semibold border border-purple-100">
+                        {subject.code}
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        {subject.units} unit{subject.units > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-semibold text-gray-800 break-words">
+                      {subject.name}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <User className="h-3.5 w-3.5 text-gray-500" />
+                    <span className="truncate">
+                      {faculty?.name || "Unassigned"}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    {subject.schedule.day}, {subject.schedule.time}
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+
+          {/* Mobile total */}
+          <li className="border rounded-xl p-3 bg-gray-50">
+            <div className="flex justify-between text-sm">
+              <span className="font-semibold text-gray-700">Total Units</span>
+              <span className="font-bold text-purple-700">{totalUnits}</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      {/* Desktop: Table (hidden on phones via max-width md) */}
+      <div className="rounded-md border overflow-hidden block md:hidden mt-2">
+        <Table className="min-w-[760px]">
           <TableHeader>
             <TableRow>
               <TableHead>Subject Code</TableHead>
@@ -323,7 +322,7 @@ const FacultySchedulesView = () => {
         subtitle="Per-day timeline for selected faculty"
         right={
           <Select value={selectedFacultyId} onValueChange={setSelectedFacultyId}>
-            <SelectTrigger className="w-full sm:w-72">
+            <SelectTrigger className="w-72 md:w-full">
               <User className="h-4 w-4 mr-2 text-gray-500" />
               <SelectValue placeholder="Select a faculty member..." />
             </SelectTrigger>
@@ -338,7 +337,8 @@ const FacultySchedulesView = () => {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+      {/* Auto-fit columns: 1 on phones, up to 5 as space allows */}
+      <div className="grid [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))] gap-4 mt-6">
         {daysOfWeek.map((day) => {
           const items = facultySchedule.filter((s) => s.schedule.day === day)
           return (
@@ -470,12 +470,12 @@ const SectionHeader = ({
   subtitle?: string
   right?: React.ReactNode
 }) => (
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-4 border-b">
+  <div className="flex items-start justify-between md:flex-col md:items-start gap-3 pb-4 border-b">
     <div>
       <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
       {subtitle && <p className="text-gray-500 text-sm">{subtitle}</p>}
     </div>
-    {right && <div className="flex gap-2">{right}</div>}
+    {right && <div className="flex gap-2 w-auto md:w-full">{right}</div>}
   </div>
 )
 

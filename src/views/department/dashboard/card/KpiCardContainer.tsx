@@ -13,7 +13,7 @@ function KpiCardContainer() {
     confirmed.total > 0 ? Math.round((confirmed.value / confirmed.total) * 100) : 0;
 
   return (
-    <section aria-label="Department KPIs" className="mb-8">
+    <section aria-label="Department KPIs" className="mb-8 relative">
       {/* Subtle decorative glow */}
       <div
         className="pointer-events-none absolute inset-x-6 -mt-2 h-20 rounded-2xl bg-gradient-to-r from-violet-200/30 via-fuchsia-200/30 to-sky-200/30 blur-2xl"
@@ -28,7 +28,8 @@ function KpiCardContainer() {
           </span>
           <span className="text-xs text-gray-500">Department snapshot</span>
         </div>
-        <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
+        {/* Show on larger screens; hide on phones (max-based md) */}
+        <div className="flex items-center gap-2 text-xs text-gray-500 md:hidden">
           <span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
           Live
         </div>
@@ -73,10 +74,6 @@ function KpiCardContainer() {
             This Term
           </span>
         </motion.div>
-
-        {/* Optional placeholders to balance layout on larger screens (can remove if not desired) */}
-        <div className="hidden md:block" />
-        <div className="hidden md:block" />
       </div>
     </section>
   );

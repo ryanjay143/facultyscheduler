@@ -8,11 +8,11 @@ import { CalendarCheck } from "lucide-react";
 
 function DashboardContainer() {
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col min-h-0 bg-gray-50">
       <Header />
 
       {/* Main dashboard content with its own scrolling */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-0">
+      <main className="flex-1 min-h-0 p-4 md:p-0">
         {/* Center content and keep it within a comfortable max width */}
         <div className="mx-auto max-w-7xl p-4 md:p-8">
           {/* Hero / Welcome */}

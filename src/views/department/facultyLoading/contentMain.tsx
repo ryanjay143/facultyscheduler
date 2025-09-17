@@ -30,7 +30,7 @@ export function ContentMain({
     // --- FIX 2: Gi-usab ang main layout para responsive ---
     // Magpatong sa mobile (grid-cols-1), pero magtapad na sa large screens (lg:grid-cols-3).
     // Ang "Unassigned Subjects" mokuha ug 1 ka column, ug ang "Faculty" mokuha ug 2.
-    <div className="grid grid-cols-1 gap-8 items-start mt-8">
+    <div className="grid grid-cols-1 gap-4 items-start mt-8">
       
         {/* === Unassigned Subjects Column === */}
         {/* Mokuha ni ug 1 ka column sa large screen (lg:col-span-1) */}
@@ -62,17 +62,17 @@ export function ContentMain({
 
         {/* === Faculty Members Section === */}
         {/* Mokuha ni ug 2 ka columns sa large screen (lg:col-span-2) */}
-        <div >
+        <div className=''>
           <div className="flex items-center gap-3 mb-6 p-2">
             <Users className="text-indigo-600" size={28} />
             <h2 className="text-2xl font-bold text-gray-900">Faculty Members</h2>
           </div>
 
           {/* Ang container para sa duha ka faculty columns */}
-          <div className="grid grid-cols-2 md:flex-row gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-1 mb-5 gap-6">
             
             {/* Left Column para sa Faculty */}
-            <div className="w-full md:w-1/2 flex flex-col gap-6">
+            <div className="w-full flex flex-col gap-6">
               {leftColumnFaculty.map(fac => (
                 <FacultyCard 
                   key={fac.id} 
@@ -83,7 +83,7 @@ export function ContentMain({
             </div>
             
             {/* Right Column para sa Faculty */}
-            <div className="w-full md:w-1/2 flex flex-col gap-6">
+            <div className="w-full flex flex-col gap-6">
               {rightColumnFaculty.map(fac => (
                 <FacultyCard 
                   key={fac.id} 

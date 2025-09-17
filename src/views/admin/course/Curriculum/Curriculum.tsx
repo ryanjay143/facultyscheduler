@@ -132,7 +132,7 @@ function Curriculum() {
     useEffect(() => { if (selectedProgram) { setSelectedProgram(programs.find(p => p.id === selectedProgram.id) || null); } }, [programs, selectedProgram]);
 
     return (
-        <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
+        <div className="mx-auto max-w-7xl p-4 md:p-8">
             <header className="mb-8 flex flex-wrap justify-between items-center gap-4">
                 <div><h1 className="text-4xl font-bold text-gray-800">Curriculum Management</h1><p className="text-gray-500 mt-1">Manage academic programs and their subjects.</p></div>
                 <Button onClick={handleAddProgram} className="flex items-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-semibold px-5 py-3 rounded-lg shadow-lg hover:shadow-xl hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:-translate-y-0.5"><Plus size={20} /> Add New Program</Button>
@@ -211,7 +211,7 @@ function Curriculum() {
             <AnimatePresence>
                 {selectedProgram && (
                     <Dialog open={!!selectedProgram} onOpenChange={(isOpen) => !isOpen && setSelectedProgram(null)}>
-                        <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col p-0">
+                        <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col p-0 md:w-[90%]">
                             <DialogHeader className="p-6 pb-4 bg-gray-50 border-b rounded-t-lg">
                                 <DialogTitle className="text-3xl font-bold text-gray-800 flex items-center gap-3">
                                     {selectedProgram?.name}
@@ -238,7 +238,21 @@ function Curriculum() {
                                                 </div>
                                             </div>
                                             <div className="overflow-x-auto">
-                                                <Table><TableHeader><TableRow className="bg-gray-100 hover:bg-gray-100"><TableHead>Code</TableHead><TableHead className="w-2/5">Descriptive Title</TableHead><TableHead className="text-center">Total Units</TableHead><TableHead className="text-center">Lec</TableHead><TableHead className="text-center">Lab</TableHead><TableHead className="text-center">Total Hours</TableHead><TableHead className="text-center">Lec</TableHead><TableHead className="text-center">Lab</TableHead><TableHead>Pre-requisite</TableHead><TableHead className="text-right w-[100px]">Actions</TableHead></TableRow></TableHeader>
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-gray-100 hover:bg-gray-100">
+                                                            <TableHead>Code</TableHead>
+                                                            <TableHead className="w-2/5">Descriptive Title</TableHead>
+                                                            <TableHead className="text-center">Total Units</TableHead>
+                                                            <TableHead className="text-center">Lec</TableHead>
+                                                            <TableHead className="text-center">Lab</TableHead>
+                                                            <TableHead className="text-center">Total Hours</TableHead>
+                                                            <TableHead className="text-center">Lec</TableHead>
+                                                            <TableHead className="text-center">Lab</TableHead>
+                                                            <TableHead>Pre-requisite</TableHead>
+                                                            <TableHead className="text-right w-[100px]">Actions</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
                                                     <TableBody>
                                                         {subjects.map((subject, idx) => (
                                                             <TableRow key={subject.code} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
@@ -303,7 +317,7 @@ function ProgramFormModal({ isOpen, onClose, onSave, initialData }: ProgramFormP
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (name && abbreviation && effectiveYear) onSave({ name, abbreviation, effectiveYear }); };
     return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className='md:w-[90%]'>
         <DialogHeader>
           <DialogTitle>{initialData ? 'Edit Program' : 'Add New Program'}</DialogTitle>
           </DialogHeader>
@@ -346,39 +360,149 @@ function SemesterAndSubjectsFormModal({ isOpen, onClose, onSave }: SemesterAndSu
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (hasErrors) { alert("Fix errors before saving."); return; } onSave(semesterName, subjects); };
     useEffect(() => { if(isOpen) { setSemesterName(''); setSubjects([{ code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' }]); } }, [isOpen]);
     return (<Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col md:w-[90%]">
         <DialogHeader>
           <DialogTitle>Add New Semester and Subjects</DialogTitle>
           <DialogDescription>Add subjects in bulk for a specific semester. Errors in totals will be highlighted.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="flex-grow flex flex-col min-h-0 py-4">
-            <div className="mb-4">
-              <Label htmlFor="semesterName" className="text-base">Year Level and Semester</Label>
-              <Input id="semesterName" value={semesterName} onChange={e => setSemesterName(e.target.value)} placeholder="e.g., First Year, Second Semester" required className="mt-1" />
-            </div>
-            <div className="flex-grow overflow-y-auto border rounded-lg p-2 bg-gray-50 -mx-2 px-2">
-              <div className="grid grid-cols-[1fr,3fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,1.5fr,auto] gap-2 px-2 pb-2 border-b font-semibold text-xs text-gray-500 uppercase sticky top-0 bg-gray-50 py-2">
-                <div>Code</div>
-                <div>Title</div>
-                <div className="text-center">Units</div>
-                <div className="text-center">Lec</div>
-                <div className="text-center">Lab</div>
-                <div className="text-center">Hrs</div>
-                <div className="text-center">Lec</div>
-                <div className="text-center">Lab</div>
-                <div>Pre-req</div>
+            <form onSubmit={handleSubmit} className="flex-grow flex flex-col min-h-0 py-4">
+                <div className="mb-4">
+                <Label htmlFor="semesterName" className="text-base">Year Level and Semester</Label>
+                <Input
+                    id="semesterName"
+                    value={semesterName}
+                    onChange={(e) => setSemesterName(e.target.value)}
+                    placeholder="e.g., First Year, Second Semester"
+                    required
+                    className="mt-1"
+                />
                 </div>
-                <div className="space-y-2 pt-2">
-                  {subjects.map((s, index) => (<div key={index} className={`p-2 rounded-md transition-colors ${errors[index]?.unitError || errors[index]?.hourError ? 'bg-red-50 border border-red-200' : ''}`}>
-                    <div className="grid grid-cols-[1fr,3fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,1.5fr,auto] gap-2 items-center">
-                      <Input placeholder="Code" value={s.code} onChange={e => handleSubjectChange(index, 'code', e.target.value)} /><Input placeholder="Title" value={s.name} onChange={e => handleSubjectChange(index, 'name', e.target.value)} /><Input type="number" value={s.unitsTotal || ''} onChange={e => handleSubjectChange(index, 'unitsTotal', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.unitError ? 'border-red-500' : ''}`} /><Input type="number" value={s.unitsLec || ''} onChange={e => handleSubjectChange(index, 'unitsLec', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.unitError ? 'border-red-500' : ''}`} /><Input type="number" value={s.unitsLab || ''} onChange={e => handleSubjectChange(index, 'unitsLab', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.unitError ? 'border-red-500' : ''}`} /><Input type="number" value={s.hoursTotal || ''} onChange={e => handleSubjectChange(index, 'hoursTotal', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.hourError ? 'border-red-500' : ''}`} /><Input type="number" value={s.hoursLec || ''} onChange={e => handleSubjectChange(index, 'hoursLec', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.hourError ? 'border-red-500' : ''}`} /><Input type="number" value={s.hoursLab || ''} onChange={e => handleSubjectChange(index, 'hoursLab', Number(e.target.value) || 0)} className={`text-center ${errors[index]?.hourError ? 'border-red-500' : ''}`} /><Input placeholder="None" value={s.prerequisite} onChange={e => handleSubjectChange(index, 'prerequisite', e.target.value)} /><Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSubjectRow(index)} className="text-red-500 h-8 w-8 shrink-0"><Trash2 size={16} /></Button></div>{(errors[index]?.unitError || errors[index]?.hourError) && (<div className="flex items-center gap-2 text-red-600 text-xs mt-1 px-1"><AlertCircle size={14} /><span>{errors[index].unitError} {errors[index].hourError}</span></div>)}</div>))}</div></div>
-    <Button type="button" variant="outline" onClick={handleAddSubjectRow} className="mt-4 flex items-center gap-2 self-start"><Plus size={16} /> Add Subject Row</Button>
-    <DialogFooter className="mt-5 pt-4 border-t flex flex-col gap-2">
-      <DialogClose asChild>
-        <Button type="button" variant="outline">Cancel</Button>
-        </DialogClose><Button type="submit" disabled={hasErrors}>{hasErrors ? "Fix Errors to Save" : "Save Curriculum"}</Button>
-    </DialogFooter>
-    </form>
+
+                {/* Scroll container: enable horizontal and vertical scrolling on small screens */}
+                <div className="flex-grow overflow-x-auto overflow-y-auto border rounded-lg p-2 bg-gray-50 -mx-2 px-2">
+                {/* Header row: keep sticky and enforce a minimum width so columns remain readable */}
+                <div className="grid min-w-[920px] grid-cols-[1fr,3fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,1.5fr,auto] gap-2 px-2 pb-2 border-b font-semibold text-xs text-gray-500 uppercase sticky top-0 bg-gray-50 py-2 z-10">
+                    <div>Code</div>
+                    <div>Title</div>
+                    <div className="text-start">Units</div>
+                    <div className="text-start">Lec</div>
+                    <div className="text-start">Lab</div>
+                    <div className="text-start">Hrs</div>
+                    <div className="text-start">Lec</div>
+                    <div className="text-start">Lab</div>
+                    <div>Pre-req</div>
+                    <div></div>
+                </div>
+
+                {/* Body rows: match header min width to enable horizontal scroll on phones */}
+                <div className="space-y-2 pt-2 min-w-[920px]">
+                    {subjects.map((s, index) => (
+                    <div
+                        key={index}
+                        className={`p-2 rounded-md transition-colors ${
+                        errors[index]?.unitError || errors[index]?.hourError ? 'bg-red-50 border border-red-200' : ''
+                        }`}
+                    >
+                        <div className="grid grid-cols-[1fr,3fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,0.5fr,1.5fr,auto] gap-2 items-center">
+                        <Input
+                            placeholder="Code"
+                            value={s.code}
+                            onChange={(e) => handleSubjectChange(index, 'code', e.target.value)}
+                            className="min-w-0"
+                        />
+                        <Input
+                            placeholder="Title"
+                            value={s.name}
+                            onChange={(e) => handleSubjectChange(index, 'name', e.target.value)}
+                            className="min-w-0"
+                        />
+                        <Input
+                            type="number"
+                            value={s.unitsTotal || ''}
+                            onChange={(e) => handleSubjectChange(index, 'unitsTotal', Number(e.target.value) || 0)}
+                            className={`text-center min-w-0 ${errors[index]?.unitError ? 'border-red-500' : ''}`}
+                        />
+                        <Input
+                            type="number"
+                            value={s.unitsLec || ''}
+                            onChange={(e) => handleSubjectChange(index, 'unitsLec', Number(e.target.value) || 0)}
+                            className={`text-center min-w-0 ${errors[index]?.unitError ? 'border-red-500' : ''}`}
+                        />
+                        <Input
+                            type="number"
+                            value={s.unitsLab || ''}
+                            onChange={(e) => handleSubjectChange(index, 'unitsLab', Number(e.target.value) || 0)}
+                            className={`text-center min-w-0 ${errors[index]?.unitError ? 'border-red-500' : ''}`}
+                        />
+                        <Input
+                            type="number"
+                            value={s.hoursTotal || ''}
+                            onChange={(e) => handleSubjectChange(index, 'hoursTotal', Number(e.target.value) || 0)}
+                            className={`text-center min-w-0 ${errors[index]?.hourError ? 'border-red-500' : ''}`}
+                        />
+                        <Input
+                            type="number"
+                            value={s.hoursLec || ''}
+                            onChange={(e) => handleSubjectChange(index, 'hoursLec', Number(e.target.value) || 0)}
+                            className={`text-center min-w-0 ${errors[index]?.hourError ? 'border-red-500' : ''}`}
+                        />
+                        <Input
+                            type="number"
+                            value={s.hoursLab || ''}
+                            onChange={(e) => handleSubjectChange(index, 'hoursLab', Number(e.target.value) || 0)}
+                            className={`text-center min-w-0 ${errors[index]?.hourError ? 'border-red-500' : ''}`}
+                        />
+                        <Input
+                            placeholder="None"
+                            value={s.prerequisite}
+                            onChange={(e) => handleSubjectChange(index, 'prerequisite', e.target.value)}
+                            className="min-w-0"
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveSubjectRow(index)}
+                            className="text-red-500 h-8 w-8 shrink-0"
+                            aria-label="Remove row"
+                            title="Remove row"
+                        >
+                            <Trash2 size={16} />
+                        </Button>
+                        </div>
+
+                        {(errors[index]?.unitError || errors[index]?.hourError) && (
+                        <div className="flex items-center gap-2 text-red-600 text-xs mt-1 px-1">
+                            <AlertCircle size={14} />
+                            <span>
+                            {errors[index].unitError} {errors[index].hourError}
+                            </span>
+                        </div>
+                        )}
+                    </div>
+                    ))}
+                </div>
+                </div>
+
+                {/* Make this button full-width and centered on small screens */}
+                <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddSubjectRow}
+                className="mt-4 flex items-center gap-2 self-start md:self-stretch md:w-full md:justify-center"
+                >
+                <Plus size={16} /> Add Subject Row
+                </Button>
+
+                <DialogFooter className="mt-5 pt-4 border-t flex flex-col gap-2">
+                <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button type="submit" disabled={hasErrors}>
+                    {hasErrors ? 'Fix Errors to Save' : 'Save Curriculum'}
+                </Button>
+                </DialogFooter>
+            </form>
     </DialogContent>
     </Dialog>
     );
@@ -390,7 +514,7 @@ function SemesterRenameModal({ isOpen, onClose, onSave, initialData }: SemesterR
     useEffect(() => { if(isOpen) setName(initialData || '') }, [isOpen, initialData]);
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(name); };
     return (<Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent><DialogHeader>
+      <DialogContent className='md:w-[90%]'><DialogHeader>
         <DialogTitle>Rename Semester</DialogTitle>
         </DialogHeader><form onSubmit={handleSubmit} className="py-4">
           <div className="mb-4"><Label htmlFor="semesterName">Semester Name</Label><Input id="semesterName" value={name} onChange={e => setName(e.target.value)} required /></div>
@@ -416,7 +540,7 @@ function SubjectFormModal({ isOpen, onClose, onSave, initialData }: SubjectFormP
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if(errors) { alert("Please fix the errors before saving."); return; } onSave(subject); };
     return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg md:w-[90%]">
         <DialogHeader>
           <DialogTitle>{initialData ? `Edit Subject: ${initialData.code}` : 'Add New Subject'}</DialogTitle>
           </DialogHeader><form onSubmit={handleSubmit} className="py-4">

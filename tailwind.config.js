@@ -52,10 +52,10 @@ module.exports = {
     			}
     		},
     		screens: {
-    			'4k': {
+    			xxxl: {
     				max: '2560px'
     			},
-    			'2xl': {
+    			xxl: {
     				max: '1536px'
     			},
     			xl: {
