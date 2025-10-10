@@ -50,12 +50,57 @@ interface Faculty {
 }
 
 const initialFacultyData: Faculty[] = [
-  { id: 1, name: "Dr. Alice Johnson", designation: "Professor", expertise: ["Software Engineering", "HCI"], department: "Computer Science", email: "alice.j@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/44.jpg" },
-  { id: 2, name: "Prof. Bob Smith", designation: "Associate Professor", expertise: ["Cyber Security"], department: "Mathematics", email: "bob.s@university.edu", status: "Inactive", avatar: "https://randomuser.me/api/portraits/men/32.jpg" },
-  { id: 3, name: "Dr. Carol Lee", designation: "Professor", expertise: ["Computer Graphics & Vision", "Game Development"], department: "Physics", email: "carol.l@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/68.jpg" },
-  { id: 4, name: "Dr. Emily Clark", designation: "Asst. Professor", expertise: ["Cyber Security", "Computer Networks"], department: "Computer Science", email: "emily.c@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/women/65.jpg" },
-  { id: 5, name: "Dr. Michael Brown", designation: "Department Head", expertise: ["Programming"], department: "History", email: "michael.b@university.edu", status: "Active", avatar: "https://randomuser.me/api/portraits/men/45.jpg" },
-];
+    {
+      id: 1,
+      name: "Dr. Alice Johnson",
+      designation: "Professor",
+      expertise: ["Software Engineering", "HCI"],
+      department: "Computer Science",
+      email: "alice.j@university.edu",
+      status: "Active",
+      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
+    },
+    {
+      id: 2,
+      name: "Prof. Bob Smith",
+      designation: "Associate Professor",
+      expertise: ["Cyber Security"],
+      department: "Information Technology",
+      email: "bob.s@university.edu",
+      status: "Inactive",
+      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+    },
+    {
+      id: 3,
+      name: "Dr. Carol Lee",
+      designation: "Professor",
+      expertise: ["Computer Graphics & Vision", "Game Development"],
+      department: "Information Systems",
+      email: "carol.l@university.edu",
+      status: "Active",
+      avatar: "https://randomuser.me/api/portraits/women/68.jpg",
+    },
+    {
+      id: 4,
+      name: "Dr. Emily Clark",
+      designation: "Asst. Professor",
+      expertise: ["Cyber Security", "Computer Networks"],
+      department: "Computer Science",
+      email: "emily.c@university.edu",
+      status: "Active",
+      avatar: "https://randomuser.me/api/portraits/women/65.jpg",
+    },
+    {
+      id: 5,
+      name: "Dr. Michael Brown",
+      designation: "Department Head",
+      expertise: ["Programming"],
+      department: "Masters in Information Technology",
+      email: "michael.b@university.edu",
+      status: "Active",
+      avatar: "https://randomuser.me/api/portraits/men/45.jpg",
+    },
+  ];
 
 const statusColor = {
   Active: "bg-green-100 text-green-800",

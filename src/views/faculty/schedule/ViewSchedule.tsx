@@ -255,111 +255,111 @@ function ViewScheduleAlt() {
       </section>
 
       {/* Main content: Left day navigator + Right timeline */}
-      <main className="mx-auto max-w-7xl pb-10">
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-          {/* Left: Day navigator */}
-          <aside className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b">
-              <h2 className="text-sm font-semibold text-gray-800">This Week</h2>
-            </div>
-            <ul className="divide-y">
-              {daysOfWeek.map((day) => {
-                const colors = dayColors[day] || dayColors.default
-                const count = (byDay.get(day) ?? []).length
-                const isActive = selectedDay === day
-                const isToday = today === day
-                return (
-                  <li key={day}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDay(day)}
-                      className={`w-full flex items-center justify-between gap-2 px-4 py-3 text-sm ${
-                        isActive ? 'bg-gray-900 text-white' : 'hover:bg-gray-50 text-gray-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-white' : colors.badgeBg.replace('bg-', 'bg-')}`} />
-                        <span className="font-medium">{day}</span>
-                        {isToday && (
-                          <span className={`ml-1 text-[11px] font-semibold rounded-full ${isActive ? 'bg-white/10 text-white' : 'bg-black/5 text-black/80'} px-2 py-0.5`}>
-                            Today
-                          </span>
-                        )}
-                      </div>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-white/10 text-white' : `${colors.badgeBg} ${colors.badgeText}`
-                      }`}>
-                        {count}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </aside>
-
-          {/* Right: Timeline for selected day */}
-          <section className="rounded-2xl border bg-white shadow-sm overflow-hidden">
-            {/* Section header */}
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b">
-              <div className="flex items-center gap-2">
-                <div className={`h-8 w-8 rounded-lg ${dayColors[selectedDay]?.bg ?? 'bg-gray-100'} flex items-center justify-center ring-1 ring-inset ring-black/5`}>
-                  <Clock className={`${dayColors[selectedDay]?.text ?? 'text-gray-700'} h-4 w-4`} />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900">{selectedDay}</h3>
-                  <p className="text-xs text-gray-600">
-                    {classesForSelectedDay.length} {classesForSelectedDay.length === 1 ? 'class' : 'classes'} scheduled
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
-                >
-                  <ChevronLeft className="h-4 w-4" /> Prev
-                </button>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
-                >
-                  Next <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Timeline body */}
-            <div className="p-4">
-              {classesForSelectedDay.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center text-sm text-gray-400 h-48 bg-gray-50/60 rounded-xl border border-dashed">
-                  <CalendarX2 size={32} className="mb-2 text-gray-300" />
-                  <p>No classes scheduled.</p>
-                </div>
-              ) : (
-                <div className="relative">
-                  {/* vertical line */}
-                  <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
-                  <div className="space-y-4">
-                    <AnimatePresence initial={false}>
-                      {classesForSelectedDay.map((item) => (
-                        <div key={item.id} className="relative pl-10">
-                          {/* dot on the line */}
-                          <span className="absolute left-3 top-4 h-2.5 w-2.5 rounded-full bg-gray-400 ring-2 ring-white" />
-                          <TimelineCard item={item} />
-                        </div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
+      {/* Main content: Horizontal day navigator + Timeline */}
+  <main className="mx-auto max-w-7xl pb-10">
+    <section className="rounded-2xl border bg-white shadow-sm overflow-hidden">
+      {/* Section header */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b">
+        <div className="flex items-center gap-2">
+          <div className={`h-8 w-8 rounded-lg ${dayColors[selectedDay]?.bg ?? 'bg-gray-100'} flex items-center justify-center ring-1 ring-inset ring-black/5`}>
+            <Clock className={`${dayColors[selectedDay]?.text ?? 'text-gray-700'} h-4 w-4`} />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">{selectedDay}</h3>
+            <p className="text-xs text-gray-600">
+              {classesForSelectedDay.length} {classesForSelectedDay.length === 1 ? 'class' : 'classes'} scheduled
+            </p>
+          </div>
         </div>
-      </main>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={goPrev}
+            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
+          >
+            <ChevronLeft className="h-4 w-4" /> Prev
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800 hover:bg-gray-50"
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Horizontal day navigator (Tailwind-only) */}
+      <div className="px-4 py-2 border-b">
+        <div className="w-full overflow-x-auto">
+          <div className="inline-flex gap-2 py-1 whitespace-nowrap">
+            {daysOfWeek.map((day) => {
+              const colors = dayColors[day] || dayColors.default
+              const count = (byDay.get(day) ?? []).length
+              const isActive = selectedDay === day
+              const isToday = today === day
+
+              return (
+                <button
+                    key={day}
+                    type="button"
+                    aria-pressed={isActive}
+                    aria-current={isActive ? 'date' : undefined}
+                    onClick={() => setSelectedDay(day)}
+                    className={[
+                      'inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm ring-1 ring-inset transition',
+                      isActive
+                        ? 'bg-gray-900 text-white ring-black/10'
+                        : 'bg-white text-gray-800 ring-gray-200 hover:bg-gray-50'
+                    ].join(' ')}
+                  >
+                  <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-white' : colors.badgeBg.replace('bg-', 'bg-')}`} />
+                  <span className="font-medium">{day}</span>
+                  {isToday && (
+                    <span className={`text-[11px] font-semibold rounded-full ${isActive ? 'bg-white/10 text-white' : 'bg-black/5 text-black/80'} px-2 py-0.5`}>
+                      Today
+                    </span>
+                  )}
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    isActive ? 'bg-white/10 text-white' : `${colors.badgeBg} ${colors.badgeText}`
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Timeline body */}
+      <div className="p-4">
+        {classesForSelectedDay.length === 0 ? (
+          <div className="flex flex-col items-center justify-center text-center text-sm text-gray-400 h-48 bg-gray-50/60 rounded-xl border border-dashed">
+            <CalendarX2 size={32} className="mb-2 text-gray-300" />
+            <p>No classes scheduled.</p>
+          </div>
+        ) : (
+          <div className="relative">
+            {/* vertical line */}
+            <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
+            <div className="space-y-4">
+              <AnimatePresence initial={false}>
+                {classesForSelectedDay.map((item) => (
+                  <div key={item.id} className="relative pl-10">
+                    {/* dot on the line */}
+                    <span className="absolute left-3 top-4 h-2.5 w-2.5 rounded-full bg-gray-400 ring-2 ring-white" />
+                    <TimelineCard item={item} />
+                  </div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  </main>
     </div>
   )
 }
