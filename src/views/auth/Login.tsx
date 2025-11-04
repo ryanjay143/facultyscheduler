@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import React, { useState } from 'react';
 import { Facebook, Instagram, Lock, LogInIcon, Mail, Twitter, Eye, EyeOff } from 'lucide-react';
-// import axios from '../../plugin/axios'; // Axios is commented out as requested
+import axios from '../../plugin/axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -17,28 +17,6 @@ const Login: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-
-    // --- Dummy Data for Different User Roles ---
-    const dummyUsers = {
-        user: {
-            email: 'admin@example.com',
-            password: 'password123',
-            name: 'Admin User',
-            role: 'admin',
-        },
-        faculty: {
-            email: 'faculty@example.com',
-            password: 'faculty123',
-            name: 'Dr. Faculty',
-            role: 'faculty',
-        },
-        dean: {
-            email: 'dean@example.com',
-            password: 'dean123',
-            name: 'Dr. Dean',
-            role: 'dean',
-        },
-    };
 
     const isFirstTime = !localStorage.getItem('alreadyLoggedIn');
     localStorage.setItem('alreadyLoggedIn', 'true');
@@ -58,52 +36,60 @@ const Login: React.FC = () => {
 
         setLoading(true);
 
-        // Simulate an API call with a short delay
-        setTimeout(() => {
-            const foundUser = Object.values(dummyUsers).find(
-                (user) => user.email === email && user.password === password
-            );
+        try {
+            const response = await axios.post('login', {
+                email,
+                password
+            });
 
-            if (foundUser) {
-                const dummyResponse = {
-                    data: {
-                        token: `dummy-access-token-${foundUser.role}-${Date.now()}`,
-                        user: {
-                            name: foundUser.name,
-                            email: foundUser.email,
-                            role: foundUser.role,
-                        },
-                    },
-                };
+            const { data } = response;
 
-                localStorage.setItem('accessToken', dummyResponse.data.token);
-                localStorage.setItem('user', JSON.stringify(dummyResponse.data.user));
+            // Login successful
+            localStorage.setItem('accessToken', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
 
-                console.log('Login successful:', dummyResponse.data);
-                toast.success('Login successful 🎉', {
-                    description: isFirstTime
-                        ? `Welcome, ${dummyResponse.data.user.name}!`
-                        : `Welcome back, ${dummyResponse.data.user.name}!`,
-                });
+            console.log('Login successful:', data);
+            toast.success('Login successful 🎉', {
+                description: isFirstTime
+                    ? `Welcome, ${data.user.name}!`
+                    : `Welcome back, ${data.user.name}!`,
+            });
 
-                setErrors({});
+            setErrors({});
 
-                // --- Role-based redirection ---
-                if (foundUser.role === 'faculty') {
-                    navigate('/facultyscheduler/faculty/user-dashboard');
-                } else if (foundUser.role === 'dean') {
-                    navigate('/facultyscheduler/department/deans/user-dashboard');
+            // Role-based redirection
+                switch(data.user.role) {
+                    case 0:
+                        navigate('/facultyscheduler/admin/user-dashboard');
+                        break;
+                    case 1:
+                        navigate('/facultyscheduler/dean/user-dashboard');
+                        break;
+                    case 2:
+                        navigate('/facultyscheduler/faculty/user-dashboard');
+                        break;
+                    default:
+                        navigate('/facultyscheduler/admin/user-dashboard');
                 }
-                else {
-                    navigate('/facultyscheduler/admin/user-dashboard');
+        } catch (error) {
+            console.error('Login error:', error);
+            if (axios.isAxiosError(error)) {
+                const errorMessage = error.response?.data?.message;
+                if (error.response?.status === 401) {
+                    toast.error(errorMessage || 'Invalid credentials 😓');
+                    setErrors(prevErrors => ({
+                        ...prevErrors,
+                        [errorMessage?.toLowerCase().includes('email') ? 'email' : 'password']: errorMessage
+                    }));
+                } else {
+                    toast.error('Login failed. Please try again later 😓');
                 }
             } else {
-                console.error('Login failed: Invalid credentials');
-                toast.error('Login failed. Please check your credentials 😓');
+                toast.error('Network error. Please check your connection 😓');
             }
-
+        } finally {
             setLoading(false);
-        }, 1000); // 1-second delay
+        }
     };
 
     return (

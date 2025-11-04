@@ -1,4 +1,4 @@
-import Header from "../layouts/Header"; // Siguroha nga sakto ang path
+import Header from "../layouts/FacultyHeader"; // Siguroha nga sakto ang path
 import FacultyProfilePage from "./page/FacultyProfilePage";
 
 

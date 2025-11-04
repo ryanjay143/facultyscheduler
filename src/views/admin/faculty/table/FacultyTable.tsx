@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
-  PlusIcon,
   Search,
   Edit,
   Trash2,
@@ -25,20 +24,17 @@ import {
   ChevronRight,
   Briefcase,
   Filter,
+  RotateCcw,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { AddFacultyButton } from "../modal/AddFacultyButton";
+import { FacultyFormModal } from "../modal/FacultyFormModal";
+import { SkeletonFacultyCard } from "./../SkeletonFacultyCard";
+import axios from "../../../../plugin/axios";
+import { toast } from "sonner";
+import Swal from "sweetalert2";
 
-interface Faculty {
+export interface Faculty {
   id: number;
   name: string;
   designation: string;
@@ -47,90 +43,158 @@ interface Faculty {
   email: string;
   status: "Active" | "Inactive";
   avatar?: string;
+  deload_units: number;
+  teaching_load_units: number;
+  overload_units: number;
+  role?: number;
 }
 
-const initialFacultyData: Faculty[] = [
-    {
-      id: 1,
-      name: "Dr. Alice Johnson",
-      designation: "Professor",
-      expertise: ["Software Engineering", "HCI"],
-      department: "Computer Science",
-      email: "alice.j@university.edu",
-      status: "Active",
-      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-    },
-    {
-      id: 2,
-      name: "Prof. Bob Smith",
-      designation: "Associate Professor",
-      expertise: ["Cyber Security"],
-      department: "Information Technology",
-      email: "bob.s@university.edu",
-      status: "Inactive",
-      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    },
-    {
-      id: 3,
-      name: "Dr. Carol Lee",
-      designation: "Professor",
-      expertise: ["Computer Graphics & Vision", "Game Development"],
-      department: "Information Systems",
-      email: "carol.l@university.edu",
-      status: "Active",
-      avatar: "https://randomuser.me/api/portraits/women/68.jpg",
-    },
-    {
-      id: 4,
-      name: "Dr. Emily Clark",
-      designation: "Asst. Professor",
-      expertise: ["Cyber Security", "Computer Networks"],
-      department: "Computer Science",
-      email: "emily.c@university.edu",
-      status: "Active",
-      avatar: "https://randomuser.me/api/portraits/women/65.jpg",
-    },
-    {
-      id: 5,
-      name: "Dr. Michael Brown",
-      designation: "Department Head",
-      expertise: ["Programming"],
-      department: "Masters in Information Technology",
-      email: "michael.b@university.edu",
-      status: "Active",
-      avatar: "https://randomuser.me/api/portraits/men/45.jpg",
-    },
-  ];
+const expertiseColorPalette = [
+    { bg: "bg-blue-100", text: "text-blue-800" },
+    { bg: "bg-emerald-100", text: "text-emerald-800" },
+    { bg: "bg-amber-100", text: "text-amber-800" },
+    { bg: "bg-rose-100", text: "text-rose-800" },
+    { bg: "bg-indigo-100", text: "text-indigo-800" },
+    { bg: "bg-cyan-100", text: "text-cyan-800" },
+    { bg: "bg-pink-100", text: "text-pink-800" },
+];
 
-const statusColor = {
-  Active: "bg-green-100 text-green-800",
-  Inactive: "bg-red-100 text-red-800",
+const getStringHash = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash);
 };
 
 function FacultyTable() {
-  const [faculty, setFaculty] = useState<Faculty[]>(initialFacultyData);
+  const [allFaculty, setAllFaculty] = useState<Faculty[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState({ department: "All", status: "All" });
+  const [filters, setFilters] = useState<{ department: string; status: "All" | "Active" | "Inactive" }>({ department: "All", status: "Active" });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null);
+  const [departmentFilterOptions, setDepartmentFilterOptions] = useState<string[]>([]);
 
+  const fetchFaculty = useCallback(async () => {
+    setIsLoading(true);
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+        toast.error("Authentication required.");
+        setIsLoading(false);
+        return;
+    }
+    try {
+        const response = await axios.get('/faculties', { headers: { 'Authorization': `Bearer ${token}` } });
+        
+        const activeList: any[] = response.data.faculties || [];
+        const inactiveList: any[] = response.data.inactive_faculties || [];
+
+        const transform = (f: any): Faculty => ({
+            id: f.id, name: f.user?.name || 'N/A', email: f.user?.email || 'N/A', role: f.user?.role,
+            designation: f.designation || '', department: f.department || '', status: f.status === 0 ? "Active" : "Inactive",
+            avatar: f.profile_picture ? `${import.meta.env.VITE_URL}/${f.profile_picture}` : `https://avatar.iran.liara.run/public/boy?username=${(f.user?.name || '').replace(/\s/g, '')}`,
+            expertise: f.expertises?.map((exp: any) => exp.list_of_expertise) || [],
+            deload_units: f.deload_units || 0, teaching_load_units: f.t_load_units || 0, overload_units: f.overload_units || 0,
+        });
+        
+        const allTransformed = [...activeList.map(transform), ...inactiveList.map(transform)];
+        setAllFaculty(allTransformed);
+    } catch (error) {
+        toast.error("Failed to fetch faculty data.");
+    } finally {
+        setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchDepartmentsForFilter = async () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        try {
+            const response = await axios.get('/department-program', { headers: { 'Authorization': `Bearer ${token}` } });
+            const programList: any[] = Array.isArray(response.data.programs) ? response.data.programs : Object.values(response.data.programs || {});
+            const departmentNames = [...new Set(programList.map(p => p.program_name))];
+            setDepartmentFilterOptions(departmentNames.sort());
+        } catch (error) {
+            console.error("Failed to fetch departments for filter:", error);
+        }
+    };
+    fetchDepartmentsForFilter();
+  }, []);
+
+  useEffect(() => {
+    fetchFaculty();
+  }, [fetchFaculty]);
+
+  const handleSave = (updatedFaculty?: Faculty) => {
+    setIsModalOpen(false);
+    if (updatedFaculty) { // Kung naay gipasa nga updated data (gikan sa edit)
+        setAllFaculty(prev => prev.map(f => f.id === updatedFaculty.id ? updatedFaculty : f));
+        toast.success("Faculty information updated successfully.");
+    } else { // Kung walay gipasa (gikan sa add)
+        fetchFaculty(); // I-refetch ang tibuok listahan
+    }
+  };
+
+  const handleDeactivate = (facultyId: number) => {
+    Swal.fire({
+        title: 'Are you sure?', text: "This faculty will be marked as inactive.", icon: 'warning',
+        showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Yes, deactivate it!'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            const token = localStorage.getItem('accessToken');
+            if (!token) { toast.error("Authentication required."); return; }
+            try {
+                const response = await axios.delete(`/faculties/${facultyId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                toast.success(response.data.message || "Faculty deactivated.");
+                setAllFaculty(prev => prev.map(f => f.id === facultyId ? { ...f, status: 'Inactive' } : f));
+            } catch (error) {
+                toast.error("Failed to deactivate faculty.");
+            }
+        }
+    });
+  };
+
+  const handleActivate = (facultyId: number) => {
+    Swal.fire({
+        title: 'Activate this faculty?', text: "This will make the faculty available again.", icon: 'info',
+        showCancelButton: true, confirmButtonColor: '#3085d6', confirmButtonText: 'Yes, activate it!'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            const token = localStorage.getItem('accessToken');
+            if (!token) { toast.error("Authentication required."); return; }
+            try {
+                const response = await axios.post(`/faculties/${facultyId}/activate`, {}, { headers: { 'Authorization': `Bearer ${token}` } });
+                toast.success(response.data.message || "Faculty activated.");
+                setAllFaculty(prev => prev.map(f => f.id === facultyId ? { ...f, status: 'Active' } : f));
+            } catch (error) {
+                toast.error("Failed to activate faculty.");
+            }
+        }
+    });
+  };
+
+  const handleAdd = () => { setEditingFaculty(null); setIsModalOpen(true); };
+  const handleEdit = (facultyMember: Faculty) => { setEditingFaculty(facultyMember); setIsModalOpen(true); };
+  
   const filteredData = useMemo(() => {
-    return faculty
-      .filter((f) => {
+    return allFaculty
+      .filter(f => (filters.status === "All" || f.status === filters.status))
+      .filter(f => (filters.department === "All" || f.department === filters.department))
+      .filter(f => {
         const searchLower = searchTerm.toLowerCase();
         return (
-          f.name.toLowerCase().includes(searchLower) ||
-          f.department.toLowerCase().includes(searchLower) ||
-          f.designation.toLowerCase().includes(searchLower) ||
-          f.expertise.some((e) => e.toLowerCase().includes(searchLower))
+          (f.name || '').toLowerCase().includes(searchLower) ||
+          (f.department || '').toLowerCase().includes(searchLower) ||
+          (f.designation || '').toLowerCase().includes(searchLower) ||
+          (f.expertise || []).some(e => (e || '').toLowerCase().includes(searchLower))
         );
-      })
-      .filter((f) => filters.department === "All" || f.department === filters.department)
-      .filter((f) => filters.status === "All" || f.status === filters.status);
-  }, [faculty, searchTerm, filters]);
+      });
+  }, [allFaculty, searchTerm, filters]);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -138,185 +202,93 @@ function FacultyTable() {
   }, [filteredData, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-
-  const handleAdd = () => {
-    setEditingFaculty(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (facultyMember: Faculty) => {
-    setEditingFaculty(facultyMember);
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (facultyId: number) => {
-    if (window.confirm("Are you sure you want to delete this faculty member?")) {
-      setFaculty(faculty.filter((f) => f.id !== facultyId));
-    }
-  };
-
-  const handleSave = (facultyData: Omit<Faculty, "id">) => {
-    if (editingFaculty) {
-      setFaculty(faculty.map((f) => (f.id === editingFaculty.id ? { ...editingFaculty, ...facultyData } : f)));
-    } else {
-      const newFaculty: Faculty = {
-        id: Date.now(),
-        ...facultyData,
-      };
-      setFaculty([newFaculty, ...faculty]);
-    }
-    setIsModalOpen(false);
-  };
-
-  const departments = ["All", ...Array.from(new Set(initialFacultyData.map((f) => f.department)))];
+  
   const statuses = ["All", "Active", "Inactive"];
-
-  const expertiseOptions = [
-    "Computer Networks",
-    "HCI",
-    "Computer Graphics & Vision",
-    "Software Engineering",
-    "Software Development",
-    "Cyber Security",
-    "Programming",
-    "Game Development",
-  ];
+  const expertiseOptions = [ "Computer Networks", "HCI", "Computer Graphics & Vision", "Software Engineering", "Software Development", "Cyber Security", "Programming", "Game Development" ];
 
   return (
-    <div className="p-4 bg-gray-50 min-h-0">
-      <header className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Faculty Management</h1>
-        <p className="text-gray-500 mt-1">Add, edit, and manage all faculty members.</p>
+    <>
+      <header className="mb-6 md:mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">Faculty Management</h1>
+        <p className="text-muted-foreground mt-2">A centralized hub to add, edit, and manage all faculty members.</p>
       </header>
 
-      <Button onClick={handleAdd} className="w-full mt-2 mb-4">
-        <PlusIcon className="h-4 w-4 mr-2" />
-        Add Faculty
-      </Button>
-
-      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg border-b-4 border-primary">
-        {/* Filters */}
-        <div className="flex flex-col gap-4 justify-between items-center mb-6">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            <Input
-              placeholder="Search faculty..."
-              className="pl-10 w-full"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
+      <div className="bg-card p-4 md:p-6 rounded-lg shadow-sm border border-border">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
+          <div className="relative w-full md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <Input placeholder="Search faculty..." className="pl-10 w-full" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
           </div>
-          <div className="flex flex-row md:flex-col items-center gap-2 w-full">
-            <Select
-              value={filters.department}
-              onValueChange={(v) => {
-                setFilters((f) => ({ ...f, department: v }));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <Briefcase className="h-4 w-4 mr-2 text-gray-500" />
-                {filters.department === "All" ? "All Departments" : filters.department}
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <Select value={filters.department} onValueChange={(v) => setFilters(f => ({ ...f, department: v }))}>
+              <SelectTrigger className="w-full sm:w-auto md:w-[200px]"><Briefcase className="h-4 w-4 mr-2 text-muted-foreground" /><SelectValue placeholder="All Departments" /></SelectTrigger>
+              <SelectContent><SelectItem value="All">All Departments</SelectItem>{departmentFilterOptions.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
             </Select>
-
-            <Select
-              value={filters.status}
-              onValueChange={(v) => {
-                setFilters((f) => ({ ...f, status: v }));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <Filter className="h-4 w-4 mr-2 text-gray-500" />
-                {filters.status === "All" ? "All Statuses" : filters.status}
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+            <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v as any }))}>
+              <SelectTrigger className="w-full sm:w-auto md:w-[180px]"><Filter className="h-4 w-4 mr-2 text-muted-foreground" /><SelectValue placeholder="All Statuses" /></SelectTrigger>
+              <SelectContent>{statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            <AddFacultyButton onAdd={handleAdd} />
           </div>
         </div>
 
-        {/* Desktop/Tablet Table (hidden on phones) */}
-        <div className="rounded-md border block md:hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Faculty Member</TableHead>
+        <div className="rounded-lg border border-border overflow-x-auto">
+          <Table className="min-w-[1000px]">
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="w-[300px]">Faculty Member</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead className="md:hidden">Expertise</TableHead>
+                <TableHead>Expertise</TableHead>
+                <TableHead className="text-center">Teaching Load</TableHead>
+                <TableHead className="text-center">Deload</TableHead>
+                <TableHead className="text-center">Overload</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-center">Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-gray-500">
-                    No faculty members found.
-                  </TableCell>
-                </TableRow>
+              {isLoading ? (
+                Array.from({ length: itemsPerPage }).map((_, i) => <SkeletonFacultyCard key={i} />)
+              ) : paginatedData.length === 0 ? (
+                <TableRow><TableCell colSpan={8} className="text-center h-48 text-muted-foreground">No Faculty Found</TableCell></TableRow>
               ) : (
-                paginatedData.map((facultyMember) => (
-                  <TableRow key={facultyMember.id} className="hover:bg-gray-50 transition-colors">
-                    <TableCell className="min-w-[250px]">
+                paginatedData.map((f) => (
+                  <TableRow key={f.id} className="hover:bg-muted">
+                    <TableCell>
                       <div className="flex items-center gap-4">
-                        <img
-                          src={facultyMember.avatar}
-                          alt={facultyMember.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
-                        />
+                        <img src={f.avatar} alt={f.name} className="w-11 h-11 rounded-full object-cover ring-2 ring-offset-2 ring-border" />
                         <div>
-                          <p className="font-semibold text-gray-800">{facultyMember.name}</p>
-                          <p className="text-sm text-gray-500">{facultyMember.designation}</p>
+                          <p className="font-semibold text-foreground whitespace-nowrap">{f.name}</p>
+                          <p className="text-sm text-muted-foreground whitespace-nowrap">{f.designation}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="min-w-[150px]">{facultyMember.department}</TableCell>
-                    <TableCell className="text-gray-600 md:hidden min-w-[200px]">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {facultyMember.expertise.map((e) => (
-                          <Badge key={e} variant="secondary">
-                            {e}
-                          </Badge>
-                        ))}
+                    <TableCell className="text-muted-foreground max-w-[200px] truncate">{f.department}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-1.5 max-w-xs">
+                        {f.expertise.map((e) => {
+                            const colorIndex = getStringHash(e) % expertiseColorPalette.length;
+                            const color = expertiseColorPalette[colorIndex];
+                            return (
+                            <Badge key={e} className={`font-normal hover:${color.bg} ${color.bg} hover:${color.text} ${color.text}`}>{e}</Badge>)
+                        })}
                       </div>
                     </TableCell>
-                    <TableCell className="min-w-[120px]">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor[facultyMember.status]}`}>
-                        {facultyMember.status}
-                      </span>
+                    <TableCell className="text-center font-medium">{f.teaching_load_units}</TableCell>
+                    <TableCell className="text-center text-muted-foreground">{f.deload_units}</TableCell>
+                    <TableCell className="text-center text-destructive">{f.overload_units}</TableCell>
+                    <TableCell>
+                      <Badge variant={f.status === 'Active' ? 'default' : 'destructive'}>{f.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-center min-w-[120px]">
-                      <button
-                        onClick={() => handleEdit(facultyMember)}
-                        title="Edit"
-                        className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(facultyMember.id)}
-                        title="Delete"
-                        className="p-2 text-gray-500 hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end items-center gap-1">
+                        <Button variant="ghost" size="icon" title="Edit Faculty" onClick={() => handleEdit(f)} className="h-8 w-8 text-muted-foreground hover:text-primary"><Edit className="h-4 w-4 text-blue-500" /></Button>
+                        {f.status === 'Active' ? (
+                            <Button variant="ghost" size="icon" title="Deactivate Faculty" onClick={() => handleDeactivate(f.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        ) : (
+                            <Button variant="ghost" size="icon" title="Activate Faculty" onClick={() => handleActivate(f.id)} className="h-8 w-8 text-muted-foreground hover:text-green-600"><RotateCcw className="h-4 w-4 text-green-500" /></Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -325,84 +297,14 @@ function FacultyTable() {
           </Table>
         </div>
 
-        {/* Phone Cards (shown only on phones) */}
-        <div className="hidden md:block space-y-3">
-          {paginatedData.length === 0 ? (
-            <div className="text-center py-12 text-gray-500 border rounded-xl">No faculty members found.</div>
-          ) : (
-            paginatedData.map((f) => (
-              <div key={f.id} className="border rounded-xl p-3 bg-white shadow-sm">
-                <div className="flex items-start gap-3">
-                  <img
-                    src={f.avatar}
-                    alt={f.name}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-800 truncate">{f.name}</p>
-                        <p className="text-xs text-gray-500">{f.designation}</p>
-                      </div>
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${statusColor[f.status]}`}>
-                        {f.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      <span className="font-medium">Dept:</span> {f.department}
-                    </div>
-                    {f.expertise.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {f.expertise.map((e) => (
-                          <Badge key={e} variant="secondary" className="text-[10px] py-0.5 px-2">
-                            {e}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex justify-end gap-1 mt-3">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(f)} className="h-8 px-3">
-                        <Edit size={14} className="mr-1" /> Edit
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDelete(f.id)} className="h-8 px-3">
-                        <Trash2 size={14} className="mr-1" /> Delete
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Pagination */}
-        <div className="flex flex-row md:flex-col justify-between items-center mt-6 text-sm gap-4">
-          <p className="text-gray-600 order-2 md:order-1">
-            Showing {filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to{" "}
-            {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} entries
+        <div className="flex flex-col md:flex-row justify-between items-center mt-6 text-sm gap-4">
+          <p className="text-muted-foreground">
+            Showing <strong>{paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</strong> to <strong>{Math.min(currentPage * itemsPerPage, filteredData.length)}</strong> of <strong>{filteredData.length}</strong> entries
           </p>
-          <div className="flex items-center gap-2 order-1 md:order-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Prev
-            </Button>
-            <span className="font-medium">
-              {currentPage} of {totalPages || 1}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4 mr-1" />Previous</Button>
+            <span className="font-medium text-foreground px-2">Page {currentPage} of {totalPages || 1}</span>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}>Next<ChevronRight className="h-4 w-4 ml-1" /></Button>
           </div>
         </div>
       </div>
@@ -412,195 +314,9 @@ function FacultyTable() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
         initialData={editingFaculty}
-        departments={departments.filter((d) => d !== "All")}
         expertiseOptions={expertiseOptions}
       />
-    </div>
-  );
-}
-
-type FacultyFormModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (data: Omit<Faculty, "id">) => void;
-  initialData: Faculty | null;
-  departments: string[];
-  expertiseOptions: string[];
-};
-
-function FacultyFormModal({
-  isOpen,
-  onClose,
-  onSave,
-  initialData,
-  departments,
-  expertiseOptions,
-}: FacultyFormModalProps) {
-  const [formData, setFormData] = useState<Omit<Faculty, "id">>({
-    name: "",
-    designation: "",
-    expertise: [],
-    department: departments[0] || "",
-    email: "",
-    status: "Active",
-    avatar: "",
-  });
-
-  React.useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    } else {
-      setFormData({
-        name: "",
-        designation: "",
-        expertise: [],
-        department: departments[0] || "",
-        email: "",
-        status: "Active",
-        avatar: `https://avatar.iran.liara.run/public/${Math.floor(Math.random() * 100)}`,
-      });
-    }
-  }, [initialData, isOpen, departments]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: "department" | "status", value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value as any }));
-  };
-
-  const handleAddExpertise = (newExpertise: string) => {
-    if (newExpertise && !formData.expertise.includes(newExpertise)) {
-      setFormData((prev) => ({ ...prev, expertise: [...prev.expertise, newExpertise] }));
-    }
-  };
-
-  const handleRemoveExpertise = (expertiseToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      expertise: prev.expertise.filter((exp) => exp !== expertiseToRemove),
-    }));
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="md:w-[90%] overflow-auto max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">{initialData ? "Edit Faculty" : "Add New Faculty"}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-6 py-6">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input id="name" name="name" value={formData.name} onChange={handleChange} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="designation" className="text-right">
-                Designation
-              </Label>
-              <Input id="designation" name="designation" value={formData.designation} onChange={handleChange} className="col-span-3" placeholder="e.g., Professor" required />
-            </div>
-
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="expertise" className="text-right pt-2">
-                Expertise
-              </Label>
-              <div className="col-span-3">
-                <Select onValueChange={handleAddExpertise}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Add an expertise..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {expertiseOptions.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {Array.isArray(formData.expertise) &&
-                    formData.expertise.map((exp) => (
-                      <Badge key={exp} variant="secondary" className="pl-3 pr-1 py-1 text-sm">
-                        {exp}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExpertise(exp)}
-                          className="ml-2 rounded-full hover:bg-gray-300 p-0.5"
-                          aria-label={`Remove ${exp}`}
-                        >
-                          <X size={14} />
-                        </button>
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
-              <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="department" className="text-right">
-                Department
-              </Label>
-              <Select value={formData.department} onValueChange={(v) => handleSelectChange("department", v)}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">
-                Status
-              </Label>
-              <Select value={formData.status} onValueChange={(v) => handleSelectChange("status", v)}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="avatar" className="text-right">
-                Avatar URL
-              </Label>
-              <Input id="avatar" name="avatar" value={formData.avatar} onChange={handleChange} className="col-span-3" />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit">Save Changes</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }
 

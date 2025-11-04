@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
-  PlusIcon,
+  Plus,
   Search,
   Edit,
   Trash2,
@@ -25,20 +25,22 @@ import {
   ChevronRight,
   Building,
   Filter,
+  MoreVertical,
+  Users
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-// --- TYPE DEFINITIONS & MOCK DATA ---
-interface Room {
+// I-import ang inilipat na modal
+import { RoomFormModal } from "../modal/RoomFormModal";
+
+// I-export ang type para magamit sa modal
+export interface Room {
   id: number;
   roomNumber: string;
   building: string;
@@ -48,41 +50,23 @@ interface Room {
 }
 
 const initialRoomData: Room[] = [
-  { id: 1, roomNumber: "101", building: "Engineering", type: "Lecture", capacity: 40, status: "Available" },
-  { id: 2, roomNumber: "202", building: "Science", type: "Laboratory", capacity: 30, status: "Occupied" },
-  { id: 3, roomNumber: "A1", building: "Main", type: "Auditorium", capacity: 120, status: "Maintenance" },
-  { id: 4, roomNumber: "303", building: "Business", type: "Lecture", capacity: 35, status: "Available" },
-  { id: 5, roomNumber: "B2", building: "Arts", type: "Other", capacity: 25, status: "Occupied" },
-  { id: 6, roomNumber: "404", building: "Engineering", type: "Laboratory", capacity: 28, status: "Available" },
-  { id: 7, roomNumber: "C1", building: "Science", type: "Lecture", capacity: 32, status: "Maintenance" },
-  { id: 8, roomNumber: "D5", building: "Main", type: "Other", capacity: 20, status: "Available" },
-  { id: 9, roomNumber: "E2", building: "Business", type: "Auditorium", capacity: 100, status: "Occupied" },
-  { id: 10, roomNumber: "F3", building: "Arts", type: "Lecture", capacity: 45, status: "Available" },
-  { id: 11, roomNumber: "G7", building: "Engineering", type: "Laboratory", capacity: 27, status: "Maintenance" },
-  { id: 12, roomNumber: "H1", building: "Science", type: "Lecture", capacity: 38, status: "Available" },
-  { id: 13, roomNumber: "I2", building: "Main", type: "Other", capacity: 22, status: "Occupied" },
-  { id: 14, roomNumber: "J4", building: "Business", type: "Auditorium", capacity: 110, status: "Available" },
-  { id: 15, roomNumber: "K6", building: "Arts", type: "Lecture", capacity: 50, status: "Occupied" },
+    { id: 1, roomNumber: "101", building: "Engineering", type: "Lecture", capacity: 40, status: "Available" },
+    { id: 2, roomNumber: "202", building: "Science", type: "Laboratory", capacity: 30, status: "Occupied" },
+    { id: 3, roomNumber: "A1", building: "Main", type: "Auditorium", capacity: 120, status: "Maintenance" },
+    { id: 4, roomNumber: "303", building: "Business", type: "Lecture", capacity: 35, status: "Available" },
+    { id: 5, roomNumber: "B2", building: "Arts", type: "Other", capacity: 25, status: "Occupied" },
 ];
 
-const statusColor = {
-  Available: "bg-green-100 text-green-800",
-  Occupied: "bg-yellow-100 text-yellow-800",
-  Maintenance: "bg-red-100 text-red-800",
-} as const;
-
-// --- MAIN COMPONENT ---
 function RoomTable() {
   const [rooms, setRooms] = useState<Room[]>(initialRoomData);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({ building: "All", type: "All" });
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(5);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
-  // --- DERIVED STATE & MEMOIZATION ---
   const filteredData = useMemo(() => {
     return rooms
       .filter((room) => {
@@ -104,32 +88,14 @@ function RoomTable() {
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  // --- HANDLER FUNCTIONS ---
-  const handleAdd = () => {
-    setEditingRoom(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (room: Room) => {
-    setEditingRoom(room);
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (roomId: number) => {
-    if (window.confirm("Are you sure you want to delete this room?")) {
-      setRooms(rooms.filter((r) => r.id !== roomId));
-    }
-  };
-
+  const handleAdd = () => { setEditingRoom(null); setIsModalOpen(true); };
+  const handleEdit = (room: Room) => { setEditingRoom(room); setIsModalOpen(true); };
+  const handleDelete = (roomId: number) => { if (window.confirm("Are you sure?")) { setRooms(rooms.filter((r) => r.id !== roomId)); } };
   const handleSave = (roomData: Omit<Room, "id">) => {
     if (editingRoom) {
       setRooms(rooms.map((r) => (r.id === editingRoom.id ? { ...editingRoom, ...roomData } : r)));
     } else {
-      const newRoom: Room = {
-        id: Date.now(),
-        ...roomData,
-      };
-      setRooms([newRoom, ...rooms]);
+      setRooms([{ id: Date.now(), ...roomData }, ...rooms]);
     }
     setIsModalOpen(false);
   };
@@ -138,129 +104,93 @@ function RoomTable() {
   const types = ["All", "Lecture", "Laboratory", "Auditorium", "Other"];
 
   return (
-    // Remove min-h-screen so it fits inside the parent scroller with no bottom gap
-    <div className="p-3 bg-gray-50/50 min-h-0">
-      <header className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Classroom Management</h1>
-        <p className="text-gray-500 mt-1">Manage and monitor all classrooms and laboratories.</p>
+    <>
+      <header className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">Classroom Management</h1>
+        <p className="text-muted-foreground mt-2">Manage and monitor all classrooms and laboratories.</p>
       </header>
 
-      <Button onClick={handleAdd} className="w-full mt-2 mb-4">
-        <PlusIcon className="h-4 w-4 mr-2" />
-        Add Room
-      </Button>
-
-      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg border-b-4 border-primary">
+      <div className="bg-card p-4 md:p-6 rounded-lg shadow-sm border border-border">
         {/* Toolbar */}
-        <div className="flex flex-col gap-4 justify-between items-center mb-6">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
+          <div className="relative w-full md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <Input
               placeholder="Search by room or building..."
               className="pl-10 w-full"
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
-          <div className="flex flex-row md:flex-col items-center gap-2 w-full">
-            <Select
-              value={filters.building}
-              onValueChange={(v) => {
-                setFilters((f) => ({ ...f, building: v }));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <Building className="h-4 w-4 mr-2 text-gray-500" />
-                {filters.building === "All" ? "All Buildings" : filters.building}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <Select value={filters.building} onValueChange={(v) => setFilters((f) => ({ ...f, building: v }))}>
+              <SelectTrigger className="w-full sm:w-auto md:w-[180px]">
+                <Building className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="All Buildings" />
               </SelectTrigger>
-              <SelectContent>
-                {buildings.map((b) => (
-                  <SelectItem key={b} value={b}>
-                    {b}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+              <SelectContent>{buildings.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
             </Select>
-            <Select
-              value={filters.type}
-              onValueChange={(v) => {
-                setFilters((f) => ({ ...f, type: v }));
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <Filter className="h-4 w-4 mr-2 text-gray-500" />
-                {filters.type === "All" ? "All Types" : filters.type}
+            <Select value={filters.type} onValueChange={(v) => setFilters((f) => ({ ...f, type: v }))}>
+              <SelectTrigger className="w-full sm:w-auto md:w-[180px]">
+                <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="All Types" />
               </SelectTrigger>
-              <SelectContent>
-                {types.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+              <SelectContent>{types.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
             </Select>
+            <Button onClick={handleAdd} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" /> Add Room
+            </Button>
           </div>
         </div>
 
-        {/* Desktop/Tablet Table (hidden on phones) */}
-        <div className="rounded-md border block md:hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
+        {/* Responsive Table */}
+        <div className="rounded-lg border border-border overflow-x-auto">
+          <Table className="min-w-[600px]">
+            <TableHeader className="bg-muted/50">
+              <TableRow>
                 <TableHead>Room</TableHead>
-                <TableHead>Building</TableHead>
+                <TableHead>Total Subjects</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-center">Capacity</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-center w-32">Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-gray-500">
+                  <TableCell colSpan={6} className="text-center h-48 text-muted-foreground">
                     No rooms found.
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedData.map((room) => (
-                  <TableRow key={room.id} className="hover:bg-gray-50 transition-colors">
-                    <TableCell>
-                      <p className="font-semibold text-gray-800">{room.roomNumber}</p>
+                  <TableRow key={room.id} className="hover:bg-muted">
+                    <TableCell><p className="font-semibold text-foreground">{room.roomNumber}</p></TableCell>
+                    <TableCell className="text-muted-foreground">10</TableCell>
+                    <TableCell className="text-muted-foreground">{room.type}</TableCell>
+                    <TableCell className="text-center text-muted-foreground">
+                        <div className="flex items-center justify-center gap-2">
+                           <Users size={14} /><span>{room.capacity}</span>
+                        </div>
                     </TableCell>
-                    <TableCell>{room.building}</TableCell>
-                    <TableCell>{room.type}</TableCell>
-                    <TableCell className="text-center">{room.capacity}</TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          "px-3 py-1 rounded-full text-xs font-semibold",
-                          statusColor[room.status]
-                        )}
-                      >
+                      <Badge variant={room.status === "Available" ? "default" : room.status === "Occupied" ? "secondary" : "destructive"}>
                         {room.status}
-                      </span>
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <button
-                        onClick={() => handleEdit(room)}
-                        title="Edit"
-                        className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(room.id)}
-                        title="Delete"
-                        className="p-2 text-gray-500 hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(room)}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(room.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -269,218 +199,31 @@ function RoomTable() {
           </Table>
         </div>
 
-        {/* Phone Cards (shown only on phones) */}
-        <div className="hidden md:block space-y-3">
-          {paginatedData.length === 0 ? (
-            <div className="text-center py-12 text-gray-500 border rounded-xl">No rooms found.</div>
-          ) : (
-            paginatedData.map((room) => (
-              <div key={room.id} className="border rounded-xl p-3 bg-white shadow-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-800">{room.roomNumber}</span>
-                      <span className="text-xs text-gray-500">• {room.type}</span>
-                    </div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      <span className="font-medium">Building:</span> {room.building}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      <span className="font-medium">Capacity:</span> {room.capacity}
-                    </div>
-                    <div className="mt-2">
-                      <span
-                        className={cn(
-                          "px-2.5 py-1 rounded-full text-[11px] font-semibold",
-                          statusColor[room.status]
-                        )}
-                      >
-                        {room.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="shrink-0">
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(room)}
-                        className="h-8 px-3"
-                      >
-                        <Edit size={14} className="mr-1" /> Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(room.id)}
-                        className="h-8 px-3"
-                      >
-                        <Trash2 size={14} className="mr-1" /> Delete
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
         {/* Pagination */}
-        <div className="flex flex-row md:flex-col justify-between items-center mt-6 text-sm gap-4">
-          <p className="text-gray-600">
+        <div className="flex flex-col md:flex-row justify-between items-center mt-6 text-sm gap-4">
+          <p className="text-muted-foreground">
             Showing {filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to{" "}
             {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} entries
           </p>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
             <span className="font-medium">{currentPage} of {totalPages || 1}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
           </div>
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* I-render ang modal at ipasa ang props */}
       <RoomFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
         initialData={editingRoom}
       />
-    </div>
-  );
-}
-
-// --- REUSABLE MODAL FORM COMPONENT ---
-type RoomFormModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (data: Omit<Room, "id">) => void;
-  initialData: Room | null;
-};
-
-function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomFormModalProps) {
-  const [formData, setFormData] = useState<Omit<Room, "id">>({
-    roomNumber: "",
-    building: "",
-    type: "Lecture",
-    capacity: 40,
-    status: "Available",
-  });
-
-  React.useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    } else {
-      setFormData({
-        roomNumber: "",
-        building: "",
-        type: "Lecture",
-        capacity: 40,
-        status: "Available",
-      });
-    }
-  }, [initialData, isOpen]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: name === "capacity" ? Number(value) : value }));
-  };
-
-  const handleSelectChange = (name: "type" | "status", value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value as any }));
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="md:w-[90%]">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">{initialData ? "Edit Room" : "Add New Room"}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-6 py-6">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="roomNumber" className="text-right">
-                Room #
-              </Label>
-              <Input id="roomNumber" name="roomNumber" value={formData.roomNumber} onChange={handleChange} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="building" className="text-right">
-                Building
-              </Label>
-              <Input id="building" name="building" value={formData.building} onChange={handleChange} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="type" className="text-right">
-                Type
-              </Label>
-              <Select value={formData.type} onValueChange={(v) => handleSelectChange("type", v)}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Lecture">Lecture</SelectItem>
-                  <SelectItem value="Laboratory">Laboratory</SelectItem>
-                  <SelectItem value="Auditorium">Auditorium</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="capacity" className="text-right">
-                Capacity
-              </Label>
-              <Input id="capacity" name="capacity" type="number" min="1" value={formData.capacity} onChange={handleChange} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">
-                Status
-              </Label>
-              <Select value={formData.status} onValueChange={(v) => handleSelectChange("status", v)}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Occupied">Occupied</SelectItem>
-                  <SelectItem value="Maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit">Save Room</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }
 
 export default RoomTable;
+
+

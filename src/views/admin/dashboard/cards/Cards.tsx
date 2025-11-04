@@ -1,35 +1,35 @@
 import { BookOpen, Building2, ClipboardList, Users } from "lucide-react";
+import { motion } from "framer-motion";
 
-  // Array of card data includes a 'borderColor' class
-  const cardData = [
-    { title: "Total Faculty", value: 24, icon: Users, color: "text-violet-500", bgColor: "bg-violet-50", borderColor: "border-violet-500" },
-    { title: "Total Rooms", value: 10, icon: Building2, color: "text-fuchsia-500", bgColor: "bg-fuchsia-50", borderColor: "border-fuchsia-500" },
-    { title: "Total Subjects", value: 36, icon: BookOpen, color: "text-purple-500", bgColor: "bg-purple-50", borderColor: "border-purple-500" },
-    { title: "Scheduled Classes", value: 12, icon: ClipboardList, color: "text-blue-500", bgColor: "bg-blue-50", borderColor: "border-blue-500" },
-  ];
+const cardData = [
+  { title: "Total Faculty", value: 24, icon: Users, color: "text-violet-600", bgColor: "bg-violet-100/80" },
+  { title: "Total Rooms", value: 10, icon: Building2, color: "text-fuchsia-600", bgColor: "bg-fuchsia-100/80" },
+  { title: "Total Subjects", value: 36, icon: BookOpen, color: "text-purple-600", bgColor: "bg-purple-100/80" },
+  { title: "Scheduled Classes", value: 12, icon: ClipboardList, color: "text-sky-600", bgColor: "bg-sky-100/80" },
+];
 
-  function Cards() {
-    return (
-      <div className="grid grid-cols-4 md:grid-cols-1 gap-6">
-        {cardData.map((card, index) => (
-          <div
-            key={index}
-            className={`relative flex items-center gap-4 p-5 bg-white rounded-2xl shadow-lg border-b-4 ${card.borderColor} transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}
-          >
-            {/* Decorative glow */}
-            <div className="pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full bg-slate-100 blur-2xl" aria-hidden />
-
-            <div className={`p-3 rounded-xl ${card.bgColor} border border-black/5`}>
-              <card.icon className={card.color} size={28} />
-            </div>
-            <div>
-              <div className="text-2xl font-extrabold text-gray-800 leading-none">{card.value}</div>
-              <div className="mt-1 text-sm text-gray-500">{card.title}</div>
-            </div>
+function Cards() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {cardData.map((card, index) => (
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 + index * 0.1, duration: 0.4, ease: "easeOut" }}
+          className="bg-card p-5 rounded-xl border border-border shadow-sm flex items-center gap-5 transition-transform duration-300 hover:-translate-y-1"
+        >
+          <div className={`p-3 rounded-lg ${card.bgColor}`}>
+            <card.icon className={card.color} size={28} />
           </div>
-        ))}
-      </div>
-    );
-  }
+          <div>
+            <div className="text-2xl font-bold text-foreground">{card.value}</div>
+            <div className="text-sm text-muted-foreground">{card.title}</div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
 
-  export default Cards;
+export default Cards;

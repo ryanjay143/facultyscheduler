@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
         </CardHeader>
         <CardContent>
           <ul className="space-y-4">
-            {recentAnnouncements.map((ann, index) => (
+            {recentAnnouncements.slice(0,2).map((ann, index) => (
               <li key={index} className="group">
                 <p className="font-semibold text-gray-800 text-sm group-hover:text-purple-700 transition-colors">
                   {ann.title}
@@ -31,10 +31,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
               </li>
             ))}
           </ul>
-          <Button variant="link" className="px-0 mt-4 text-purple-600 hover:text-purple-700">
-            View All Announcements
-            <ArrowRight size={16} className="ml-1" />
-          </Button>
+          {recentAnnouncements.length > 2 ? (
+            <Button asChild variant="link" className="px-0 mt-4 text-purple-600 hover:text-purple-700">
+              <a href="/facultyscheduler/admin/announcements" className="inline-flex items-center gap-1">See more <ArrowRight size={16} /></a>
+            </Button>
+          ) : (
+            <Button variant="link" className="px-0 mt-4 text-purple-600 hover:text-purple-700">
+              View All Announcements
+              <ArrowRight size={16} className="ml-1" />
+            </Button>
+          )}
         </CardContent>
       </Card>
     );

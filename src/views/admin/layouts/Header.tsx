@@ -1,198 +1,154 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { BarChart3, User, LogOut, Bell, Settings } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { User, Users, LogOut, Settings, Calendar, Clock, Menu, X, PanelLeftClose, PanelLeftOpen, Sun, Moon, Laptop, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useTheme } from '@/components/themeProvider';
+import axios from '../../../plugin/axios'; // Siguraduhing sakto ang path sa imong axios instance
 
-// --- Dummy Data for Notifications (can be replaced with real data) ---
-const dummyNotifications = [
-    { id: 1, type: 'New User', message: 'A new user "John Doe" has registered.', time: '15m ago', read: false },
-    { id: 2, type: 'Report', message: 'Weekly sales report is ready for download.', time: '1h ago', read: false },
-    { id: 3, type: 'Alert', message: 'Server CPU usage is at 92%.', time: '3h ago', read: true },
-    { id: 4, type: 'New User', message: 'A new user "Jane Smith" has registered.', time: '1d ago', read: true },
-];
+interface HeaderProps {
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (isOpen: boolean) => void;
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: (isCollapsed: boolean) => void;
+}
 
-// --- Notification Icon Helper ---
-const NotificationIcon: React.FC<{ type: string }> = ({ type }) => {
-    const baseClass = "h-5 w-5 text-white";
-    if (type === 'New User') return <User className={baseClass} />;
-    if (type === 'Report') return <BarChart3 className={baseClass} />;
-    if (type === 'Alert') return <Bell className={baseClass} />;
-    return <Bell className={baseClass} />;
-};
-
-const iconBgColor: Record<string, string> = {
-    'New User': 'bg-sky-500',
-    'Report': 'bg-indigo-500',
-    'Alert': 'bg-rose-500',
-};
-
-const Header: React.FC = () => {
+const Header = ({ isSidebarOpen, setIsSidebarOpen, isSidebarCollapsed, setIsSidebarCollapsed }: HeaderProps) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState(dummyNotifications);
+  const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
 
-  const profileDropdownRef = useRef<HTMLDivElement>(null);
-  const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const { theme, setTheme } = useTheme();
+  const profileDropdownRef = useRef<HTMLDivElement | null>(null);
+  const themeDropdownRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
-  // --- Dynamic User Data from localStorage ---
-  const userString = localStorage.getItem('user');
-  const user = userString ? JSON.parse(userString) : { name: 'Admin User', email: 'admin@example.com' };
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60000); // Update every minute
+    return () => clearInterval(t);
+  }, []);
 
-  // --- Effect to close dropdowns on outside click ---
+  const userString = localStorage.getItem('user');
+  const user = userString ? JSON.parse(userString) : { name: 'Admin', email: 'admin@example.com' };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false);
-      }
-      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target as Node)) {
-        setIsNotifOpen(false);
-      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) setIsProfileOpen(false);
+      if (themeDropdownRef.current && !themeDropdownRef.current.contains(event.target as Node)) setIsThemeOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  
-  const unreadCount = notifications.filter(n => !n.read).length;
 
-  const handleMarkAllAsRead = () => {
-      setNotifications(notifications.map(n => ({...n, read: true})));
-      toast.info("All notifications marked as read.");
-  }
+  const handleLogout = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+        // Kung walay token, limpyohan lang ang frontend
+        localStorage.removeItem('user');
+        navigate('/facultyscheduler/user-login');
+        return;
+    }
 
-  // --- Logout Function ---
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    toast.success('Logged out successfully!');
-    navigate('/facultyscheduler/user-login');
-    setIsProfileOpen(false);
+    try {
+        // Maningkamot nga i-invalidate ang token sa server
+        await axios.post('/logout', {}, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        toast.success('You have been logged out successfully.');
+    } catch (error) {
+        console.error("Logout failed on server:", error);
+        // Bisan og naay error (sama sa 401), i-inform lang ang user ug ipadayon ang pag-logout sa frontend
+        toast.error("Could not contact server, logging out locally.");
+    } finally {
+        // Kini nga block kay mu-run pirmi, successful man o failed ang API call
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        setIsProfileOpen(false);
+        navigate('/facultyscheduler/user-login');
+    }
   };
 
-  // --- Animation Variants for Dropdowns ---
-  const dropdownVariants = {
-    hidden: { opacity: 0, y: -15, scale: 0.98, transition: { duration: 0.15 } },
+  const handleSwitchAccount = () => {
+    handleLogout(); // Ang switch account kay pareho ra og logic sa logout
+  };
+
+  const dropdownVariants: Variants = {
+    hidden: { opacity: 0, y: -10, scale: 0.95 },
     visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.2, ease: "easeOut" as const } },
-    exit: { opacity: 0, y: -15, scale: 0.98, transition: { duration: 0.15, ease: "easeIn" as const } }
+    exit: { opacity: 0, y: -10, scale: 0.95, transition: { duration: 0.15, ease: "easeIn" as const } }
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200 md:bg-primary">
-      <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-        {/* Left Section: Logo and Title */}
-        <div className="flex items-center gap-4">
-          <Link to="/facultyscheduler/admin/user-dashboard" className="flex items-center gap-3">
-            <motion.div 
-              whileHover={{ scale: 1.05, rotate: -5 }} 
-              className="flex items-center justify-center w-9 h-9 bg-primary rounded-lg shadow-md"
-            >
-              <BarChart3 className="text-white" size={20} />
-            </motion.div>
-            <span className="hidden sm:inline text-lg font-semibold text-slate-100 tracking-wider">Admin Panel</span>
-          </Link>
+    <header className="sticky top-0 z-20 bg-card/80 backdrop-blur-md border-b border-border">
+      <div className="flex items-center justify-between h-16 px-4 sm:px-6">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden p-2 rounded-md text-foreground" aria-label="Toggle Sidebar">
+            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="hidden md:flex p-2 rounded-md text-muted-foreground hover:text-foreground" aria-label="Toggle Sidebar Collapse">
+            {isSidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
         </div>
 
-        {/* Right Section: Actions and Profile */}
-        <div className="flex items-center gap-3 sm:gap-5">
-            {/* Notification Bell */}
-            <div className="relative" ref={notifDropdownRef}>
-                <button 
-                    onClick={() => { setIsNotifOpen(p => !p); setIsProfileOpen(false); }} 
-                    className="relative p-2 rounded-full text-slate-400 hover:text-slate-100 hover:bg-slate-700/50 transition-colors duration-200"
-                >
-                    <Bell size={22} />
-                    {unreadCount > 0 && (
-                        <div className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-rose-500 rounded-full border-2 border-slate-900">
-                           {unreadCount}
-                        </div>
-                    )}
-                </button>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="hidden md:flex flex-row items-center gap-4 text-sm">
+            <span className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="w-4 h-4" />{now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+            <span className="flex items-center gap-1.5 text-muted-foreground"><Clock className="w-4 h-4" />{now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+          </div>
 
-                <AnimatePresence>
-                    {isNotifOpen && (
-                        <motion.div 
-                            variants={dropdownVariants} initial="hidden" animate="visible" exit="exit"
-                            className="absolute right-0 mt-3 w-80 sm:w-96 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 z-50 overflow-hidden"
-                        >
-                           <div className="flex justify-between items-center p-4 border-b border-slate-700">
-                                <h4 className="font-bold text-slate-100">Notifications</h4>
-                                {unreadCount > 0 && <button onClick={handleMarkAllAsRead} className="text-xs font-semibold text-indigo-400 hover:underline">Mark all as read</button>}
-                           </div>
-                           <div className="max-h-80 overflow-y-auto divide-y divide-slate-700/50">
-                                {notifications.length > 0 ? (
-                                    notifications.map(notif => (
-                                        <div key={notif.id} className={`flex items-start gap-4 p-4 ${!notif.read ? 'bg-indigo-500/10' : ''} hover:bg-slate-700/50 transition-colors duration-200`}>
-                                            <div className={`mt-1 p-2 rounded-full flex-shrink-0 ${iconBgColor[notif.type] || 'bg-slate-600'}`}>
-                                                <NotificationIcon type={notif.type} />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium text-slate-200">{notif.message}</p>
-                                                <p className="text-xs text-slate-400 mt-1">{notif.time}</p>
-                                            </div>
-                                            {!notif.read && <div className="w-2 h-2 rounded-full bg-indigo-400 mt-2 ml-auto flex-shrink-0"></div>}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-12 px-4">
-                                        <Bell size={40} className="mx-auto text-slate-500"/>
-                                        <p className="mt-3 font-semibold text-slate-300">No new notifications</p>
-                                        <p className="text-sm text-slate-400 mt-1">You're all caught up!</p>
-                                    </div>
-                                )}
-                           </div>
-                           <div className="text-center p-2 bg-slate-900/50 border-t border-slate-700">
-                                <Link to="/facultyscheduler/admin/notifications" onClick={() => setIsNotifOpen(false)} className="text-sm font-bold text-indigo-400 hover:underline">
-                                    View all
-                                </Link>
-                           </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
+          <div className="relative" ref={themeDropdownRef}>
+            <button onClick={() => { setIsThemeOpen(p => !p); setIsProfileOpen(false); }} className="relative p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            </button>
+            <AnimatePresence>
+              {isThemeOpen && (
+                <motion.div variants={dropdownVariants} initial="hidden" animate="visible" exit="exit" className="absolute right-0 mt-2 w-36 bg-popover rounded-md shadow-lg border z-50">
+                   <div className="p-1">
+                     <button onClick={() => { setTheme('light'); setIsThemeOpen(false); }} className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm text-popover-foreground hover:bg-muted ${theme === 'light' ? 'bg-muted' : ''}`}><Sun size={14} /> Light</button>
+                     <button onClick={() => { setTheme('dark'); setIsThemeOpen(false); }} className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm text-popover-foreground hover:bg-muted ${theme === 'dark' ? 'bg-muted' : ''}`}><Moon size={14} /> Dark</button>
+                     <button onClick={() => { setTheme('system'); setIsThemeOpen(false); }} className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm text-popover-foreground hover:bg-muted ${theme === 'system' ? 'bg-muted' : ''}`}><Laptop size={14} /> System</button>
+                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          <span className="h-6 w-px bg-border hidden sm:inline-block"></span>
 
-            {/* Profile Dropdown */}
-            <div className="relative" ref={profileDropdownRef}>
-                <button 
-                    onClick={() => { setIsProfileOpen(p => !p); setIsNotifOpen(false); }} 
-                    className="flex items-center gap-2 rounded-full p-1 pl-2 hover:bg-slate-700/50 transition-colors duration-200"
-                >
-                    <div className="hidden sm:flex flex-col items-end">
-                        <span className="font-semibold text-sm text-slate-200">{user.name}</span>
-                        <span className="text-xs text-slate-400">Administrator</span>
+          <div className="relative" ref={profileDropdownRef}>
+            <button onClick={() => { setIsProfileOpen(p => !p); setIsThemeOpen(false); }} className="flex items-center gap-2 rounded-full p-1 pl-3 pr-2 hover:bg-muted transition-colors">
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="font-semibold text-sm text-foreground uppercase">{user.name}</span>
+                <span className="text-xs text-muted-foreground">Administrator</span>
+              </div>
+              <img src={`https://i.pravatar.cc/150?u=${user.email}`} alt="Profile" className="w-9 h-9 rounded-full border-2 border-border"/>
+              <motion.div animate={{ rotate: isProfileOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={16} className="text-muted-foreground" />
+              </motion.div>
+            </button>
+            <AnimatePresence>
+              {isProfileOpen && (
+                <motion.div variants={dropdownVariants} initial="hidden" animate="visible" exit="exit" className="absolute right-0 mt-2 w-60 bg-popover rounded-md shadow-lg border z-50">
+                  <div className="flex items-center gap-3 p-3 border-b border-border">
+                    <img src={`https://i.pravatar.cc/150?u=${user.email}`} alt="Profile" className="w-10 h-10 rounded-full"/>
+                    <div>
+                      <p className="font-semibold text-sm text-popover-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                     </div>
-                    <img src={`https://i.pravatar.cc/150?u=${user.email}`} alt="Profile" className="w-9 h-9 rounded-full border-2 border-slate-600"/>
-                </button>
-            
-                <AnimatePresence>
-                    {isProfileOpen && (
-                        <motion.div 
-                            variants={dropdownVariants} initial="hidden" animate="visible" exit="exit"
-                            className="absolute right-0 mt-3 w-64 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 z-50 overflow-hidden"
-                        >
-                            <div className="flex items-center gap-4 p-4 border-b border-slate-700">
-                                <img src={`https://i.pravatar.cc/150?u=${user.email}`} alt="Profile" className="w-12 h-12 rounded-full"/>
-                                <div>
-                                    <p className="font-bold text-slate-100">{user.name}</p>
-                                    <p className="text-sm text-slate-400 truncate">{user.email}</p>
-                                </div>
-                            </div>
-                            <div className="p-2">
-                                <Link to="/facultyscheduler/admin/profile" onClick={() => setIsProfileOpen(false)} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors">
-                                    <User size={18} /><span>Profile</span>
-                                </Link>
-                                <Link to="/facultyscheduler/admin/settings" onClick={() => setIsProfileOpen(false)} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors">
-                                    <Settings size={18} /><span>Settings</span>
-                                </Link>
-                                <hr className="border-t border-slate-700 my-1" />
-                                <button onClick={handleLogout} className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors">
-                                    <LogOut size={18} /><span>Logout</span>
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
+                  </div>
+                  <div className="p-1">
+                    <Link to="#" onClick={() => setIsProfileOpen(false)} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm text-popover-foreground hover:bg-muted"><User size={14} /> Profile</Link>
+                    <Link to="#" onClick={() => setIsProfileOpen(false)} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm text-popover-foreground hover:bg-muted"><Settings size={14} /> Settings</Link>
+                    <button onClick={handleSwitchAccount} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm text-popover-foreground hover:bg-muted"><Users size={14} /> Switch Account</button>
+                    <div className="h-px bg-border my-1" />
+                    <button onClick={handleLogout} className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm text-destructive hover:bg-destructive/10"><LogOut size={14} /> Logout</button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </header>

@@ -21,7 +21,7 @@ const FacultyNotification = lazy(() =>
 );
 
 const ClassroomSchedule = lazy(() => 
-  wait(3000).then(() => import('./views/department/classrommSchedule/ClassroomSchedule'))
+  wait(3000).then(() => import('./views/department/classrommSchedule/ClassroomScheduleLayout'))
 );
 
 
@@ -70,7 +70,7 @@ const FacultyDashboardContainer = lazy(() =>
 );
 
 const DepartmentDashboardContainer = lazy(() => 
-  wait(3000).then(() => import('./views/department/dashboard/DepartmentDashboardContainer'))
+  wait(3000).then(() => import('./views/department/dashboard/DeanDashboardContainer'))
 );
 
 const ForgotPassword = lazy(() => 
@@ -78,11 +78,11 @@ const ForgotPassword = lazy(() =>
 );
 
 const ScheduleContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/schedule/ScheduleContainer'))
+  wait(3000).then(() => import('./views/admin/faculty-loading/ScheduleContainer'))
 );
 
 const CourseContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/course/CourseContainer'))
+  wait(3000).then(() => import('./views/admin/curriculum/CourseContainer'))
 );
 
 const RoomContainer = lazy(() => 
@@ -205,12 +205,12 @@ const routes = [
 
   // Dean Department
   {
-    path: 'facultyscheduler/department/deans',
+    path: 'facultyscheduler/dean',
     element: <DeparmentContainerLayouts />,
     children: [
       {
         path: '',
-        element: <Navigate to="department/deans/user-dashboard" />,
+        element: <Navigate to="facultyscheduler/dean/user-dashboard" />,
       },
       {
         path: 'user-dashboard',
@@ -227,7 +227,7 @@ const routes = [
           </Suspense>
       },
       {
-        path: 'my-schedule',
+        path: 'class-management',
         element: 
           <Suspense fallback={<Loader />}>
             <ClassroomSchedule />

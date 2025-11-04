@@ -1,0 +1,210 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Layers, Edit, Trash2, Plus, SlidersHorizontal } from "lucide-react";
+import type { Program, Subject, Semester } from '../types';
+import type { JSX } from "react";
+import { useState, useEffect } from 'react';
+import axios from '@/plugin/axios';
+import { toast } from 'sonner';
+
+interface CurriculumDetailModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    program: Program;
+    onAddSemester: () => void;
+    onEditSemester: (semesterName: string) => void;
+    onDeleteSemester: (semesterName: string) => void;
+    onAddSubject: (semester: string) => void;
+    onEditSubject: (semester: string, subject: Subject) => void;
+    onDeleteSubject: (semester: string, subjectCode: string) => void;
+    onSetSemesterStatus: (program: Program, semesterName: string) => void;
+    refreshKey?: number;
+}
+
+export function CurriculumDetailModal({
+    isOpen,
+    onClose,
+    program,
+    onAddSemester,
+    onEditSemester,
+    onDeleteSemester,
+    onAddSubject,
+    onEditSubject,
+    onDeleteSubject,
+    onSetSemesterStatus,
+    refreshKey
+}: CurriculumDetailModalProps): JSX.Element {
+    const [semesters, setSemesters] = useState<{ [key: string]: Semester }>(program.semesters || {});
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+
+    // I-sync ang local state sa prop gikan sa parent component
+    // Kini ang magsiguro nga ang local updates (sama sa pagdugang og subject)
+    // makita dayon sa UI.
+    useEffect(() => {
+        setSemesters(program.semesters || {});
+    }, [program.semesters]);
+
+    // I-fetch ang data gikan sa API kung mag-open ang modal or naay `refreshKey`
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const fetchSemesters = async () => {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                toast.error('Authentication required.');
+                return;
+            }
+            setIsLoading(true);
+            try {
+                const response = await axios.get('/semester-with-subjects', {
+                    params: { program_id: program.id },
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                const apiSemesters: any[] = Array.isArray(response.data.semesters) ? response.data.semesters : [];
+                const programSemesters: { [key: string]: Semester } = {};
+
+                apiSemesters.forEach(apiSemester => {
+                    const semesterKey = `${apiSemester.year_level}, ${apiSemester.semester_level}`;
+                    programSemesters[semesterKey] = {
+                        subjects: (apiSemester.subjects || []).map((sub: any): Subject => ({
+                            code: sub.subject_code,
+                            name: sub.des_title,
+                            unitsTotal: sub.total_units,
+                            unitsLec: sub.lec_units,
+                            unitsLab: sub.lab_units,
+                            hoursTotal: sub.total_hrs,
+                            hoursLec: sub.total_lec_hrs,
+                            hoursLab: sub.total_lab_hrs,
+                            prerequisite: sub.pre_requisite || 'None'
+                        })),
+                        isActive: apiSemester.isActive ?? true,
+                        startDate: apiSemester.startDate,
+                        endDate: apiSemester.endDate
+                    };
+                });
+                setSemesters(programSemesters);
+            } catch (error) {
+                toast.error('Failed to load fresh semester data.');
+                console.error('Failed fetching semesters:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchSemesters();
+    }, [isOpen, program.id, refreshKey]);
+
+    // Keep local semesters in sync when parent updates `program.semesters` (e.g. when adding/editing subjects)
+    useEffect(() => {
+        if (program?.semesters) {
+            setSemesters(prev => ({ ...prev, ...program.semesters }));
+        }
+    }, [program.semesters]);
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-7xl h-[95vh] flex flex-col p-0">
+                <DialogHeader className="p-6 pb-4 bg-muted/50 border-b rounded-t-lg">
+                    <DialogTitle className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+                        {program.name}
+                        <span className="text-sm font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">{program.abbreviation}</span>
+                    </DialogTitle>
+                    <DialogDescription>Academic Year of Effectivity: {program.effectiveYear}</DialogDescription>
+                </DialogHeader>
+
+                <div className="flex-grow overflow-y-auto px-6 py-4 space-y-8">
+                    {isLoading ? (
+                        <div className="space-y-6">
+                            {[1, 2].map(i => (
+                                <div key={i} className="bg-card border rounded-xl p-4 animate-pulse">
+                                    <div className="h-6 bg-muted/60 rounded w-1/3 mb-4" />
+                                    <div className="h-48 bg-muted/30 rounded" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : Object.keys(semesters).length === 0 ? (
+                        <div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center h-full">
+                            <Layers size={56} className="mx-auto mb-4" />
+                            <h4 className="font-semibold text-xl text-foreground">No Semesters Found</h4>
+                            <p className="max-w-md mx-auto mt-2 text-sm">This curriculum is empty. Start by adding a semester.</p>
+                            <Button onClick={onAddSemester} className="mt-6"><Layers size={16} className="mr-2"/> Add Year/Semester</Button>
+                        </div>
+                    ) : (
+                        Object.entries(semesters).map(([semesterName, semesterData]) => (
+                            <div key={semesterName} className="group/semester bg-card border rounded-xl overflow-hidden shadow-sm">
+                                <div className="flex justify-between items-center p-4 bg-muted/30 border-b">
+                                    <div className="flex items-center gap-3">
+                                        <h4 className="text-lg font-semibold text-foreground">{semesterName}</h4>
+                                        <Badge variant={semesterData.isActive ? 'default' : 'destructive'}>
+                                            {semesterData.isActive ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover/semester:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(program, semesterName)}>
+                                            <SlidersHorizontal size={16}/>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" title="Rename Semester" className="h-8 w-8 text-muted-foreground" onClick={() => onEditSemester(semesterName)}><Edit size={16}/></Button>
+                                        <Button variant="ghost" size="icon" title="Delete Semester" className="h-8 w-8 text-destructive" onClick={() => onDeleteSemester(semesterName)}><Trash2 size={16}/></Button>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Code</TableHead>
+                                                <TableHead className="w-2/5">Descriptive Title</TableHead>
+                                                <TableHead className="text-center">Total Units</TableHead>
+                                                <TableHead className="text-center">Lec Units</TableHead>
+                                                <TableHead className="text-center">Lab Units</TableHead>
+                                                <TableHead className="text-center">Total Hours</TableHead>
+                                                <TableHead>Pre-requisite</TableHead>
+                                                <TableHead className="text-right w-[100px]">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {semesterData.subjects.length > 0 ? semesterData.subjects.map((subject) => (
+                                                <TableRow key={subject.code}>
+                                                    <TableCell className="font-semibold">{subject.code}</TableCell>
+                                                    <TableCell>{subject.name}</TableCell>
+                                                    <TableCell className="text-center font-bold text-primary">{subject.unitsTotal}</TableCell>
+                                                    <TableCell className="text-center">{subject.unitsLec}</TableCell>
+                                                    <TableCell className="text-center">{subject.unitsLab}</TableCell>
+                                                    <TableCell className="text-center font-bold text-primary">{subject.hoursTotal}</TableCell>
+                                                    <TableCell>{subject.prerequisite}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => onEditSubject(semesterName, subject)}><Edit size={16}/></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeleteSubject(semesterName, subject.code)}><Trash2 size={16}/></Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )) : (
+                                                <TableRow><TableCell colSpan={8} className="text-center h-24 text-muted-foreground">No subjects added for this semester.</TableCell></TableRow>
+                                            )}
+                                        </TableBody>
+                                        <TableFooter>
+                                            <TableRow className="bg-muted/50 font-bold">
+                                                <TableCell colSpan={2} className="text-right">SEMESTER TOTALS</TableCell>
+                                                <TableCell className="text-center text-lg text-primary">{semesterData.subjects.reduce((total, s) => total + s.unitsTotal, 0)}</TableCell>
+                                                <TableCell className="text-center text-muted-foreground">{semesterData.subjects.reduce((total, s) => total + s.unitsLec, 0)}</TableCell>
+                                                <TableCell className="text-center text-muted-foreground">{semesterData.subjects.reduce((total, s) => total + s.unitsLab, 0)}</TableCell>
+                                                <TableCell className="text-center text-lg text-primary">{semesterData.subjects.reduce((total, s) => total + s.hoursTotal, 0)}</TableCell>
+                                                <TableCell colSpan={2}></TableCell>
+                                            </TableRow>
+                                        </TableFooter>
+                                    </Table>
+                                </div>
+                                <div className="p-2 border-t">
+                                    <Button onClick={() => onAddSubject(semesterName)} variant="link"><Plus size={16} className="mr-1"/> Add Subject</Button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+                 <DialogFooter className="mt-auto p-6 bg-gray-50 border-t rounded-b-lg"><Button onClick={onAddSemester} variant="outline" className="flex items-center gap-2"><Layers size={16}/> Add Year/Semester</Button></DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}

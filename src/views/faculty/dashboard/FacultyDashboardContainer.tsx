@@ -1,47 +1,47 @@
-// src/components/FacultyDashboardContainer.tsx
-
-import Header from "../layouts/Header"; // Make sure this path is correct
 import StatsCards from "./cards/StatsCards";
 import UpcomingSchedule from "./cards/UpcomingSchedule";
-import Announcements from "./cards/Announcements";
-import QuickActions from "./widgets/QuickActions";
-
+import { motion } from "framer-motion";
+import { CalendarCheck } from "lucide-react";
 
 function FacultyDashboardContainer() {
+  // Gikuha ang user info gikan sa localStorage para sa personalized nga welcome message
+  const userString = localStorage.getItem('user');
+  const user = userString ? JSON.parse(userString) : { name: 'Faculty' };
+
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <Header />
-
-      {/* Main dashboard content with its own scrolling */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-6">
-        
-        {/* Welcome Message */}
-        <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Welcome back, Maria!</h1>
-            <p className="text-gray-500 mt-1">Here's your summary for today.</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="mb-8">
-            <StatsCards />
-        </div>
-
-        {/* Main 3-Column Grid for larger screens */}
-        <div className="grid grid-cols-2 md:grid-cols-1 gap-8 items-start">
-          
-          {/* --- Left Column (Quick Actions & Announcements) --- */}
-          <div className="space-y-8">
-            <QuickActions />
-            <Announcements /> 
+    // Ang Admin/Faculty Container na ang bahala sa padding, so dili na kinahanglan dinhi
+    <div className="space-y-8">
+      {/* Welcome Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white shadow-lg"
+      >
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 opacity-50 blur-2xl" />
+        <div className="relative p-6 md:p-8">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+            <CalendarCheck size={14} />
+            Faculty Dashboard
           </div>
-
-          {/* --- Center/Right Column (Main Content - Schedule) --- */}
-          <div>
-           <UpcomingSchedule />
-          </div>
-          
+          <h1 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">
+            Welcome back, {user.name}!
+          </h1>
+          <p className="text-white/80 max-w-2xl">
+            Here is a summary of your classes and workload for today.
+          </p>
         </div>
-      </main>
+      </motion.div>
+
+      {/* Stats Cards Section */}
+      <div>
+        <StatsCards />
+      </div>
+
+      {/* Upcoming Schedule Section */}
+      <div>
+        <UpcomingSchedule />
+      </div>
     </div>
   );
 }
