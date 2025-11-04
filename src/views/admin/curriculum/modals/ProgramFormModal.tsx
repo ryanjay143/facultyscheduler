@@ -11,10 +11,15 @@ import axios from '../../../../plugin/axios';
 type ProgramFormProps = { isOpen: boolean; onClose: () => void; onSave: (program: Program) => void; initialData: Program | null; };
 
 const generateYearOptions = () => {
+    // Start the dropdown options from 2015 up to currentYear + 5
+    const startYear = 2015;
     const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = -2; i <= 5; i++) { years.push(String(currentYear + i)); }
-    return years.sort();
+    const endYear = currentYear + 5;
+    const years: string[] = [];
+    for (let y = startYear; y <= endYear; y++) {
+        years.push(String(y));
+    }
+    return years; // ascending order from 2015 -> endYear
 };
 const yearOptions = generateYearOptions();
 
