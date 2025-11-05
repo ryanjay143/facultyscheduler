@@ -77,7 +77,8 @@ export function ProgramFormModal({ isOpen, onClose, onSave, initialData }: Progr
                 semesters: savedProgramAPI.semesters || initialData?.semesters || {},
                 subjects: subjectsObj,
                 total_subjects: totalSubjects,
-                total_units: totalUnits
+                total_units: totalUnits,
+                isActive: savedProgramAPI.isActive ?? savedProgramAPI.is_active ?? initialData?.isActive ?? true
             };
             onSave(resultProgram);
             onClose();

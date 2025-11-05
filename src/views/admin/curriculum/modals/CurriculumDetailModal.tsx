@@ -6,7 +6,7 @@ import { Layers, Edit, Trash2, Plus, SlidersHorizontal } from "lucide-react";
 import type { Program, Subject, Semester } from '../types';
 import type { JSX } from "react";
 import { useState, useEffect } from 'react';
-import axios from '@/plugin/axios';
+import axios from '../../../../plugin/axios';
 import { toast } from 'sonner';
 
 interface CurriculumDetailModalProps {
@@ -14,13 +14,14 @@ interface CurriculumDetailModalProps {
     onClose: () => void;
     program: Program;
     onAddSemester: () => void;
-    onEditSemester: (semesterName: string) => void;
+    onEditSemester: (semesterId: number, semesterName: string) => void;
     onDeleteSemester: (semesterName: string) => void;
-    onAddSubject: (semester: string) => void;
+    onAddSubject: (semester: string, semesterId?: number) => void;
     onEditSubject: (semester: string, subject: Subject) => void;
-    onDeleteSubject: (semester: string, subjectCode: string) => void;
-    onSetSemesterStatus: (program: Program, semesterName: string) => void;
+    onDeleteSubject: (semester: string, subjectId?: number) => void;
+    onSetSemesterStatus: (semesterName: string, semesterData: Semester) => void;
     refreshKey?: number;
+    refreshSemesterName?: string | null;
 }
 
 export function CurriculumDetailModal({
@@ -29,24 +30,16 @@ export function CurriculumDetailModal({
     program,
     onAddSemester,
     onEditSemester,
-    onDeleteSemester,
     onAddSubject,
     onEditSubject,
     onDeleteSubject,
     onSetSemesterStatus,
-    refreshKey
+    refreshKey,
+    refreshSemesterName
 }: CurriculumDetailModalProps): JSX.Element {
-    const [semesters, setSemesters] = useState<{ [key: string]: Semester }>(program.semesters || {});
+    const [semesters, setSemesters] = useState<{ [key: string]: Semester }>({});
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
-    // I-sync ang local state sa prop gikan sa parent component
-    // Kini ang magsiguro nga ang local updates (sama sa pagdugang og subject)
-    // makita dayon sa UI.
-    useEffect(() => {
-        setSemesters(program.semesters || {});
-    }, [program.semesters]);
-
-    // I-fetch ang data gikan sa API kung mag-open ang modal or naay `refreshKey`
     useEffect(() => {
         if (!isOpen) return;
 
@@ -69,7 +62,9 @@ export function CurriculumDetailModal({
                 apiSemesters.forEach(apiSemester => {
                     const semesterKey = `${apiSemester.year_level}, ${apiSemester.semester_level}`;
                     programSemesters[semesterKey] = {
+                        id: apiSemester.id,
                         subjects: (apiSemester.subjects || []).map((sub: any): Subject => ({
+                            id: sub.id,
                             code: sub.subject_code,
                             name: sub.des_title,
                             unitsTotal: sub.total_units,
@@ -80,14 +75,25 @@ export function CurriculumDetailModal({
                             hoursLab: sub.total_lab_hrs,
                             prerequisite: sub.pre_requisite || 'None'
                         })),
-                        isActive: apiSemester.isActive ?? true,
-                        startDate: apiSemester.startDate,
-                        endDate: apiSemester.endDate
+                        isActive: apiSemester.status === 0,
+                        startDate: apiSemester.start_date,
+                        endDate: apiSemester.end_date
                     };
                 });
-                setSemesters(programSemesters);
+                // If a specific semester name was requested to refresh, only merge that semester
+                if (refreshSemesterName) {
+                    const refreshed = programSemesters[refreshSemesterName];
+                    if (refreshed) {
+                        setSemesters(prev => ({ ...prev, [refreshSemesterName]: refreshed }));
+                    } else {
+                        // If server did not return the semester, fall back to replacing all
+                        setSemesters(programSemesters);
+                    }
+                } else {
+                    setSemesters(programSemesters);
+                }
             } catch (error) {
-                toast.error('Failed to load fresh semester data.');
+                toast.error('Failed to load semester data.');
                 console.error('Failed fetching semesters:', error);
             } finally {
                 setIsLoading(false);
@@ -97,12 +103,6 @@ export function CurriculumDetailModal({
         fetchSemesters();
     }, [isOpen, program.id, refreshKey]);
 
-    // Keep local semesters in sync when parent updates `program.semesters` (e.g. when adding/editing subjects)
-    useEffect(() => {
-        if (program?.semesters) {
-            setSemesters(prev => ({ ...prev, ...program.semesters }));
-        }
-    }, [program.semesters]);
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-7xl h-[95vh] flex flex-col p-0">
@@ -133,7 +133,7 @@ export function CurriculumDetailModal({
                         </div>
                     ) : (
                         Object.entries(semesters).map(([semesterName, semesterData]) => (
-                            <div key={semesterName} className="group/semester bg-card border rounded-xl overflow-hidden shadow-sm">
+                            <div key={semesterName} className={`group/semester border rounded-xl overflow-hidden shadow-sm transition-opacity ${!semesterData.isActive ? 'opacity-70 bg-muted/20' : 'bg-card'}`}>
                                 <div className="flex justify-between items-center p-4 bg-muted/30 border-b">
                                     <div className="flex items-center gap-3">
                                         <h4 className="text-lg font-semibold text-foreground">{semesterName}</h4>
@@ -142,11 +142,10 @@ export function CurriculumDetailModal({
                                         </Badge>
                                     </div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover/semester:opacity-100 transition-opacity">
-                                        <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(program, semesterName)}>
+                                        <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(semesterName, semesterData)}>
                                             <SlidersHorizontal size={16}/>
                                         </Button>
-                                        <Button variant="ghost" size="icon" title="Rename Semester" className="h-8 w-8 text-muted-foreground" onClick={() => onEditSemester(semesterName)}><Edit size={16}/></Button>
-                                        <Button variant="ghost" size="icon" title="Delete Semester" className="h-8 w-8 text-destructive" onClick={() => onDeleteSemester(semesterName)}><Trash2 size={16}/></Button>
+                                        <Button variant="ghost" size="icon" title="Rename Semester" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSemester(semesterData.id!, semesterName)}><Edit size={16}/></Button>
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -183,8 +182,8 @@ export function CurriculumDetailModal({
                                                     <TableCell className="w-[150px] text-center">{subject.prerequisite}</TableCell>
                                                     <TableCell className="text-center">
                                                         <div className="flex justify-end">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => onEditSubject(semesterName, subject)}><Edit size={16}/></Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeleteSubject(semesterName, subject.code)}><Trash2 size={16}/></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSubject(semesterName, subject)} disabled={!semesterData.isActive}><Edit size={16}/></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDeleteSubject(semesterName, subject.id)} disabled={!semesterData.isActive}><Trash2 size={16}/></Button>
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
@@ -207,7 +206,7 @@ export function CurriculumDetailModal({
                                     </Table>
                                 </div>
                                 <div className="p-2 border-t">
-                                    <Button onClick={() => onAddSubject(semesterName)} variant="link"><Plus size={16} className="mr-1"/> Add Subject</Button>
+                                    <Button onClick={() => onAddSubject(semesterName, semesterData.id)} variant="link" disabled={!semesterData.isActive}><Plus size={16} className="mr-1"/> Add Subject</Button>
                                 </div>
                             </div>
                         ))
@@ -220,8 +219,6 @@ export function CurriculumDetailModal({
                     <Button onClick={onAddSemester} variant="outline" className="flex items-center gap-2">
                         <Layers size={16}/> Add Year/Semester
                     </Button>
-
-                    
                 </DialogFooter>
             </DialogContent>
         </Dialog>

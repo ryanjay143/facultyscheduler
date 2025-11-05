@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Calendar, BookCopy, BarChart3 } from 'lucide-react';
+import { Edit, Trash2, Calendar, BookCopy, BarChart3, ArchiveRestore } from 'lucide-react';
 import type { Program } from '../types';
 
 const programColorClasses = [ 'from-purple-600 to-indigo-600', 'from-blue-500 to-teal-400', 'from-pink-500 to-rose-500', 'from-orange-500 to-amber-500', 'from-green-500 to-lime-500', 'from-cyan-500 to-sky-500' ];
@@ -11,41 +11,77 @@ interface ProgramCardProps {
     program: Program;
     index: number;
     onEdit: (program: Program) => void;
-    onDelete: (programId: number) => void;
+    onDelete: (programId: number) => void; // For Archiving (setting to inactive)
+    onRestore: (programId: number) => void; // For Restoring (setting to active)
     onManage: () => void;
-
 }
 
-export function ProgramCard({ program, index, onEdit, onDelete, onManage }: ProgramCardProps) {
-    // Prefer backend-provided aggregates when available (numbers). Otherwise compute from semesters.
+export function ProgramCard({ program, index, onEdit, onDelete, onRestore, onManage }: ProgramCardProps) {
     const totalSubjects: number = typeof (program as any).total_subjects === 'number'
         ? (program as any).total_subjects
-        : Object.values(program.semesters || {}).flatMap(s => s.subjects || []).length;
+        : Object.values(program.semesters || {}).flatMap((s: any) => s.subjects || []).length;
 
     const totalUnits: number = typeof (program as any).total_units === 'number'
         ? (program as any).total_units
         : Object.values(program.semesters || {}).flatMap(s => s.subjects || []).reduce((total, subject) => total + (subject?.unitsTotal || 0), 0);
 
+    const ActionButton = ({ isMobile = false }) => (
+        <>
+            {program.isActive ? (
+                // Button to Archive (Deactivate)
+                <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    title="Archive Program" 
+                    onClick={(e) => { e.stopPropagation(); onDelete(program.id); }} 
+                    className={`h-8 w-8 bg-black/20 ${isMobile ? 'hover:bg-destructive/80' : 'hover:bg-destructive/80'}`}
+                >
+                    <Trash2 size={16} />
+                </Button>
+            ) : (
+                // Button to Restore (Activate)
+                <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    title="Restore Program" 
+                    onClick={(e) => { e.stopPropagation(); onRestore(program.id); }} 
+                    className={`h-8 w-8 bg-black/20 ${isMobile ? 'hover:bg-green-500' : 'hover:bg-green-500'}`}
+                >
+                    <ArchiveRestore size={16} />
+                </Button>
+            )}
+        </>
+    );
+
     return (
-        // FIX 1: Gitangtang na ang `onClick` ug `cursor-pointer` sa main div
         <motion.div variants={cardVariants} custom={index} initial="hidden" animate="visible" exit="hidden"
             className="bg-card rounded-xl border border-border shadow-sm overflow-hidden group flex flex-col transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <div className={`p-5 bg-gradient-to-br text-white relative ${programColorClasses[index % programColorClasses.length]}`}>
+            
+            {/* The main card header - opacity is reduced if inactive */}
+            <div className={`p-5 bg-gradient-to-br text-white relative ${programColorClasses[index % programColorClasses.length]} ${!program.isActive && 'opacity-60'}`}>
                 <h2 className="text-xl font-bold pr-16">{program.abbreviation}</h2>
                 <p className="opacity-80 truncate text-sm pr-16">{program.name}</p>
                 
-                {/* Actions para sa Desktop (Hover Effect) */}
+                {/* MODIFIED: Red "Inactive" badge */}
+                {!program.isActive && (
+                    <div className="absolute bottom-2 left-5 px-2.5 py-1 bg-red-600/90 text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
+                        Inactive
+                    </div>
+                )}
+
+                {/* Actions for Desktop (Hover Effect) */}
                 <div className="absolute top-2 right-2 hidden md:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="icon" variant="ghost" title="Edit Program" onClick={(e) => { e.stopPropagation(); onEdit(program) }} className="h-8 w-8 bg-black/20 hover:bg-black/40"><Edit size={16} /></Button>
-                    <Button size="icon" variant="ghost" title="Archive Program" onClick={(e) => { e.stopPropagation(); onDelete(program.id) }} className="h-8 w-8 bg-black/20 hover:bg-destructive/80"><Trash2 size={16} /></Button>
+                    <Button size="icon" variant="ghost" title="Edit Program" onClick={(e) => { e.stopPropagation(); onEdit(program); }} className="h-8 w-8 bg-black/20 hover:bg-green-500"><Edit size={16} /></Button>
+                    <ActionButton />
                 </div>
 
-                {/* Actions para sa Mobile (Permanenteng Makita) */}
+                {/* Actions for Mobile (Always Visible) */}
                 <div className="absolute top-2 right-2 flex md:hidden gap-1">
-                    <Button size="icon" variant="ghost" title="Edit Program" onClick={(e) => { e.stopPropagation(); onEdit(program) }} className="h-8 w-8 bg-black/20 hover:bg-black/40"><Edit size={16} /></Button>
-                    <Button size="icon" variant="ghost" title="Archive Program" onClick={(e) => { e.stopPropagation(); onDelete(program.id) }} className="h-8 w-8 bg-black/20 hover:bg-destructive/80"><Trash2 size={16} /></Button>
+                    <Button size="icon" variant="ghost" title="Edit Program" onClick={(e) => { e.stopPropagation(); onEdit(program); }} className="h-8 w-8 bg-black/20 hover:bg-black/40"><Edit size={16} /></Button>
+                    <ActionButton isMobile />
                 </div>
             </div>
+
             <div className="p-5 flex-grow flex flex-col justify-between">
                 <div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4"><Calendar size={15} /><span>A.Y. {program.effectiveYear}</span></div>
@@ -60,8 +96,9 @@ export function ProgramCard({ program, index, onEdit, onDelete, onManage }: Prog
                         </div>
                     </div>
                 </div>
-                {/* FIX 2: Gibalik ang "Manage Curriculum" button */}
-                <Button onClick={onManage} className="w-full mt-5" variant="secondary">Manage Curriculum</Button>
+                <Button onClick={onManage} className="w-full mt-5" variant="secondary" disabled={!program.isActive}>
+                    Manage Curriculum
+                </Button>
             </div>
         </motion.div>
     );

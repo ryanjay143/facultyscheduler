@@ -1,6 +1,7 @@
 // src/features/admin/curriculum/types.ts
 
 export type Subject = {
+    id: number;
     code: string;
     name: string;
     unitsTotal: number;
@@ -13,10 +14,11 @@ export type Subject = {
 };
 
 export type Semester = {
+    id: number;
+    isActive: boolean;
+    startDate: string;
+    endDate: string;
     subjects: Subject[];
-    startDate?: string; // e.g., "2024-08-01"
-    endDate?: string;   // e.g., "2024-12-15"
-    isActive: boolean;  // true = Active, false = Inactive
 };
 
 export type Program = {
@@ -28,5 +30,5 @@ export type Program = {
     subjects: { [subjectCode: string]: Subject };
     total_subjects: number;
     total_units: number;
-    
+    isActive: boolean;
 };

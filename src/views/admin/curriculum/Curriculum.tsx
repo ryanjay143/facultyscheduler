@@ -1,15 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Calendar, Archive } from 'lucide-react';
+import { Search, Plus, Calendar, Archive, Activity } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import Swal from 'sweetalert2';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import axios from '../../../plugin/axios';
 
-// Import sa mga components
 import { ProgramCard } from './components/ProgramCard';
 import { SkeletonProgramCard } from './components/SkeletonProgramCard';
 import { CurriculumDetailModal } from './modals/CurriculumDetailModal';
@@ -25,20 +24,25 @@ function Curriculum() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [yearFilter, setYearFilter] = useState('All Years');
+    const [statusFilter, setStatusFilter] = useState('Active');
     const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
 
     const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState<Program | null>(null);
     
     const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
-    const [refreshSemestersKey, setRefreshSemestersKey] = useState(0);
     const [isSemesterRenameModalOpen, setIsSemesterRenameModalOpen] = useState(false);
     const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
     const [isSemesterStatusModalOpen, setIsSemesterStatusModalOpen] = useState(false);
+    const [refreshSemestersKey, setRefreshSemestersKey] = useState(0);
+    // When updating/adding/deleting a subject we can indicate which semester row changed
+    // so the detail modal can merge only that semester instead of replacing all semesters.
+    const [refreshSemesterName, setRefreshSemesterName] = useState<string | null>(null);
 
-    const [editingSemesterName, setEditingSemesterName] = useState<string | null>(null);
-    const [editingSubjectInfo, setEditingSubjectInfo] = useState<{ semester: string; subject: Subject | null } | null>(null);
-    const [editingSemester, setEditingSemester] = useState<{ name: string; semester: Semester } | null>(null);
+    const [editingSubjectInfo, setEditingSubjectInfo] = useState<{ semester: string; semesterId?: number; subject: Subject | null } | null>(null);
+    
+    const [editingSemester, setEditingSemester] = useState<{ name: string | null; semester: Semester | null }>({ name: null, semester: null });
+    const [renamingSemester, setRenamingSemester] = useState<{ id: number | null; name: string | null }>({ id: null, name: null });
 
     const navigate = useNavigate();
 
@@ -62,9 +66,12 @@ function Curriculum() {
                 effectiveYear: `${program.year_from}-${program.year_to}`,
                 total_subjects: program.total_subjects || 0,
                 total_units: program.total_units || 0,
+                isActive: program.status === 0,
                 semesters: program.semesters ? Object.entries(program.semesters).reduce((acc, [key, value]: [string, any]) => {
                     acc[key] = {
+                        id: value.id,
                         subjects: (value.subjects || []).map((subject: any) => ({
+                            id: subject.id, // Important for delete
                             code: subject.subject_code,
                             name: subject.des_title,
                             unitsTotal: subject.total_units,
@@ -75,9 +82,9 @@ function Curriculum() {
                             hoursLab: subject.total_lab_hrs,
                             prerequisite: subject.pre_requisite || ''
                         })),
-                        isActive: value.isActive ?? true,
-                        startDate: value.startDate,
-                        endDate: value.endDate
+                        isActive: value.status === 0,
+                        startDate: value.start_date,
+                        endDate: value.end_date
                     };
                     return acc;
                 }, {} as { [key: string]: Semester }) : {},
@@ -100,110 +107,225 @@ function Curriculum() {
         fetchPrograms();
     }, [fetchPrograms]);
 
-    const handleSaveProgram = (savedProgram: Program) => {
-        const isEditing = !!editingProgram;
-        if (isEditing) {
-            setPrograms(prev => prev.map(p => (p.id === savedProgram.id ? savedProgram : p)));
-        } else {
-            setPrograms(prev => [savedProgram, ...prev]);
-        }
+    const handleOpenSemesterStatus = (semesterName: string, semesterData: Semester) => {
+        setEditingSemester({ name: semesterName, semester: semesterData });
+        setIsSemesterStatusModalOpen(true);
+    };
+
+    const handleEditSemester = (semesterId: number, semesterName: string) => {
+        setRenamingSemester({ id: semesterId, name: semesterName });
+        setIsSemesterRenameModalOpen(true);
+    };
+    
+    const handleSaveProgram = (_savedProgram: Program) => {
+        fetchPrograms();
         setIsProgramModalOpen(false);
     };
 
-    const handleAddProgram = () => { setEditingProgram(null); setIsProgramModalOpen(true); };
-    const handleEditProgram = (program: Program) => { setEditingProgram(program); setIsProgramModalOpen(true); };
+    const handleAddProgram = () => {
+        setEditingProgram(null);
+        setIsProgramModalOpen(true);
+    };
+    
+    const handleEditProgram = (program: Program) => {
+        setEditingProgram(program);
+        setIsProgramModalOpen(true);
+    };
+
+    // Confirmation dialog state for shadcn Dialog-based confirmations
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        title: string;
+        description?: string;
+        confirmText?: string;
+        confirmVariant?: 'destructive' | 'default' | 'outline';
+        onConfirm: (() => Promise<void>) | null;
+    } | null>(null);
+    const [confirmProcessing, setConfirmProcessing] = useState(false);
 
     const handleDeleteProgram = (programId: number) => {
-        Swal.fire({
-            title: 'Are you sure?',
-            text: "This program will be moved to the archives.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, archive it!'
-        }).then(async (result) => {
-            if (result.isConfirmed) {
+        setConfirmDialog({
+            open: true,
+            title: 'Archive Program',
+            description: 'This program will be moved to the archives.',
+            confirmText: 'Yes, archive it!',
+            onConfirm: async () => {
                 const token = localStorage.getItem('accessToken');
-                if (!token) {
-                    toast.error("Authentication required.");
-                    return;
-                }
+                if (!token) { toast.error('Authentication required.'); return; }
                 try {
                     const response = await axios.post(`/delete-program/${programId}`, {}, { headers: { 'Authorization': `Bearer ${token}` } });
-                    toast.success(response.data.message || "Program archived successfully.");
-                    setPrograms(prev => prev.filter(p => p.id !== programId));
+                    toast.success(response.data.message || 'Program archived successfully.');
+                    await fetchPrograms();
                 } catch (error) {
-                    toast.error("Failed to archive program.");
-                    console.error("Error deleting program:", error);
+                    toast.error('Failed to archive program.');
                 }
             }
         });
     };
-    
-    const handleSaveSemester = async (_semesterName: string, _subjects: Subject[], created?: boolean) => {
-        if (!selectedProgram) return;
-        if (created) {
-            await fetchPrograms();
-            setRefreshSemestersKey(k => k + 1);
-        }
-        setIsSemesterModalOpen(false);
-    };
-    
-    const handleSaveSubject = (semesterName: string, subjectData: Subject, isEditing: boolean) => {
-        if (!selectedProgram) return;
-    
-        const updatedProgram = { ...selectedProgram, semesters: { ...selectedProgram.semesters } };
-        const semesterToUpdate = { ...(updatedProgram.semesters[semesterName] || { subjects: [], isActive: true }) };
-    
-        if (isEditing) {
-            semesterToUpdate.subjects = semesterToUpdate.subjects.map(s => s.code === subjectData.code ? subjectData : s);
-        } else {
-            semesterToUpdate.subjects = [...semesterToUpdate.subjects, subjectData];
-        }
-    
-        updatedProgram.semesters[semesterName] = semesterToUpdate;
-    
-        setPrograms(programs.map(p => p.id === updatedProgram.id ? updatedProgram : p));
-        setSelectedProgram(updatedProgram);
-        setIsSubjectModalOpen(false);
-        toast.success(`Subject successfully ${isEditing ? 'updated' : 'added'}!`);
-    };
 
-    const handleOpenSemesterStatus = (program: Program, semesterName: string) => {
-        const semesterData = program.semesters[semesterName];
-        if (semesterData) {
-            setEditingSemester({ name: semesterName, semester: semesterData });
-            setSelectedProgram(program);
-            setIsSemesterStatusModalOpen(true);
-        }
-    };
-
-    const handleSaveSemesterStatus = (semesterName: string, isActive: boolean, startDate: string, endDate: string) => {
-        if (selectedProgram) {
-            const updatedProgram = { ...selectedProgram };
-            const updatedSemesters = { ...updatedProgram.semesters };
-            if (updatedSemesters[semesterName]) {
-                updatedSemesters[semesterName] = { ...updatedSemesters[semesterName], isActive, startDate, endDate };
+    const handleRestoreProgram = (programId: number) => {
+        setConfirmDialog({
+            open: true,
+            title: 'Restore Program',
+            description: 'This will make the program active again.',
+            confirmText: 'Yes, restore it!',
+            onConfirm: async () => {
+                const token = localStorage.getItem('accessToken');
+                if (!token) { toast.error('Authentication required.'); return; }
+                try {
+                    const response = await axios.post(`/restore-program/${programId}`, {}, { headers: { 'Authorization': `Bearer ${token}` } });
+                    toast.success(response.data.message || 'Program restored successfully.');
+                    await fetchPrograms();
+                } catch (error) {
+                    toast.error('Failed to restore program.');
+                }
             }
-            updatedProgram.semesters = updatedSemesters;
-            
-            setPrograms(programs.map(p => p.id === updatedProgram.id ? updatedProgram : p));
-            setSelectedProgram(updatedProgram);
-            toast.success(`Status for "${semesterName}" has been updated.`);
-        }
-        setIsSemesterStatusModalOpen(false);
+        });
+    };
+
+    const handleAddSubject = (semester: string, semesterId?: number) => {
+        setEditingSubjectInfo({ semester, semesterId, subject: null });
+        setIsSubjectModalOpen(true);
+    };
+
+    const handleEditSubject = (semester: string, subject: Subject) => {
+        // Try to resolve the semester DB id from the selectedProgram or programs list
+    const program = selectedProgram; // selectedProgram should be set when editing from the detail modal
+    const semesterFromProgram = program?.semesters?.[semester];
+        const semesterId = semesterFromProgram?.id;
+        setEditingSubjectInfo({ semester, semesterId, subject });
+        setIsSubjectModalOpen(true);
     };
     
-    // Handlers para ma-trigger ang mga modal
-    const handleAddSemester = () => setIsSemesterModalOpen(true);
-    const handleEditSemester = (semesterName: string) => { setEditingSemesterName(semesterName); setIsSemesterRenameModalOpen(true); };
-    const handleDeleteSemester = (semesterName: string) => { console.log("Deleting:", semesterName); };
-    const handleRenameSemester = (newName: string) => { console.log("Renaming to:", newName); };
-    const handleAddSubject = (semester: string) => { setEditingSubjectInfo({ semester, subject: null }); setIsSubjectModalOpen(true); };
-    const handleEditSubject = (semester: string, subject: Subject) => { setEditingSubjectInfo({ semester, subject }); setIsSubjectModalOpen(true); };
-    const handleDeleteSubject = (semester: string, code: string) => { console.log(`Deleting ${code} from ${semester}`); };
+    const handleDeleteSubject = (semesterName: string, subjectId?: number) => {
+        if (!subjectId) {
+            toast.error('Could not find subject ID to delete.');
+            return;
+        }
 
+        // open shadcn confirm dialog for subject delete
+        setConfirmDialog({
+    open: true,
+    title: 'Delete Subject',
+    description: `This will permanently delete this subject. You won't be able to revert this!`,
+            confirmText: 'Yes, delete it!',
+            confirmVariant: 'destructive',
+    onConfirm: async () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) { toast.error('Authentication required.'); return; }
+                try {
+                    await axios.delete(`/subjects/${subjectId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    toast.success('Subject deleted successfully!');
+                    setRefreshSemesterName(semesterName);
+                    setRefreshSemestersKey(k => k + 1);
+                    // Refresh parent programs so ProgramCard totals update
+                    await fetchPrograms();
+                } catch (error) {
+                    toast.error('Failed to delete subject.');
+                    console.error('Delete subject error:', error);
+                }
+    }
+});
+    };
+
+    // Save subject (create or update) via API
+    const handleSubjectModalSave = async (semesterName: string, semesterIdParam: number | undefined, subjectData: Subject, isEditing: boolean) => {
+        if (!selectedProgram) {
+            toast.error('No program selected.');
+            return;
+        }
+
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            toast.error('Authentication required.');
+            return;
+        }
+
+        try {
+            // For creating a subject we must resolve the semester DB id.
+            // For editing, the subject id is sufficient so don't require semesterId here
+            let semesterId = semesterIdParam;
+            if (!isEditing) {
+                // Determine semester id: prefer explicit param, fall back to parent program state
+                const program = programs.find(p => p.id === selectedProgram.id);
+                const semesterFromProgram = program?.semesters?.[semesterName];
+                semesterId = semesterId ?? semesterFromProgram?.id;
+
+                // If still not found, try to search all programs for a matching semesterName
+                if (!semesterId) {
+                    for (const p of programs) {
+                        const sem = p.semesters?.[semesterName];
+                        if (sem?.id) { semesterId = sem.id; break; }
+                    }
+                }
+
+                if (!semesterId) {
+                    toast.error('Semester ID not found. Please refresh and try again.');
+                    return;
+                }
+            }
+
+            if (isEditing) {
+                if (!subjectData.id) {
+                    toast.error('Subject ID missing for update.');
+                    return;
+                }
+                // Prepare payload matching backend field names
+                const payload = {
+                    subject_code: subjectData.code,
+                    des_title: subjectData.name,
+                    total_units: subjectData.unitsTotal,
+                    lec_units: subjectData.unitsLec,
+                    lab_units: subjectData.unitsLab,
+                    total_hrs: subjectData.hoursTotal,
+                    total_lec_hrs: subjectData.hoursLec,
+                    total_lab_hrs: subjectData.hoursLab,
+                    pre_requisite: subjectData.prerequisite || null
+                };
+
+                await axios.put(`/subjects/${subjectData.id}`, payload, { headers: { 'Authorization': `Bearer ${token}` } });
+                toast.success('Subject updated successfully.');
+                setRefreshSemesterName(semesterName);
+                setRefreshSemestersKey(k => k + 1);
+                // Refresh parent programs so ProgramCard totals update
+                await fetchPrograms();
+            } else {
+                // Create subject under semester
+                const payload = {
+                    subject_code: subjectData.code,
+                    des_title: subjectData.name,
+                    total_units: subjectData.unitsTotal,
+                    lec_units: subjectData.unitsLec,
+                    lab_units: subjectData.unitsLab,
+                    total_hrs: subjectData.hoursTotal,
+                    total_lec_hrs: subjectData.hoursLec,
+                    total_lab_hrs: subjectData.hoursLab,
+                    pre_requisite: subjectData.prerequisite || null
+                };
+
+                try {
+                    await axios.post(`/semesters/${semesterId}/subjects`, payload, { headers: { 'Authorization': `Bearer ${token}` } });
+                    toast.success('Subject added successfully.');
+                    setRefreshSemesterName(semesterName);
+                    setRefreshSemestersKey(k => k + 1);
+                    // Refresh parent programs so ProgramCard totals update
+                    await fetchPrograms();
+                } catch (err: any) {
+                    // If backend says semester not found (404), refresh programs and surface a clearer message
+                    if (err?.response?.status === 404) {
+                        toast.error('Semester not found on server. Refreshing programs.');
+                        await fetchPrograms();
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Save subject error:', error);
+            toast.error('Failed to save subject.');
+        }
+    };
+    
     const effectiveYears = useMemo(() => {
         const years = new Set(programs.map(p => p.effectiveYear));
         return ['All Years', ...Array.from(years).sort((a, b) => b.localeCompare(a))];
@@ -212,8 +334,12 @@ function Curriculum() {
     const filteredPrograms = useMemo(() => {
         return programs
             .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.abbreviation.toLowerCase().includes(searchTerm.toLowerCase()))
-            .filter(p => yearFilter === 'All Years' || p.effectiveYear === yearFilter);
-    }, [programs, searchTerm, yearFilter]);
+            .filter(p => yearFilter === 'All Years' || p.effectiveYear === yearFilter)
+            .filter(p => {
+                if (statusFilter === 'All') return true;
+                return statusFilter === 'Active' ? p.isActive : !p.isActive;
+            });
+    }, [programs, searchTerm, yearFilter, statusFilter]);
 
     return (
         <>
@@ -222,7 +348,7 @@ function Curriculum() {
                 <p className="text-muted-foreground mt-2">Manage academic programs, semesters, and their subjects.</p>
             </header>
             <div className="bg-card p-4 md:p-6 rounded-lg shadow-sm border border-border mb-8">
-                <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+                 <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
                     <div className="relative w-full md:flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
                         <Input type="text" placeholder="Search program..." className="pl-10 w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -235,6 +361,17 @@ function Curriculum() {
                             </SelectTrigger>
                             <SelectContent>
                                 {effectiveYears.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-full sm:w-auto md:w-[180px]">
+                                <Activity className="h-4 w-4 mr-2 text-muted-foreground" />
+                                <SelectValue placeholder="Filter by Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="All">All</SelectItem>
+                                <SelectItem value="Active">Active</SelectItem>
+                                <SelectItem value="Inactive">Inactive</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button onClick={handleAddProgram} className="w-full sm:w-auto">
@@ -252,7 +389,15 @@ function Curriculum() {
                     {filteredPrograms.length > 0 ? (
                         <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filteredPrograms.map((program, i) => (
-                                <ProgramCard key={program.id} program={program} index={i} onEdit={handleEditProgram} onDelete={handleDeleteProgram} onManage={() => setSelectedProgram(program)} />
+                                <ProgramCard 
+                                    key={program.id} 
+                                    program={program} 
+                                    index={i} 
+                                    onEdit={handleEditProgram} 
+                                    onDelete={handleDeleteProgram}
+                                    onRestore={handleRestoreProgram} 
+                                    onManage={() => setSelectedProgram(program)} 
+                                />
                             ))}
                         </motion.div>
                     ) : (
@@ -265,55 +410,86 @@ function Curriculum() {
             )}
 
             <ProgramFormModal isOpen={isProgramModalOpen} onClose={() => setIsProgramModalOpen(false)} onSave={handleSaveProgram} initialData={editingProgram} />
-            
+            {/* Confirmation dialog (shadcn) used instead of SweetAlert2 */}
+            {confirmDialog && (
+                <Dialog open={confirmDialog.open} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{confirmDialog.title}</DialogTitle>
+                            {confirmDialog.description && <DialogDescription>{confirmDialog.description}</DialogDescription>}
+                        </DialogHeader>
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button variant="outline" disabled={confirmProcessing}>Cancel</Button>
+                            </DialogClose>
+                            <Button
+                                onClick={async () => {
+                                    if (!confirmDialog?.onConfirm) return;
+                                    setConfirmProcessing(true);
+                                    try {
+                                        await confirmDialog.onConfirm();
+                                    } finally {
+                                        setConfirmProcessing(false);
+                                        setConfirmDialog(null);
+                                    }
+                                }}
+                                disabled={confirmProcessing}
+                                variant={confirmDialog.confirmVariant as any}
+                            >{confirmProcessing ? 'Processing...' : (confirmDialog.confirmText || 'Confirm')}</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
+
             {selectedProgram && (
                 <CurriculumDetailModal 
                     isOpen={!!selectedProgram} 
                     onClose={() => setSelectedProgram(null)} 
                     program={selectedProgram} 
-                    onAddSemester={handleAddSemester} 
-                    onEditSemester={handleEditSemester} 
-                    onDeleteSemester={handleDeleteSemester} 
-                    onAddSubject={handleAddSubject} 
-                    onEditSubject={handleEditSubject} 
-                    onDeleteSubject={handleDeleteSubject} 
+                    onAddSemester={() => setIsSemesterModalOpen(true)}
+                    onEditSemester={handleEditSemester}
+                    onDeleteSemester={() => {}}
+                    onAddSubject={handleAddSubject}
+                    onEditSubject={handleEditSubject}
+                    onDeleteSubject={handleDeleteSubject}
                     onSetSemesterStatus={handleOpenSemesterStatus}
-                    refreshKey={refreshSemestersKey} 
+                    refreshKey={refreshSemestersKey}
+                    refreshSemesterName={refreshSemesterName}
                 />
             )}
 
             <SemesterFormModal
                 isOpen={isSemesterModalOpen}
                 onClose={() => setIsSemesterModalOpen(false)}
-                onSave={handleSaveSemester}
+                onSave={() => setRefreshSemestersKey(k => k + 1)}
                 programId={selectedProgram ? selectedProgram.id : 0}
             />
 
             <SemesterRenameModal 
                 isOpen={isSemesterRenameModalOpen} 
                 onClose={() => setIsSemesterRenameModalOpen(false)} 
-                onSave={handleRenameSemester} 
-                initialData={editingSemesterName} 
+                onSaveSuccess={() => setRefreshSemestersKey(k => k + 1)}
+                semesterId={renamingSemester.id}
+                initialData={renamingSemester.name}
             />
 
             {editingSubjectInfo && (
                 <SubjectFormModal 
                     isOpen={isSubjectModalOpen} 
                     onClose={() => setIsSubjectModalOpen(false)} 
-                    // FIX: Gisulbad ang type error pinaagi sa pag-define sa type sa mga parameters
-                    onSave={(subjectData: Subject, isEditing: boolean) => 
-                        handleSaveSubject(editingSubjectInfo.semester, subjectData, isEditing)
-                    } 
+                    onSave={(subjectData: Subject, isEditing: boolean) => handleSubjectModalSave(editingSubjectInfo.semester, editingSubjectInfo.semesterId, subjectData, isEditing)}
                     initialData={editingSubjectInfo.subject}
-                    semesterName={editingSubjectInfo.semester}
                     programId={selectedProgram?.id ?? 0}
+                    semesterName={editingSubjectInfo.semester}
+                    semesterId={editingSubjectInfo.semesterId}
                 />
             )}
 
             <SemesterStatusModal 
                 isOpen={isSemesterStatusModalOpen} 
                 onClose={() => setIsSemesterStatusModalOpen(false)} 
-                onSave={handleSaveSemesterStatus} 
+                onSaveSuccess={() => setRefreshSemestersKey(k => k + 1)}
+                semesterId={editingSemester?.semester?.id || null} 
                 semesterName={editingSemester?.name || null} 
                 initialData={editingSemester?.semester || null} 
             />

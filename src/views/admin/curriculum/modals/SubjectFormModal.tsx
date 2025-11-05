@@ -11,10 +11,12 @@ import { toast } from 'sonner'; // Opsyonal, pero mas nindot tan-awon kaysa aler
 type SubjectFormProps = {
    isOpen: boolean;
     onClose: () => void;
-    onSave: (subjectData: Subject, isEditing: boolean) => void;
+    // onSave may be async (returns a Promise) — the modal will await it and show a loading state
+    onSave: (subjectData: Subject, isEditing: boolean) => Promise<void> | void;
     initialData: Subject | null;
     programId: number;
     semesterName: string;
+    semesterId?: number;
 };
 
 type SubjectError = {
@@ -22,8 +24,11 @@ type SubjectError = {
     hourError: string | null;
 };
 
-export function SubjectFormModal({ isOpen, onClose, onSave, initialData }: SubjectFormProps) {
+export function SubjectFormModal(props: SubjectFormProps) {
+    const { isOpen, onClose, onSave, initialData } = props;
+    // programId, semesterName, semesterId are available on props if needed: props.programId, props.semesterName, props.semesterId
     const [subject, setSubject] = useState<Subject>({
+        id: 0,
         code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0,
         hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: ''
     });
@@ -48,10 +53,10 @@ export function SubjectFormModal({ isOpen, onClose, onSave, initialData }: Subje
         }
     }, [subject]);
 
-    // Set initial data when modal opens
     useEffect(() => {
         if (isOpen) {
             setSubject(initialData || {
+                id: 0,
                 code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0,
                 hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: ''
             });
@@ -67,17 +72,27 @@ export function SubjectFormModal({ isOpen, onClose, onSave, initialData }: Subje
     };
 
     // FIX 2: I-update ang handleSubmit para ipasa ang `isEditing` boolean
-    const handleSubmit = (e: React.FormEvent) => {
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (errors) {
             toast.error("Please fix the validation errors before saving.");
             return;
         }
-        // I-determine kung nag-edit ba o nag-add og bag-o
         const isEditing = !!initialData;
-        
-        // Tawaga ang onSave uban ang duha ka argumento
-        onSave(subject, isEditing);
+        setIsSaving(true);
+        try {
+            // Await the parent save handler (may be async)
+            await onSave(subject, isEditing);
+            // Close modal on success
+            onClose();
+        } catch (err) {
+            console.error('Subject save failed:', err);
+            toast.error('Failed to save subject.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -91,8 +106,8 @@ export function SubjectFormModal({ isOpen, onClose, onSave, initialData }: Subje
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="code">Course Code</Label>
-                                <Input id="code" value={subject.code} onChange={e => handleChange('code', e.target.value)} disabled={!!initialData} required />
-                                {!!initialData && <p className="text-xs text-muted-foreground mt-1">Course code cannot be edited.</p>}
+                                {/* Allow editing the course code even when editing an existing subject */}
+                                <Input id="code" value={subject.code} onChange={e => handleChange('code', e.target.value)} required />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="prerequisite">Pre-requisite</Label>
@@ -133,8 +148,8 @@ export function SubjectFormModal({ isOpen, onClose, onSave, initialData }: Subje
                         </div>
                     </div>
                     <DialogFooter className="mt-8 pt-4 border-t">
-                        <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                        <Button type="submit" disabled={!!errors}>{errors ? "Fix Errors" : (initialData ? "Save Changes" : "Save Subject")}</Button>
+                        <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
+                        <Button type="submit" disabled={!!errors || isSaving}>{isSaving ? 'Saving...' : (initialData ? 'Save Changes' : 'Save Subject')}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

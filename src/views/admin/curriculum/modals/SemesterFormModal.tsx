@@ -21,7 +21,7 @@ type SemesterFormProps = {
 };
 
 // Initial state para sa usa ka subject row
-const initialSubjectState: Subject = { code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' };
+const initialSubjectState: Subject = { id: 0, code: '', name: '', unitsTotal: 0, unitsLec: 0, unitsLab: 0, hoursTotal: 0, hoursLec: 0, hoursLab: 0, prerequisite: '' };
 
 // Mga options para sa dropdowns
 const yearLevelOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
