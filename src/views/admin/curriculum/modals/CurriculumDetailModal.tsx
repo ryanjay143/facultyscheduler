@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -150,30 +150,38 @@ export function CurriculumDetailModal({
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
+                                    <Table className="min-w-[1200px]">
+                                        <TableHeader className="bg-muted/50 sticky top-0 z-10">
                                             <TableRow>
-                                                <TableHead>Code</TableHead>
-                                                <TableHead className="w-2/5">Descriptive Title</TableHead>
-                                                <TableHead className="text-center">Total Units</TableHead>
-                                                <TableHead className="text-center">Lec Units</TableHead>
-                                                <TableHead className="text-center">Lab Units</TableHead>
-                                                <TableHead className="text-center">Total Hours</TableHead>
-                                                <TableHead>Pre-requisite</TableHead>
-                                                <TableHead className="text-right w-[100px]">Actions</TableHead>
+                                                <TableHead rowSpan={2} className="align-middle text-center border-r">Course Code</TableHead>
+                                                <TableHead rowSpan={2} className="align-middle text-center border-r w-[350px]">Descriptive Title</TableHead>
+                                                <TableHead colSpan={3} className="text-center border-r">Units</TableHead>
+                                                <TableHead colSpan={3} className="text-center border-r">Hours per week</TableHead>
+                                                <TableHead rowSpan={2} className="align-middle text-center border-r">Pre-requisite</TableHead>
+                                                <TableHead rowSpan={2} className="align-middle w-[50px]"></TableHead>
+                                            </TableRow>
+                                            <TableRow>
+                                                <TableHead className="text-center border-r">Total</TableHead>
+                                                <TableHead className="text-center border-r">Lec</TableHead>
+                                                <TableHead className="text-center border-r">Lab</TableHead>
+                                                <TableHead className="text-center border-r">Total</TableHead>
+                                                <TableHead className="text-center border-r">Lec</TableHead>
+                                                <TableHead className="text-center border-r">Lab</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {semesterData.subjects.length > 0 ? semesterData.subjects.map((subject) => (
                                                 <TableRow key={subject.code}>
-                                                    <TableCell className="font-semibold">{subject.code}</TableCell>
-                                                    <TableCell>{subject.name}</TableCell>
+                                                    <TableCell className="w-[150px] font-semibold uppercase text-center">{subject.code}</TableCell>
+                                                    <TableCell className="text-center">{subject.name}</TableCell>
                                                     <TableCell className="text-center font-bold text-primary">{subject.unitsTotal}</TableCell>
                                                     <TableCell className="text-center">{subject.unitsLec}</TableCell>
                                                     <TableCell className="text-center">{subject.unitsLab}</TableCell>
                                                     <TableCell className="text-center font-bold text-primary">{subject.hoursTotal}</TableCell>
-                                                    <TableCell>{subject.prerequisite}</TableCell>
-                                                    <TableCell className="text-right">
+                                                    <TableCell className="text-center">{subject.hoursLec}</TableCell>
+                                                    <TableCell className="text-center">{subject.hoursLab}</TableCell>
+                                                    <TableCell className="w-[150px] text-center">{subject.prerequisite}</TableCell>
+                                                    <TableCell className="text-center">
                                                         <div className="flex justify-end">
                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => onEditSubject(semesterName, subject)}><Edit size={16}/></Button>
                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeleteSubject(semesterName, subject.code)}><Trash2 size={16}/></Button>
@@ -181,16 +189,18 @@ export function CurriculumDetailModal({
                                                     </TableCell>
                                                 </TableRow>
                                             )) : (
-                                                <TableRow><TableCell colSpan={8} className="text-center h-24 text-muted-foreground">No subjects added for this semester.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={10} className="text-center h-24 text-muted-foreground">No subjects added for this semester.</TableCell></TableRow>
                                             )}
                                         </TableBody>
-                                        <TableFooter>
-                                            <TableRow className="bg-muted/50 font-bold">
-                                                <TableCell colSpan={2} className="text-right">SEMESTER TOTALS</TableCell>
-                                                <TableCell className="text-center text-lg text-primary">{semesterData.subjects.reduce((total, s) => total + s.unitsTotal, 0)}</TableCell>
-                                                <TableCell className="text-center text-muted-foreground">{semesterData.subjects.reduce((total, s) => total + s.unitsLec, 0)}</TableCell>
-                                                <TableCell className="text-center text-muted-foreground">{semesterData.subjects.reduce((total, s) => total + s.unitsLab, 0)}</TableCell>
-                                                <TableCell className="text-center text-lg text-primary">{semesterData.subjects.reduce((total, s) => total + s.hoursTotal, 0)}</TableCell>
+                                        <TableFooter className="sticky bottom-0 bg-muted/80 backdrop-blur-sm">
+                                            <TableRow>
+                                                <TableCell colSpan={2} className="text-right font-bold text-lg">SEMESTER TOTALS</TableCell>
+                                                <TableCell className="text-center font-bold text-lg text-primary">{semesterData.subjects.reduce((t, s) => t + s.unitsTotal, 0)}</TableCell>
+                                                <TableCell className="text-center font-semibold">{semesterData.subjects.reduce((t, s) => t + s.unitsLec, 0)}</TableCell>
+                                                <TableCell className="text-center font-semibold">{semesterData.subjects.reduce((t, s) => t + s.unitsLab, 0)}</TableCell>
+                                                <TableCell className="text-center font-bold text-lg text-primary">{semesterData.subjects.reduce((t, s) => t + s.hoursTotal, 0)}</TableCell>
+                                                <TableCell className="text-center font-semibold">{semesterData.subjects.reduce((t, s) => t + s.hoursLec, 0)}</TableCell>
+                                                <TableCell className="text-center font-semibold">{semesterData.subjects.reduce((t, s) => t + s.hoursLab, 0)}</TableCell>
                                                 <TableCell colSpan={2}></TableCell>
                                             </TableRow>
                                         </TableFooter>
@@ -203,7 +213,16 @@ export function CurriculumDetailModal({
                         ))
                     )}
                 </div>
-                 <DialogFooter className="mt-auto p-6 bg-gray-50 border-t rounded-b-lg"><Button onClick={onAddSemester} variant="outline" className="flex items-center gap-2"><Layers size={16}/> Add Year/Semester</Button></DialogFooter>
+                 <DialogFooter className="mt-auto p-6 bg-gray-50 border-t rounded-b-lg">
+                    <DialogClose asChild>
+                            <Button type="button" variant="outline">Cancel</Button>
+                        </DialogClose>
+                    <Button onClick={onAddSemester} variant="outline" className="flex items-center gap-2">
+                        <Layers size={16}/> Add Year/Semester
+                    </Button>
+
+                    
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

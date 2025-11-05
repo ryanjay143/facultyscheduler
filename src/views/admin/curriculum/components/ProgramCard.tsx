@@ -13,11 +13,18 @@ interface ProgramCardProps {
     onEdit: (program: Program) => void;
     onDelete: (programId: number) => void;
     onManage: () => void;
+
 }
 
 export function ProgramCard({ program, index, onEdit, onDelete, onManage }: ProgramCardProps) {
-    const totalSubjects = Object.values(program.semesters || {}).flatMap(s => s.subjects).length;
-    const totalUnits = Object.values(program.semesters || {}).flatMap(s => s.subjects).reduce((total, subject) => total + subject.unitsTotal, 0);
+    // Prefer backend-provided aggregates when available (numbers). Otherwise compute from semesters.
+    const totalSubjects: number = typeof (program as any).total_subjects === 'number'
+        ? (program as any).total_subjects
+        : Object.values(program.semesters || {}).flatMap(s => s.subjects || []).length;
+
+    const totalUnits: number = typeof (program as any).total_units === 'number'
+        ? (program as any).total_units
+        : Object.values(program.semesters || {}).flatMap(s => s.subjects || []).reduce((total, subject) => total + (subject?.unitsTotal || 0), 0);
 
     return (
         // FIX 1: Gitangtang na ang `onClick` ug `cursor-pointer` sa main div

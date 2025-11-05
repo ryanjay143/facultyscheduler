@@ -26,4 +26,7 @@ export type Program = {
     effectiveYear: string;
     semesters: { [semesterName: string]: Semester }; 
     subjects: { [subjectCode: string]: Subject };
+    total_subjects: number;
+    total_units: number;
+    
 };

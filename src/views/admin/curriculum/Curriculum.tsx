@@ -60,6 +60,8 @@ function Curriculum() {
                 name: program.program_name,
                 abbreviation: program.abbreviation,
                 effectiveYear: `${program.year_from}-${program.year_to}`,
+                total_subjects: program.total_subjects || 0,
+                total_units: program.total_units || 0,
                 semesters: program.semesters ? Object.entries(program.semesters).reduce((acc, [key, value]: [string, any]) => {
                     acc[key] = {
                         subjects: (value.subjects || []).map((subject: any) => ({
