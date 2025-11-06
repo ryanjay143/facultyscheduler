@@ -65,20 +65,20 @@ export function ProgramFormModal({ isOpen, onClose, onSave, initialData }: Progr
             toast.success(response.data.message || 'Program saved successfully!');
             
             const savedProgramAPI = response.data.program;
-            const subjectsObj = savedProgramAPI.subjects || initialData?.subjects || {};
+            const subjectsObj = savedProgramAPI.subjects || (initialData as any)?.subjects || {};
             const totalSubjects = typeof savedProgramAPI.total_subjects === 'number' ? savedProgramAPI.total_subjects : Object.keys(subjectsObj).length;
-            const totalUnits = typeof savedProgramAPI.total_units === 'number' ? savedProgramAPI.total_units : (initialData?.total_units ?? 0);
+            const totalUnits = typeof savedProgramAPI.total_units === 'number' ? savedProgramAPI.total_units : ((initialData as any)?.total_units ?? 0);
 
             const resultProgram: Program = {
                 id: savedProgramAPI.id,
                 name: savedProgramAPI.program_name,
                 abbreviation: savedProgramAPI.abbreviation,
                 effectiveYear: `${savedProgramAPI.year_from}-${savedProgramAPI.year_to}`,
-                semesters: savedProgramAPI.semesters || initialData?.semesters || {},
+                semesters: savedProgramAPI.semesters || (initialData as any)?.semesters || {},
                 subjects: subjectsObj,
                 total_subjects: totalSubjects,
                 total_units: totalUnits,
-                isActive: savedProgramAPI.isActive ?? savedProgramAPI.is_active ?? initialData?.isActive ?? true
+                isActive: savedProgramAPI.isActive ?? savedProgramAPI.is_active ?? (initialData as any)?.isActive ?? true
             };
             onSave(resultProgram);
             onClose();

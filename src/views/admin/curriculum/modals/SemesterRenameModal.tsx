@@ -1,77 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from 'sonner';
 import axios from '../../../../plugin/axios';
 import { Loader2 } from 'lucide-react';
 
-type SemesterRenameModalProps = {
+interface SemesterRenameModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSaveSuccess: () => void; // GI-UPDATE: Wala na'y parameters
+    onSaveSuccess: (oldName: string, newName: string) => void;
     semesterId: number | null;
-    initialData: string | null;
-};
+    initialData: string;
+}
 
 const yearLevelOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
 const semesterOptions = ["1st Semester", "2nd Semester", "Summer"];
 
 export function SemesterRenameModal({ isOpen, onClose, onSaveSuccess, semesterId, initialData }: SemesterRenameModalProps) {
-    const [yearLevel, setYearLevel] = useState('');
-    const [semester, setSemester] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [yearPart, setYearPart] = useState('');
+    const [semesterPart, setSemesterPart] = useState('');
 
     useEffect(() => {
-        if (isOpen) {
-            if (initialData) {
-                const parts = initialData.split(',').map(p => p.trim());
-                setYearLevel(parts[0] || '');
-                setSemester(parts[1] || '');
-            } else {
-                setYearLevel('');
-                setSemester('');
+        if (isOpen && initialData) {
+            const parts = initialData.split(', ');
+            if (parts.length === 2) {
+                setYearPart(parts[0]);
+                setSemesterPart(parts[1]);
             }
         }
     }, [isOpen, initialData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!yearLevel || !semester || !semesterId) {
-            toast.error("Missing required information to rename.");
-            return;
-        }
-
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-            toast.error("Authentication required.");
-            return;
-        }
+        const newName = `${yearPart}, ${semesterPart}`;
+        if (!yearPart || !semesterPart) { toast.error("Please select both a year level and a semester."); return; }
+        if (newName === initialData) { toast.info("No changes were made."); onClose(); return; }
+        if (!semesterId) { toast.error("Semester ID is missing."); return; }
 
         setIsSaving(true);
         try {
-            const url = `/semesters/${semesterId}/rename`;
-            const body = {
-                year_level: yearLevel,
-                semester_level: semester,
-            };
-
-            const response = await axios.put(url, body, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            toast.success(response.data.message || 'Semester renamed successfully!');
-            
-            onSaveSuccess(); // GI-UPDATE: Tawagon na lang ang onSaveSuccess nga walay parameters
+            const token = localStorage.getItem('accessToken');
+            if (!token) { toast.error("Authentication required."); setIsSaving(false); return; }
+            const payload = { year_level: yearPart, semester_level: semesterPart };
+            await axios.put(`/semesters/${semesterId}/rename`, payload, { headers: { 'Authorization': `Bearer ${token}` } });
+            toast.success("Semester renamed successfully!");
+            onSaveSuccess(initialData, newName);
             onClose();
-
-        } catch (err: any) {
-            console.error("Failed to rename semester:", err.response?.data);
-            toast.error(err.response?.data?.message || 'Failed to rename semester.');
-        } finally {
-            setIsSaving(false);
-        }
+        } catch (error: any) { toast.error(error.response?.data?.message || "Failed to rename semester."); } 
+        finally { setIsSaving(false); }
     };
 
     return (
@@ -80,34 +59,25 @@ export function SemesterRenameModal({ isOpen, onClose, onSaveSuccess, semesterId
                 <DialogHeader>
                     <DialogTitle>Rename Semester</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="py-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="yearLevel">Year Level</Label>
-                            <Select value={yearLevel} onValueChange={setYearLevel} required>
-                                <SelectTrigger id="yearLevel"><SelectValue placeholder="Select year level" /></SelectTrigger>
-                                <SelectContent>{yearLevelOptions.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="semester">Semester</Label>
-                            <Select value={semester} onValueChange={setSemester} required>
-                                <SelectTrigger id="semester"><SelectValue placeholder="Select semester" /></SelectTrigger>
-                                <SelectContent>{semesterOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
+                <form onSubmit={handleSubmit} className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="yearPart">Year Level</Label>
+                        <Select value={yearPart} onValueChange={setYearPart}>
+                            <SelectTrigger id="yearPart"><SelectValue placeholder="Select a year level" /></SelectTrigger>
+                            <SelectContent>{yearLevelOptions.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
+                        </Select>
                     </div>
-                    <DialogFooter className="pt-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="semesterPart">Semester</Label>
+                        <Select value={semesterPart} onValueChange={setSemesterPart}>
+                            <SelectTrigger id="semesterPart"><SelectValue placeholder="Select a semester" /></SelectTrigger>
+                            <SelectContent>{semesterOptions.map(sem => <SelectItem key={sem} value={sem}>{sem}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter className='pt-4'>
                         <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
-                        <Button type="submit" disabled={!yearLevel || !semester || isSaving}>
-                            {isSaving ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Saving...
-                                </>
-                            ) : (
-                                'Save Changes'
-                            )}
+                        <Button type="submit" disabled={isSaving || !yearPart || !semesterPart}>
+                            {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Renaming...</> : 'Rename'}
                         </Button>
                     </DialogFooter>
                 </form>

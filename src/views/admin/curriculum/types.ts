@@ -1,34 +1,35 @@
-// src/features/admin/curriculum/types.ts
+// src/pages/Curriculum/types.ts
 
-export type Subject = {
-    id: number;
+export interface Subject {
+    id?: number;
     code: string;
     name: string;
     unitsTotal: number;
-    unitsLec: number;
-    unitsLab: number;
+    unitsLec: number | '';
+    unitsLab: number | '';
     hoursTotal: number;
-    hoursLec: number;
-    hoursLab: number;
+    hoursLec: number | '';
+    hoursLab: number | '';
     prerequisite: string;
-};
+}
 
-export type Semester = {
+export interface Semester {
     id: number;
-    isActive: boolean;
-    startDate: string;
-    endDate: string;
     subjects: Subject[];
-};
+    isActive: boolean;
+    startDate?: string;
+    endDate?: string;
+}
 
-export type Program = {
-    id: number;
+export interface Program {
+   id: number;
     name: string;
     abbreviation: string;
     effectiveYear: string;
-    semesters: { [semesterName: string]: Semester }; 
-    subjects: { [subjectCode: string]: Subject };
+    isActive: boolean;
+    subjects: Record<string, any>;
+    semesters: Record<string, any>;
     total_subjects: number;
     total_units: number;
-    isActive: boolean;
-};
+}
+
