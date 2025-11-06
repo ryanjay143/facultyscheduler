@@ -36,16 +36,24 @@ export function SubjectFormModal(props: SubjectFormProps) {
 
     // Automatic calculation of total units and hours
     useEffect(() => {
-        const newUnitsTotal = subject.unitsLec + subject.unitsLab;
-        const newHoursTotal = subject.hoursLec + subject.hoursLab;
+        const newUnitsTotal = (Number(subject.unitsLec) || 0) + (Number(subject.unitsLab) || 0);
+        const newHoursTotal = (Number(subject.hoursLec) || 0) + (Number(subject.hoursLab) || 0);
         setSubject(s => ({ ...s, unitsTotal: newUnitsTotal, hoursTotal: newHoursTotal }));
     }, [subject.unitsLec, subject.unitsLab, subject.hoursLec, subject.hoursLab]);
 
     // Validation logic (dili na kinahanglan, kay automatic na ang total)
     // Apan pwede magpabilin kung gusto nimo i-manual override ang Total
     useEffect(() => {
-        const unitError = (subject.unitsLec + subject.unitsLab) > subject.unitsTotal ? "Lec + Lab units cannot exceed Total." : null;
-        const hourError = (subject.hoursLec + subject.hoursLab) > subject.hoursTotal ? "Lec + Lab hours cannot exceed Total." : null;
+        const lecUnits = Number(subject.unitsLec) || 0;
+        const labUnits = Number(subject.unitsLab) || 0;
+        const totalUnits = Number(subject.unitsTotal) || 0;
+        const unitError = (lecUnits + labUnits) > totalUnits ? "Lec + Lab units cannot exceed Total." : null;
+
+        const lecHours = Number(subject.hoursLec) || 0;
+        const labHours = Number(subject.hoursLab) || 0;
+        const totalHours = Number(subject.hoursTotal) || 0;
+        const hourError = (lecHours + labHours) > totalHours ? "Lec + Lab hours cannot exceed Total." : null;
+
         if (unitError || hourError) {
             setErrors({ unitError, hourError });
         } else {
