@@ -90,7 +90,7 @@ const FacultyContainer = lazy(() =>
 const routes = [
   {
     path: '/facultyscheduler',
-    element: <Navigate to="/facultyscheduler/user-login" />,
+    element: <RedirectFrom404 />,
   },
   {
     path: 'facultyscheduler/user-login',
@@ -266,6 +266,18 @@ const routes = [
 
 // Create router
 const router = createBrowserRouter(routes);
+
+// Component to handle redirects coming from GitHub Pages 404
+function RedirectFrom404() {
+  const params = new URLSearchParams(window.location.search);
+  const shouldRedirect = params.get('redirect') === 'true';
+  if (shouldRedirect) {
+    const saved = sessionStorage.getItem('redirectPath') || '/facultyscheduler/user-login';
+    sessionStorage.removeItem('redirectPath');
+    return <Navigate to={saved} replace />;
+  }
+  return <Navigate to="/facultyscheduler/user-login" replace />;
+}
 
 // Simulate delay function
 function wait(time: number) {
