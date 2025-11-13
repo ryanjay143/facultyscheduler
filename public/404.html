@@ -7,7 +7,8 @@
     <script type="text/javascript">
       const redirectUrl = location.pathname + location.search + location.hash;
       sessionStorage.setItem("redirectPath", redirectUrl);
-      location.replace("/?redirect=true");
+      // Redirect to the repository base so GitHub Pages loads the SPA index
+      location.replace("/facultyscheduler/?redirect=true");
     </script>
   </head>
   <body></body>
