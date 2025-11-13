@@ -1,32 +1,14 @@
-<!doctype html>
-<html lang="en">
+<!-- 404.html -->
+<!DOCTYPE html>
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/facultyscheduler/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>
-      Faculty Scheduler
-    </title>
-    <!-- CSRF Token Meta Tag -->
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-     <script type="text/javascript">
-      (function (l) {
-        if (l.search[1] === "/") {
-          var decoded = l.search
-            .slice(1)
-            .split("&")
-            .map(function (s) {
-              return s.replace(/~and~/g, "&");
-            })
-            .join("?");
-          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
-        }
-      })(window.location);
+    <meta charset="utf-8" />
+    <title>Faculty Scheduler</title>
+    <script type="text/javascript">
+      const redirectUrl = location.pathname + location.search + location.hash;
+      sessionStorage.setItem("redirectPath", redirectUrl);
+      location.replace("/?redirect=true");
     </script>
-    <script type="module" crossorigin src="/facultyscheduler/assets/index-Po53OIl0.js"></script>
-    <link rel="stylesheet" crossorigin href="/facultyscheduler/assets/index-7F4KA1lG.css">
   </head>
-  <body>
-    <div id="root"></div>
-  </body>
+  <body></body>
 </html>
