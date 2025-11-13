@@ -1,153 +1,212 @@
-import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Info, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import Swal from 'sweetalert2';
+import axios from '../../../plugin/axios';
+import { Input } from '@/components/ui/input';
+import type { Faculty, Subject } from './type';
+import { FacultyCard } from './components/card/FacultyCard';
+import { FacultyCardSkeleton } from './components/card/FacultyCardSkeleton';
+import { AssignSubjectDialog } from './components/AssignSubjectDialog';
+import { ViewAssignedSubjectsDialog } from './components/ViewAssignedSubjectsDialog';
 
-import { allFaculty, allSubjects } from './data/dummyData';
-import type { FacultyType, Subject } from './type';
-import { SubjectCard } from './components/SubjectCard';
-import { AssignmentDialog } from './components/AssignmentDialog';
-import { toast } from 'sonner';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
 
 function MainFacultyLoading() {
-    const [faculty] = useState<FacultyType[]>(allFaculty);
-    const [subjects, setSubjects] = useState<Subject[]>(allSubjects);
-    const [subjectQuery, setSubjectQuery] = useState('');
-    const [subjectFilter, setSubjectFilter] = useState<'ALL' | 'UNASSIGNED' | 'ASSIGNED'>('ALL');
-    const [activeSubject, setActiveSubject] = useState<Subject | null>(null);
-
-    // --- LOGIC FUNCTIONS (nananatili sa parent) ---
-    const hasConflict = (facultyName: string, day: string, start: string, end: string) => {
-      const facultySubjects = subjects.filter((s) => s.assigned?.faculty === facultyName);
-      for (const sub of facultySubjects) {
-        const assigned = sub.assigned?.time || '';
-        const parts = assigned.split(';').map(s => s.trim()).filter(Boolean);
-        for (const part of parts) {
-          const [pDay, range] = part.split(' ');
-          if (pDay !== day) continue;
-          const [assignedStartTime, assignedEndTime] = (range || '').split('-');
-          if (!assignedStartTime || !assignedEndTime) continue;
-          if (start < assignedEndTime && assignedStartTime < end) {
-            return { code: sub.code, name: sub.name, day: pDay, start: assignedStartTime, end: assignedEndTime };
-          }
-        }
-      }
-      return null;
-    };
-
-    const onAssign = (payload: { subjectId: number; facultyName: string; day: string; startTime: string; endTime: string }) => {
-      const { subjectId, facultyName, day, startTime, endTime } = payload;
-      const fac = faculty.find((f) => f.name === facultyName);
-      if (!fac) return;
-
-      const assignedCount = subjects.filter((s) => s.assigned?.faculty === fac.name).length;
-      if (assignedCount >= fac.maxSubjects) {
-        Swal.fire({ icon: 'warning', title: 'Maximum Load Reached', text: `${fac.name} has reached the max load.` });
-        return;
-      }
-
-      const conflict = hasConflict(fac.name, day, startTime, endTime);
-      if (conflict) {
-        Swal.fire({ icon: 'error', title: 'Schedule Conflict', html: `Conflicts with <b>${conflict.code}</b> on ${conflict.day} from ${conflict.start} to ${conflict.end}.` });
-        return;
-      }
-
-      setSubjects((prev) =>
-        prev.map((s) => {
-          if (s.id !== subjectId) return s;
-          const newEntry = `${day} ${startTime}-${endTime}`;
-          if (!s.assigned || s.assigned.faculty !== fac.name) {
-            return { ...s, assigned: { faculty: fac.name, time: newEntry } };
-          }
-          const parts = s.assigned.time.split(';').map(p => p.trim()).filter(Boolean);
-          const hasSame = parts.some(p => p === newEntry);
-          const updated = hasSame ? parts : [...parts, newEntry];
-          return { ...s, assigned: { faculty: fac.name, time: updated.join('; ') } };
-        })
-      );
-      Swal.fire({ icon: 'success', title: 'Assigned!', timer: 900, showConfirmButton: false });
-    };
-
-    const onUnassign = (subjectId: number) => {
-      setSubjects((prev) => prev.map((s) => (s.id === subjectId ? { ...s, assigned: null } : s)));
-      toast.success("Subject has been unassigned.");
-    };
-
-    const filteredSubjects = useMemo(() => {
-        let list = subjects;
-        if (subjectFilter === 'UNASSIGNED') list = list.filter((s) => !s.assigned);
-        if (subjectFilter === 'ASSIGNED') list = list.filter((s) => !!s.assigned);
-        if (subjectQuery.trim()) {
-            const q = subjectQuery.toLowerCase();
-            list = list.filter(s => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.expertise.toLowerCase().includes(q));
-        }
-        return list;
-    }, [subjects, subjectFilter, subjectQuery]);
+    const [faculties, setFaculties] = useState<Faculty[]>([]);
+    const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
+    const [subjectsForModal, setSubjectsForModal] = useState<Subject[]>([]);
+    const [facultyQuery, setFacultyQuery] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
     
+    // State for Assign Subject Dialog
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [selectedFaculty, setSelectedFaculty] = useState<Faculty | null>(null);
+
+    // New State for View Assigned Subjects Dialog
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [facultyForViewModal, setFacultyForViewModal] = useState<Faculty | null>(null);
+
+
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            setIsLoading(true);
+            try {
+                const token = localStorage.getItem('accessToken');
+                if (!token) {
+                    Swal.fire({ icon: 'warning', title: 'Authentication Error', text: 'You must be logged in.' });
+                    setIsLoading(false);
+                    return;
+                }
+                const axiosConfig = { headers: { Authorization: `Bearer ${token}` } };
+
+                const [facultyRes, subjectRes] = await Promise.all([
+                    axios.get(`/faculties`, axiosConfig),
+                    axios.get(`/get-subjects`, axiosConfig)
+                ]);
+
+                // --- DEMO DATA FOR ASSIGNED SUBJECTS ---
+                // In your real app, this data would come from the API
+                const demoAssignedSubjects = [
+                    { id: 101, subject_code: 'CS 101', des_title: 'Intro to Programming', schedule: { day: 'MWF', time: '10:00 - 11:00 AM' } },
+                    { id: 102, subject_code: 'IT 203', des_title: 'Database Systems', schedule: { day: 'TTH', time: '1:00 - 2:30 PM' } },
+                ];
+                // --- END DEMO DATA ---
+
+                const mappedFaculties: Faculty[] = facultyRes.data.faculties.map((f: any, index: number) => ({
+                    id: f.id,
+                    name: f.user.name,
+                    expertise: f.expertises.map((e: any) => e.list_of_expertise),
+                    availability: {},
+                    maxUnits: f.t_load_units,
+                    // Assign demo subjects to the first faculty for demonstration
+                    assignedSubjects: index === 0 ? demoAssignedSubjects : [],
+                    profile_picture: f.profile_picture,
+                }));
+
+                setFaculties(mappedFaculties);
+                setAllSubjects(subjectRes.data.subject || []);
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                Swal.fire({ icon: 'error', title: 'Fetch Error', text: 'Failed to retrieve data from the server.' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchInitialData();
+    }, []);
+
+    const filteredFaculties = faculties.filter(f =>
+        f.name.toLowerCase().includes(facultyQuery.toLowerCase()) ||
+        f.expertise.some(e => e.toLowerCase().includes(facultyQuery.toLowerCase()))
+    );
+
+    // Handlers for Assigning Subjects
+    const handleOpenAssignModal = (faculty: Faculty) => {
+        const facultyExpertise = faculty.expertise.map(e => e.toLowerCase().trim());
+        if (facultyExpertise.length === 0) {
+            setSubjectsForModal(allSubjects);
+        } else {
+            const relevantSubjects = allSubjects.filter(subject => {
+                const subjectText = `${subject.des_title} ${subject.subject_code}`.toLowerCase();
+                return facultyExpertise.some(exp => subjectText.includes(exp));
+            });
+            setSubjectsForModal(relevantSubjects);
+        }
+        setSelectedFaculty(faculty);
+        setIsAssignModalOpen(true);
+    };
+
+    const handleCloseAssignModal = () => {
+        setIsAssignModalOpen(false);
+        setSelectedFaculty(null);
+        setSubjectsForModal([]);
+    };
+
+    // New Handlers for Viewing Subjects
+    const handleOpenViewModal = (faculty: Faculty) => {
+        setFacultyForViewModal(faculty);
+        setIsViewModalOpen(true);
+    };
+
+    const handleCloseViewModal = () => {
+        setIsViewModalOpen(false);
+        setFacultyForViewModal(null);
+    };
+
+
+    const handleAssignSubject = (facultyId: number, subjectId: number, schedule: { day: string; time: string }) => {
+        console.log("Assigning Subject:", { facultyId, subjectId, schedule });
+        Swal.fire({
+            icon: 'success',
+            title: 'Assignment Recorded',
+            text: `Subject ${subjectId} assigned to faculty ${facultyId} on ${schedule.day} at ${schedule.time}.`,
+            timer: 2000,
+            showConfirmButton: false
+        });
+    };
+
     return (
         <>
-            <header className="mb-8">
+            <AnimatePresence>
+                {isAssignModalOpen && selectedFaculty && (
+                    <AssignSubjectDialog
+                        isOpen={isAssignModalOpen}
+                        onClose={handleCloseAssignModal}
+                        faculty={selectedFaculty}
+                        availableSubjects={subjectsForModal}
+                        onAssign={handleAssignSubject}
+                    />
+                )}
+                {isViewModalOpen && facultyForViewModal && (
+                    <ViewAssignedSubjectsDialog
+                        isOpen={isViewModalOpen}
+                        onClose={handleCloseViewModal}
+                        faculty={facultyForViewModal}
+                    />
+                )}
+            </AnimatePresence>
+            
+            <header className="mb-8 text-start">
                 <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">Faculty Loading</h1>
-                <p className="text-muted-foreground mt-2">Assign subjects to faculty based on expertise and availability.</p>
+                <p className="text-muted-foreground mt-3 ">
+                    Assign subjects to faculty based on expertise and availability.
+                </p>
             </header>
 
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-card p-4 md:p-6 rounded-lg shadow-sm border border-border"
-            >
-                <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
-                    <div className="relative w-full md:max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-                        <Input placeholder="Search subject code, name, or expertise..." value={subjectQuery} onChange={(e) => setSubjectQuery(e.target.value)} className="pl-10"/>
+            <div className="bg-card p-4 md:p-6 rounded-xl shadow-sm border border-border">
+                <div className="flex justify-start mb-8">
+                    <div className="relative w-full md:max-w-lg">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+                        <Input
+                            placeholder="Search by faculty name or expertise..."
+                            value={facultyQuery}
+                            onChange={(e) => setFacultyQuery(e.target.value)}
+                            className="pl-12 h-12 rounded-full text-base"
+                        />
                     </div>
-                    <div className="flex items-center gap-2 w-full md:w-auto">
-                        {(['ALL', 'UNASSIGNED', 'ASSIGNED'] as const).map((f) => (
-                            <Button
-                                key={f}
-                                variant={subjectFilter === f ? 'default' : 'outline'}
-                                onClick={() => setSubjectFilter(f)}
-                                className="flex-1 md:flex-none"
-                            >
-                                {f === 'ALL' ? 'All' : f === 'UNASSIGNED' ? 'Unassigned' : 'Assigned'}
-                            </Button>
+                </div>
+
+                {isLoading ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {Array.from({ length: 6 }).map((_, index) => (
+                            <FacultyCardSkeleton key={index} />
                         ))}
                     </div>
-                </div>
-
-                <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2 -mr-3">
-                    {filteredSubjects.map((s, i) => (
-                        <SubjectCard
-                            key={s.id}
-                            subject={s}
-                            index={i}
-                            onAssignClick={() => setActiveSubject(s)}
-                            onUnassignClick={() => onUnassign(s.id)}
-                        />
-                    ))}
-                    {!filteredSubjects.length && (
-                        <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground rounded-lg border-2 border-dashed">
-                            <Info size={32} className="mb-2" />
-                            <p>No subjects found with the current filters.</p>
-                        </div>
-                    )}
-                </div>
-            </motion.div>
-
-            {activeSubject && (
-                <AssignmentDialog
-                    isOpen={!!activeSubject}
-                    onClose={() => setActiveSubject(null)}
-                    subject={activeSubject}
-                    faculty={faculty}
-                    subjects={subjects}
-                    onAssign={onAssign}
-                    onUnassign={onUnassign}
-                />
-            )}
+                ) : filteredFaculties.length > 0 ? (
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                    >
+                        {filteredFaculties.map((faculty) => (
+                           <FacultyCard
+                                key={faculty.id}
+                                faculty={faculty}
+                                onAssignClick={handleOpenAssignModal}
+                                onViewSubjectsClick={handleOpenViewModal} // Pass new handler
+                           />
+                        ))}
+                    </motion.div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground bg-muted/50 rounded-lg border-2 border-dashed">
+                        <Info size={40} className="mb-4 text-primary" />
+                        <h3 className="text-xl font-semibold text-foreground">No Faculty Found</h3>
+                        <p>Your search for "{facultyQuery}" did not match any faculty profiles.</p>
+                    </div>
+                )}
+            </div>
         </>
     );
 }

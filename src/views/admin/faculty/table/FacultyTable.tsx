@@ -1,3 +1,5 @@
+// src/components/table/FacultyTable.tsx
+
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Table,
@@ -25,6 +27,7 @@ import {
   Briefcase,
   Filter,
   RotateCcw,
+  CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AddFacultyButton } from "../modal/AddFacultyButton";
@@ -33,6 +36,7 @@ import { SkeletonFacultyCard } from "./../SkeletonFacultyCard";
 import axios from "../../../../plugin/axios";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
+import { ScheduleModal } from "../modal/ScheduleModal";
 
 export interface Faculty {
   id: number;
@@ -78,6 +82,9 @@ function FacultyTable() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null);
   const [departmentFilterOptions, setDepartmentFilterOptions] = useState<string[]>([]);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [selectedFacultyForSchedule, setSelectedFacultyForSchedule] = useState<Faculty | null>(null);
+  const [highlightedFacultyId, setHighlightedFacultyId] = useState<number | null>(null);
 
   const fetchFaculty = useCallback(async () => {
     setIsLoading(true);
@@ -130,13 +137,20 @@ function FacultyTable() {
     fetchFaculty();
   }, [fetchFaculty]);
 
-  const handleSave = (updatedFaculty?: Faculty) => {
+  const handleSave = (newOrUpdatedFaculty: Faculty) => {
     setIsModalOpen(false);
-    if (updatedFaculty) { // Kung naay gipasa nga updated data (gikan sa edit)
-        setAllFaculty(prev => prev.map(f => f.id === updatedFaculty.id ? updatedFaculty : f));
-        toast.success("Faculty information updated successfully.");
-    } else { // Kung walay gipasa (gikan sa add)
-        fetchFaculty(); // I-refetch ang tibuok listahan
+    const facultyExists = allFaculty.some(f => f.id === newOrUpdatedFaculty.id);
+
+    if (facultyExists) {
+      setAllFaculty(prev => prev.map(f => (f.id === newOrUpdatedFaculty.id ? newOrUpdatedFaculty : f)));
+      setHighlightedFacultyId(newOrUpdatedFaculty.id);
+      globalThis.setTimeout(() => setHighlightedFacultyId(null), 5000);
+    } else {
+      const facultyToAdd = { ...newOrUpdatedFaculty, status: 'Active' as const };
+      setAllFaculty(prev => [facultyToAdd, ...prev]);
+      setCurrentPage(1);
+      setHighlightedFacultyId(facultyToAdd.id);
+      globalThis.setTimeout(() => setHighlightedFacultyId(null), 5000);
     }
   };
 
@@ -179,22 +193,32 @@ function FacultyTable() {
   };
 
   const handleAdd = () => { setEditingFaculty(null); setIsModalOpen(true); };
-  const handleEdit = (facultyMember: Faculty) => { setEditingFaculty(facultyMember); setIsModalOpen(true); };
+  
+  // GI-AYO: Gigamit ang 'facultyMember' imbes nga 'member'
+  const handleEdit = (facultyMember: Faculty) => { 
+    setEditingFaculty(facultyMember); 
+    setIsModalOpen(true); 
+  };
+
+  const handleSetSchedule = (facultyMember: Faculty) => {
+    setSelectedFacultyForSchedule(facultyMember);
+    setIsScheduleModalOpen(true);
+  };
   
   const filteredData = useMemo(() => {
     return allFaculty
-      .filter(f => (filters.status === "All" || f.status === filters.status))
-      .filter(f => (filters.department === "All" || f.department === filters.department))
+      .filter(f => (f.id === highlightedFacultyId) || (filters.status === "All" || f.status === filters.status))
+      .filter(f => (f.id === highlightedFacultyId) || (filters.department === "All" || f.department === filters.department))
       .filter(f => {
         const searchLower = searchTerm.toLowerCase();
-        return (
+        return f.id === highlightedFacultyId || (
           (f.name || '').toLowerCase().includes(searchLower) ||
           (f.department || '').toLowerCase().includes(searchLower) ||
           (f.designation || '').toLowerCase().includes(searchLower) ||
           (f.expertise || []).some(e => (e || '').toLowerCase().includes(searchLower))
         );
       });
-  }, [allFaculty, searchTerm, filters]);
+  }, [allFaculty, searchTerm, filters, highlightedFacultyId]);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -231,7 +255,7 @@ function FacultyTable() {
             <AddFacultyButton onAdd={handleAdd} />
           </div>
         </div>
-
+        
         <div className="rounded-lg border border-border overflow-x-auto">
           <Table className="min-w-[1000px]">
             <TableHeader className="bg-muted/50">
@@ -253,7 +277,7 @@ function FacultyTable() {
                 <TableRow><TableCell colSpan={8} className="text-center h-48 text-muted-foreground">No Faculty Found</TableCell></TableRow>
               ) : (
                 paginatedData.map((f) => (
-                  <TableRow key={f.id} className="hover:bg-muted">
+                  <TableRow key={f.id} className={`${highlightedFacultyId === f.id ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`}>
                     <TableCell>
                       <div className="flex items-center gap-4">
                         <img src={f.avatar} alt={f.name} className="w-11 h-11 rounded-full object-cover ring-2 ring-offset-2 ring-border" />
@@ -269,8 +293,7 @@ function FacultyTable() {
                         {f.expertise.map((e) => {
                             const colorIndex = getStringHash(e) % expertiseColorPalette.length;
                             const color = expertiseColorPalette[colorIndex];
-                            return (
-                            <Badge key={e} className={`font-normal hover:${color.bg} ${color.bg} hover:${color.text} ${color.text}`}>{e}</Badge>)
+                            return (<Badge key={e} className={`font-normal hover:${color.bg} ${color.bg} hover:${color.text} ${color.text}`}>{e}</Badge>)
                         })}
                       </div>
                     </TableCell>
@@ -282,6 +305,14 @@ function FacultyTable() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end items-center gap-1">
+                         <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Set Faculty Schedule" 
+                            onClick={() => handleSetSchedule(f)} 
+                            className="h-8 w-8 text-muted-foreground hover:text-primary">
+                            <CalendarDays className="h-4 w-4 text-purple-500" />
+                        </Button>
                         <Button variant="ghost" size="icon" title="Edit Faculty" onClick={() => handleEdit(f)} className="h-8 w-8 text-muted-foreground hover:text-primary"><Edit className="h-4 w-4 text-blue-500" /></Button>
                         {f.status === 'Active' ? (
                             <Button variant="ghost" size="icon" title="Deactivate Faculty" onClick={() => handleDeactivate(f.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4 text-red-500" /></Button>
@@ -315,6 +346,12 @@ function FacultyTable() {
         onSave={handleSave}
         initialData={editingFaculty}
         expertiseOptions={expertiseOptions}
+      />
+
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        faculty={selectedFacultyForSchedule}
       />
     </>
   );

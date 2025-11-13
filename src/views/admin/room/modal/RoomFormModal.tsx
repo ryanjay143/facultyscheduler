@@ -1,25 +1,15 @@
+// src/components/classroom/modal/RoomFormModal.tsx
+
 import React, { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { Room } from "../table/RoomTable"; // I-import ang type
+import type { Room } from "../RoomContainer";
 
-// Props na tatanggapin ng modal
+
+// Props that the modal will accept
 type RoomFormModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -27,26 +17,21 @@ type RoomFormModalProps = {
   initialData: Room | null;
 };
 
+// The data structure for the form state, excluding the 'id'
+type RoomFormData = Omit<Room, "id">;
+
 export function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomFormModalProps) {
-  const [formData, setFormData] = useState<Omit<Room, "id">>({
+  const defaultFormData: RoomFormData = {
     roomNumber: "",
-    building: "",
     type: "Lecture",
     capacity: 40,
-    status: "Available",
-  });
+  };
+
+  const [formData, setFormData] = useState<RoomFormData>(defaultFormData);
 
   useEffect(() => {
-    // I-reset ang form kapag nagbago ang initialData (add/edit) o kapag nag-open ang modal
-    setFormData(
-      initialData || {
-        roomNumber: "",
-        building: "",
-        type: "Lecture",
-        capacity: 40,
-        status: "Available",
-      }
-    );
+    // Reset the form when initialData changes (for add/edit)
+    setFormData(initialData || defaultFormData);
   }, [initialData, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -56,15 +41,15 @@ export function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomForm
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    // Siguraduhing ang capacity ay laging number
     setFormData((prev) => ({
       ...prev,
+      // Ensure capacity is always a number
       [name]: name === "capacity" ? Number(value) : value,
     }));
   };
 
-  const handleSelectChange = (name: "type" | "status", value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value as any }));
+  const handleSelectChange = (value: "Lecture" | "Laboratory" | "Other") => {
+    setFormData((prev) => ({ ...prev, type: value }));
   };
 
   return (
@@ -76,46 +61,34 @@ export function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomForm
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="py-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="roomNumber">Room Number</Label>
-              <Input
-                id="roomNumber"
-                name="roomNumber"
-                value={formData.roomNumber}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="building">Building</Label>
-              <Input
-                id="building"
-                name="building"
-                value={formData.building}
-                onChange={handleChange}
-                required
-              />
-            </div>
-          </div>
           <div className="space-y-2">
-            <Label htmlFor="type">Type</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(v) => handleSelectChange("type", v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Lecture">Lecture</SelectItem>
-                <SelectItem value="Laboratory">Laboratory</SelectItem>
-                <SelectItem value="Auditorium">Auditorium</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="roomNumber">Room Number</Label>
+            <Input
+              id="roomNumber"
+              name="roomNumber"
+              value={formData.roomNumber}
+              onChange={handleChange}
+              required
+            />
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">Type</Label>
+              <Select
+                value={formData.type}
+                onValueChange={handleSelectChange}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Lecture">Lecture</SelectItem>
+                  <SelectItem value="Laboratory">Laboratory</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="capacity">Capacity</Label>
               <Input
@@ -128,28 +101,11 @@ export function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomForm
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(v) => handleSelectChange("status", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="Occupied">Occupied</SelectItem>
-                  <SelectItem value="Maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
+
           <DialogFooter className="pt-6">
             <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
+              <Button type="button" variant="outline">Cancel</Button>
             </DialogClose>
             <Button type="submit">Save Room</Button>
           </DialogFooter>

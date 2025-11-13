@@ -34,7 +34,7 @@ const initialSubjectState: EditableSubject = {
     prerequisite: '' 
 };
 
-const yearLevelOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
+const yearLevelOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const semesterOptions = ["1st Semester", "2nd Semester", "Summer"];
 
 export function SemesterFormModal({ isOpen, onClose, onSave, programId }: SemesterFormProps) {

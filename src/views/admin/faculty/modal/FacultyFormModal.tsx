@@ -1,3 +1,5 @@
+// src/components/modal/FacultyFormModal.tsx
+
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -26,7 +28,7 @@ import axios from "../../../../plugin/axios";
 interface FacultyFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (faculty?: Faculty) => void; // Ang parameter kay opsyonal na
+  onSave: (faculty: Faculty) => void;
   initialData: Faculty | null;
   expertiseOptions: string[];
 }
@@ -45,6 +47,7 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
     status: "Active", avatar: "", deload_units: 0, teaching_load_units: 0, overload_units: 0,
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false); // GI-ADD: State para sa image preview
   const [availableExpertise, setAvailableExpertise] = useState<string[]>(expertiseOptions);
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
@@ -175,8 +178,7 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
             teaching_load_units: savedApiData.t_load_units || 0,
             overload_units: savedApiData.overload_units || 0,
         };
-
-        onSave(isEditing ? resultFaculty : undefined);
+        onSave(resultFaculty);
         onClose();
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
@@ -196,102 +198,112 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">{initialData ? "Edit Faculty" : "Add New Faculty"}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="py-4 space-y-6">
-            <div className="space-y-2">
-              <Label>Profile Picture</Label>
-              <div className="flex items-center gap-5">
-                <img src={imagePreview || 'https://via.placeholder.com/80'} alt="Profile Preview" className="w-20 h-20 rounded-full object-cover border-2 border-border"/>
-                <div className="flex-1">
-                  <Input id="avatar-file" type="file" accept="image/png, image/jpeg" onChange={handleImageChange} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"/>
-                   <p className="text-xs text-muted-foreground mt-2">PNG or JPG. Max 2MB.</p>
-                </div>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-foreground">{initialData ? "Edit Faculty" : "Add New Faculty"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="py-4 space-y-6">
+              <div className="space-y-2">
+                  <Label>Profile Picture</Label>
+                  <div className="flex items-center gap-5">
+                    {/* GI-UPDATE: Ang hulagway gihimo nang clickable */}
+                    <button type="button" onClick={() => imagePreview && setIsPreviewModalOpen(true)} className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary rounded-full disabled:cursor-not-allowed" disabled={!imagePreview} title="Click to preview image">
+                      <img src={imagePreview || 'https://via.placeholder.com/80'} alt="Profile Preview" className="w-20 h-20 rounded-full object-cover border-2 border-border cursor-pointer hover:opacity-80 transition-opacity"/>
+                    </button>
+                    <div className="flex-1">
+                        <Input id="avatar-file" type="file" accept="image/png, image/jpeg" onChange={handleImageChange} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"/>
+                        <p className="text-xs text-muted-foreground mt-2">PNG or JPG. Max 2MB.</p>
+                    </div>
+                  </div>
               </div>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label htmlFor="name">Full Name</Label><Input id="name" name="name" value={formData.name} onChange={handleChange} required /></div>
+                  <div className="space-y-2"><Label htmlFor="email">Email Address</Label><Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required /></div>
+                  <div className="space-y-2">
+                      <Label htmlFor="designation">Designation</Label>
+                      <Select value={formData.designation} onValueChange={(value) => handleSelectChange("designation", value)} required>
+                          <SelectTrigger><SelectValue placeholder="Select a designation" /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="Dean">Dean</SelectItem>
+                              <SelectItem value="Program Head">Program Head</SelectItem>
+                              <SelectItem value="Faculty">Faculty</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Select value={formData.department} onValueChange={(v) => handleSelectChange("department", v)} required>
+                          <SelectTrigger disabled={isLoadingDepartments}>
+                              <SelectValue placeholder={isLoadingDepartments ? "Loading..." : "Select a department"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {departmentOptions.length > 0 ? (
+                                  departmentOptions.map((d) => (<SelectItem key={d} value={d}>{d}</SelectItem>))
+                              ) : (
+                                  <div className="p-4 text-center text-sm text-muted-foreground">{isLoadingDepartments ? "Loading..." : "No departments."}</div>
+                              )}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label htmlFor="name">Full Name</Label><Input id="name" name="name" value={formData.name} onChange={handleChange} required /></div>
-                <div className="space-y-2"><Label htmlFor="email">Email Address</Label><Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required /></div>
-                <div className="space-y-2">
-                    <Label htmlFor="designation">Designation</Label>
-                    <Select value={formData.designation} onValueChange={(value) => handleSelectChange("designation", value)} required>
-                        <SelectTrigger><SelectValue placeholder="Select a designation" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Dean">Dean</SelectItem>
-                            <SelectItem value="Program Head">Program Head</SelectItem>
-                            <SelectItem value="Faculty">Faculty</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Select value={formData.department} onValueChange={(v) => handleSelectChange("department", v)} required>
-                        <SelectTrigger disabled={isLoadingDepartments}>
-                           <SelectValue placeholder={isLoadingDepartments ? "Loading..." : "Select a department"} />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t pt-6">
+                  <div className="space-y-2"><Label htmlFor="deload_units">Deload Units</Label><Input id="deload_units" name="deload_units" type="number" value={formData.deload_units || ''} onChange={handleChange} placeholder="0" /></div>
+                  <div className="space-y-2">
+                      <Label htmlFor="teaching_load_units">Teaching Load</Label>
+                      <Input id="teaching_load_units" name="teaching_load_units" type="number" value={formData.teaching_load_units || ''} onChange={handleChange} placeholder="e.g. 18" />
+                      <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={12} /> Max load is 24 units.</p>
+                  </div>
+                  <div className="space-y-2"><Label htmlFor="overload_units">Overload Units</Label><Input id="overload_units" name="overload_units" type="number" value={formData.overload_units || ''} onChange={handleChange} placeholder="0" /></div>
+              </div>
+              
+              <div className="space-y-2">
+                  <Label htmlFor="expertise">Expertise</Label>
+                  <div className="flex flex-col p-2 w-full rounded-md border border-input bg-background text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <Select onValueChange={handleAddExpertise} value="">
+                        <SelectTrigger className="border-t h-auto p-2 focus:ring-0 focus:ring-offset-0 justify-start text-primary hover:text-primary/90 font-medium">
+                        <SelectValue placeholder="Click to add from the list..." /> 
                         </SelectTrigger>
                         <SelectContent>
-                            {departmentOptions.length > 0 ? (
-                                departmentOptions.map((d) => (<SelectItem key={d} value={d}>{d}</SelectItem>))
-                            ) : (
-                                <div className="p-4 text-center text-sm text-muted-foreground">{isLoadingDepartments ? "Loading..." : "No departments."}</div>
-                            )}
+                        {availableExpertise.length > 0 ? (
+                            availableExpertise.sort().map((d) => (<SelectItem key={d} value={d}>{d}</SelectItem>))
+                        ) : (
+                            <div className="p-4 text-center text-sm text-muted-foreground">All expertise selected.</div>
+                        )}
                         </SelectContent>
                     </Select>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t pt-6">
-                <div className="space-y-2"><Label htmlFor="deload_units">Deload Units</Label><Input id="deload_units" name="deload_units" type="number" value={formData.deload_units || ''} onChange={handleChange} placeholder="0" /></div>
-                <div className="space-y-2">
-                    <Label htmlFor="teaching_load_units">Teaching Load</Label>
-                    <Input id="teaching_load_units" name="teaching_load_units" type="number" value={formData.teaching_load_units || ''} onChange={handleChange} placeholder="e.g. 18" />
-                    <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={12} /> Max load is 24 units.</p>
-                </div>
-                <div className="space-y-2"><Label htmlFor="overload_units">Overload Units</Label><Input id="overload_units" name="overload_units" type="number" value={formData.overload_units || ''} onChange={handleChange} placeholder="0" /></div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="expertise">Expertise</Label>
-              <div className="flex flex-col p-2 w-full rounded-md border border-input bg-background text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                <Select onValueChange={handleAddExpertise} value="">
-                  <SelectTrigger className="border-t h-auto p-2 focus:ring-0 focus:ring-offset-0 justify-start text-primary hover:text-primary/90 font-medium">
-                    <SelectValue placeholder="Click to add from the list..." /> 
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableExpertise.length > 0 ? (
-                      availableExpertise.sort().map((d) => (<SelectItem key={d} value={d}>{d}</SelectItem>))
-                    ) : (
-                      <div className="p-4 text-center text-sm text-muted-foreground">All expertise selected.</div>
-                    )}
-                  </SelectContent>
-                </Select>
-                <div className="flex flex-wrap gap-1.5 p-2 min-h-[2.5rem] items-center">
-                  {formData.expertise.map((exp) => {
-                      const colorIndex = getStringHash(exp) % expertiseColorPalette.length;
-                      const color = expertiseColorPalette[colorIndex];
-                      return (
-                        <Badge key={exp} className={`font-normal hover:${color.bg} ${color.bg} hover:${color.text} ${color.text}`}>
-                          {exp}
-                          <button type="button" onClick={() => handleRemoveExpertise(exp)} className="ml-1.5 rounded-full hover:bg-black/10 p-0.5" aria-label={`Remove ${exp}`}>
-                            <X size={14} />
-                          </button>
-                        </Badge>
-                      );
-                  })}
-                </div>
-                
+                    <div className="flex flex-wrap gap-1.5 p-2 min-h-[2.5rem] items-center">
+                        {formData.expertise.map((exp) => {
+                            const colorIndex = getStringHash(exp) % expertiseColorPalette.length;
+                            const color = expertiseColorPalette[colorIndex];
+                            return (
+                            <Badge key={exp} className={`font-normal hover:${color.bg} ${color.bg} hover:${color.text} ${color.text}`}>
+                                {exp}
+                                <button type="button" onClick={() => handleRemoveExpertise(exp)} className="ml-1.5 rounded-full hover:bg-black/10 p-0.5" aria-label={`Remove ${exp}`}>
+                                <X size={14} />
+                                </button>
+                            </Badge>
+                            );
+                        })}
+                    </div>
+                  </div>
               </div>
-            </div>
-          <DialogFooter className="mt-8 pt-4 border-t border-border">
-            <DialogClose asChild><Button type="button" variant="outline" disabled={isLoading}>Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isLoading}>{isLoading ? 'Saving...' : (initialData ? 'Save Changes' : 'Save Faculty')}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <DialogFooter className="mt-8 pt-4 border-t border-border">
+                <DialogClose asChild><Button type="button" variant="outline" disabled={isLoading}>Cancel</Button></DialogClose>
+                <Button type="submit" disabled={isLoading}>{isLoading ? 'Saving...' : (initialData ? 'Save Changes' : 'Save Faculty')}</Button>
+              </DialogFooter>
+          </form>
+          </DialogContent>
+      </Dialog>
+      
+      {/* GI-ADD: Ang Modal para sa Image Preview */}
+      <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
+        <DialogContent className="sm:max-w-lg p-2 bg-transparent border-none shadow-none">
+          <img src={imagePreview || ''} alt="Profile Preview Large" className="w-full h-auto rounded-lg object-contain max-h-[80vh]" />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
