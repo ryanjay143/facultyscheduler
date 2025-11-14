@@ -1,97 +1,80 @@
 import ReactDOM from 'react-dom/client';
 import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom';
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, type ReactNode } from 'react';
 import NotFound from './notFound';
 import './index.css';
 import Loader from './components/loader';
 import { Toaster } from 'sonner';
 
-
-import AdminContainerLayouts  from './views/admin/AdminContainerLayouts';
+import AdminContainerLayouts from './views/admin/AdminContainerLayouts';
 import FacultyContainerLayouts from './views/faculty/FacultyContainerLayouts';
 import DeparmentContainerLayouts from './views/department/DeparmentContainerLayouts';
 
-// Lazy-loaded components with simulated delay
-const Login = lazy(() => 
-  wait(3000).then(() => import('./views/auth/Login'))
-);
+// Define a type for our route objects for better type safety
+interface RouteConfig {
+  path: string;
+  element: ReactNode;
+}
 
-const FacultyNotification = lazy(() => 
-  wait(3000).then(() => import('./views/faculty/notification/FacultyNotification'))
-);
+// Helper function for lazy loading with a delay
+const lazyWithDelay = (path: string, delay = 3000) =>
+  lazy(() => wait(delay).then(() => import(`./views/${path}`)));
 
-const ClassroomSchedule = lazy(() => 
-  wait(3000).then(() => import('./views/department/classrommSchedule/ClassroomScheduleLayout'))
-);
+// Lazy-loaded components
+const Login = lazyWithDelay('auth/Login');
+const ForgotPassword = lazyWithDelay('auth/FotgotPassword');
+const DashboardContainer = lazyWithDelay('admin/dashboard/DashboardContainer');
+const FacultyContainer = lazyWithDelay('admin/faculty/FacultyContainer');
+const RoomContainer = lazyWithDelay('admin/room/RoomContainer');
+const CourseContainer = lazyWithDelay('admin/curriculum/CourseContainer');
+const ScheduleContainer = lazyWithDelay('admin/faculty-loading/ScheduleContainer');
+const ReportsContainer = lazyWithDelay('admin/reports/ReportsContainer');
+const SettingsContainer = lazyWithDelay('admin/settings/SettingsContainer');
+const ProfileContainer = lazyWithDelay('admin/profile/ProfileContainer');
+const DepartmentDashboardContainer = lazyWithDelay('department/dashboard/DeanDashboardContainer');
+const DepartmentFacultyLoading = lazyWithDelay('department/facultyLoading/FacultyLoading');
+const ClassroomSchedule = lazyWithDelay('department/classrommSchedule/ClassroomScheduleLayout');
+const FacultyDashboardContainer = lazyWithDelay('faculty/dashboard/FacultyDashboardContainer');
+const FacultySchedule = lazyWithDelay('faculty/schedule/FacultySchedule');
+const FacultyLoading = lazyWithDelay('faculty/facultyLoading/FacultyLoading');
+const FacultyNotification = lazyWithDelay('faculty/notification/FacultyNotification');
+const FacultyProfileContainer = lazyWithDelay('faculty/profile/FacultyProfileContainer');
 
+// Route configurations
+const adminRoutes: RouteConfig[] = [
+  { path: 'user-dashboard', element: <DashboardContainer /> },
+  { path: 'faculty', element: <FacultyContainer /> },
+  { path: 'room', element: <RoomContainer /> },
+  { path: 'curriculum-management', element: <CourseContainer /> },
+  { path: 'faculty-loading', element: <ScheduleContainer /> },
+  { path: 'reports', element: <ReportsContainer /> },
+  { path: 'settings', element: <SettingsContainer /> },
+  { path: 'profile', element: <ProfileContainer /> },
+];
 
-const DepartmentFacultyLoading = lazy(() => 
-  wait(3000).then(() => import('./views/department/facultyLoading/FacultyLoading'))
-);
+const deanRoutes: RouteConfig[] = [
+  { path: 'user-dashboard', element: <DepartmentDashboardContainer /> },
+  { path: 'faculty-loading', element: <DepartmentFacultyLoading /> },
+  { path: 'class-management', element: <ClassroomSchedule /> },
+];
 
+const facultyRoutes: RouteConfig[] = [
+  { path: 'user-dashboard', element: <FacultyDashboardContainer /> },
+  { path: 'my-schedule', element: <FacultySchedule /> },
+  { path: 'faculty-loading', element: <FacultyLoading /> },
+  { path: 'notifications', element: <FacultyNotification /> },
+  { path: 'profile', element: <FacultyProfileContainer /> },
+];
 
-const FacultyProfileContainer = lazy(() => 
-  wait(3000).then(() => import('./views/faculty/profile/FacultyProfileContainer'))
-);
+// This function now expects an array of objects matching the RouteConfig interface
+const generateSuspenseRoutes = (routes: RouteConfig[]) =>
+  routes.map(({ path, element }) => ({
+    path,
+    element: <Suspense fallback={<Loader />}>{element}</Suspense>,
+  }));
 
-const ReportsContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/reports/ReportsContainer'))
-);
-
-const ProfileContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/profile/ProfileContainer'))
-);
-
-const SettingsContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/settings/SettingsContainer'))
-);
-
-const FacultySchedule = lazy(() => 
-  wait(3000).then(() => import('./views/faculty/schedule/FacultySchedule'))
-);
-
-const FacultyLoading = lazy(() => 
-  wait(3000).then(() => import('./views/faculty/facultyLoading/FacultyLoading'))
-);
-
-const FacultyDashboardContainer = lazy(() => 
-  wait(3000).then(() => import('./views/faculty/dashboard/FacultyDashboardContainer'))
-);
-
-const DepartmentDashboardContainer = lazy(() => 
-  wait(3000).then(() => import('./views/department/dashboard/DeanDashboardContainer'))
-);
-
-const ForgotPassword = lazy(() => 
-  wait(3000).then(() => import('./views/auth/FotgotPassword'))
-);
-
-const ScheduleContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/faculty-loading/ScheduleContainer'))
-);
-
-const CourseContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/curriculum/CourseContainer'))
-);
-
-const RoomContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/room/RoomContainer'))
-);
-
-const DashboardContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/dashboard/DashboardContainer'))
-);
-
-const FacultyContainer = lazy(() => 
-  wait(3000).then(() => import('./views/admin/faculty/FacultyContainer'))
-);
-
-// Route configuration
 const routes = [
-  {
-    path: '/facultyscheduler',
-    element: <RedirectFrom404 />,
-  },
+  { path: '/facultyscheduler', element: <RedirectFrom404 /> },
   {
     path: 'facultyscheduler/user-login',
     element: (
@@ -104,12 +87,10 @@ const routes = [
     path: 'facultyscheduler/forgot-password',
     element: (
       <Suspense fallback={<Loader />}>
-        <ForgotPassword  />
+        <ForgotPassword />
       </Suspense>
     ),
   },
-
-  // Admin
   {
     path: 'facultyscheduler/admin',
     element: <AdminContainerLayouts />,
@@ -118,67 +99,9 @@ const routes = [
         path: '',
         element: <Navigate to="facultyscheduler/admin/user-dashboard" />,
       },
-      {
-        path: 'user-dashboard',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <DashboardContainer />
-          </Suspense>
-      },
-      {
-        path: 'faculty',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <FacultyContainer />
-          </Suspense>
-      },
-      {
-        path: 'room',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <RoomContainer />
-          </Suspense>
-      },
-      {
-        path: 'curriculum-management',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <CourseContainer />
-          </Suspense>
-      },
-      {
-        path: 'faculty-loading',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <ScheduleContainer />
-          </Suspense>
-      },
-      {
-        path: 'reports',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <ReportsContainer />
-          </Suspense>
-      },
-      {
-        path: 'settings',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <SettingsContainer />
-          </Suspense>
-      },
-      {
-        path: 'profile',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <ProfileContainer />
-          </Suspense>
-      },
-
+      ...generateSuspenseRoutes(adminRoutes),
     ],
   },
-
-  // Dean Department
   {
     path: 'facultyscheduler/dean',
     element: <DeparmentContainerLayouts />,
@@ -187,32 +110,9 @@ const routes = [
         path: '',
         element: <Navigate to="facultyscheduler/dean/user-dashboard" />,
       },
-      {
-        path: 'user-dashboard',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <DepartmentDashboardContainer />
-          </Suspense>
-      },
-      {
-        path: 'faculty-loading',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <DepartmentFacultyLoading />
-          </Suspense>
-      },
-      {
-        path: 'class-management',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <ClassroomSchedule />
-          </Suspense>
-      },
-      
+      ...generateSuspenseRoutes(deanRoutes),
     ],
   },
-
-  // Faculty
   {
     path: 'facultyscheduler/faculty',
     element: <FacultyContainerLayouts />,
@@ -221,47 +121,10 @@ const routes = [
         path: '',
         element: <Navigate to="facultyscheduler/faculty/user-dashboard" />,
       },
-      {
-        path: 'user-dashboard',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <FacultyDashboardContainer />
-          </Suspense>
-      },
-      {
-        path: 'my-schedule',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <FacultySchedule />
-          </Suspense>
-      },
-      {
-        path: 'faculty-loading',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <FacultyLoading />
-          </Suspense>
-      },
-      {
-        path: 'notifications',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <FacultyNotification />
-          </Suspense>
-      },
-      {
-        path: 'profile',
-        element: 
-          <Suspense fallback={<Loader />}>
-            <FacultyProfileContainer />
-          </Suspense>
-      },
+      ...generateSuspenseRoutes(facultyRoutes),
     ],
   },
-  {
-    path: '*',
-    element: <NotFound />,
-  },
+  { path: '*', element: <NotFound /> },
 ];
 
 // Create router
@@ -279,17 +142,25 @@ function RedirectFrom404() {
   return <Navigate to="/facultyscheduler/user-login" replace />;
 }
 
-// Simulate delay function
+// Simulate delay function with a number type for the parameter
 function wait(time: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, time);
   });
 }
 
+// Find the root element to render the app into
+const rootElement = document.getElementById('root');
+
+// Ensure the root element exists before trying to render the app
+if (!rootElement) {
+  throw new Error("Failed to find the root element with id 'root'");
+}
+
 // Render application
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <RouterProvider router={router} />
-    <Toaster richColors position="top-right" /> 
+    <Toaster richColors position="top-right" />
   </React.StrictMode>
 );

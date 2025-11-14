@@ -1,6 +1,7 @@
 // src/components/table/FacultyTable.tsx
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -85,6 +86,7 @@ function FacultyTable() {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedFacultyForSchedule, setSelectedFacultyForSchedule] = useState<Faculty | null>(null);
   const [highlightedFacultyId, setHighlightedFacultyId] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   const fetchFaculty = useCallback(async () => {
     setIsLoading(true);
@@ -92,6 +94,7 @@ function FacultyTable() {
     if (!token) {
         toast.error("Authentication required.");
         setIsLoading(false);
+        navigate('/facultyscheduler/user-login');
         return;
     }
     try {
@@ -111,11 +114,12 @@ function FacultyTable() {
         const allTransformed = [...activeList.map(transform), ...inactiveList.map(transform)];
         setAllFaculty(allTransformed);
     } catch (error) {
-        toast.error("Failed to fetch faculty data.");
+      toast.error("Failed to fetch faculty data.");
+      navigate('/facultyscheduler/user-login');
     } finally {
         setIsLoading(false);
     }
-  }, []);
+    }, [navigate]);
 
   useEffect(() => {
     const fetchDepartmentsForFilter = async () => {
