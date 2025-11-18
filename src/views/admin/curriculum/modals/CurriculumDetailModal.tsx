@@ -174,8 +174,8 @@ export function CurriculumDetailModal({
                                                     <TableCell className="text-center">{subject.hoursLec}</TableCell><TableCell className="text-center">{subject.hoursLab}</TableCell>
                                                     <TableCell className="w-[150px] text-center">{subject.prerequisite}</TableCell>
                                                     <TableCell className="text-center"><div className="flex justify-end">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSubject(semesterName, subject)} disabled={!semesterData.isActive}><Edit size={16}/></Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDeleteSubject(semesterName, subject.id)} disabled={!semesterData.isActive}><Trash2 size={16}/></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSubject(semesterName, subject)} ><Edit size={16}/></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDeleteSubject(semesterName, subject.id)} ><Trash2 size={16}/></Button>
                                                         </div></TableCell>
                                                 </TableRow>
                                             )) : (<TableRow><TableCell colSpan={10} className="text-center h-24 text-muted-foreground">No subjects added for this semester.</TableCell></TableRow>)}
@@ -194,7 +194,7 @@ export function CurriculumDetailModal({
                                         </TableFooter>
                                     </Table>
                                 </div>
-                                <div className="p-2 border-t"><Button onClick={() => onAddSubject(semesterName, semesterData.id)} variant="link" disabled={!semesterData.isActive}><Plus size={16} className="mr-1"/> Add Subject</Button></div>
+                                <div className="p-2 border-t"><Button onClick={() => onAddSubject(semesterName, semesterData.id)} variant="link"><Plus size={16} className="mr-1"/> Add Subject</Button></div>
                             </div>
                         ))
                     )}

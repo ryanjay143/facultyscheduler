@@ -53,11 +53,13 @@ const mockSubjects: Subject[] = [
 const mockSchedule: ScheduleEntry[] = [
     { scheduleId: 1, roomId: 1, subjectId: 101, section: "A", day: "Mon", startTime: "09:00", endTime: "10:30" },
     { scheduleId: 2, roomId: 2, subjectId: 101, section: "A", day: "Wed", startTime: "13:00", endTime: "15:00" },
-    { scheduleId: 3, roomId: 3, subjectId: 102, section: "A", day: "Tue", startTime: "10:00", endTime: "11:30" },
+    { scheduleId: 3, roomId: 3, subjectId: 102, section: "A", day: "Tues", startTime: "10:00", endTime: "11:30" },
     { scheduleId: 4, roomId: 4, subjectId: 103, section: "B", day: "Fri", startTime: "08:00", endTime: "10:00" },
     { scheduleId: 5, roomId: 1, subjectId: 201, section: "C", day: "Mon", startTime: "13:00", endTime: "14:30" },
-    { scheduleId: 6, roomId: 2, subjectId: 201, section: "C", day: "Thu", startTime: "09:00", endTime: "11:00" },
-    { scheduleId: 7, roomId: 5, subjectId: 202, section: "D", day: "Tue", startTime: "14:00", endTime: "15:30" },
+    { scheduleId: 6, roomId: 2, subjectId: 201, section: "C", day: "Thurs", startTime: "09:00", endTime: "11:00" },
+    { scheduleId: 7, roomId: 5, subjectId: 202, section: "D", day: "Tues", startTime: "14:00", endTime: "15:30" },
+    // Added a Saturday class for demonstration
+    { scheduleId: 8, roomId: 5, subjectId: 102, section: "A", day: "Sat", startTime: "10:00", endTime: "12:00" },
 ];
 
 // --- COMPONENT ---

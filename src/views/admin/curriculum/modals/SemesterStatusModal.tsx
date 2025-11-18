@@ -28,12 +28,20 @@ export function SemesterStatusModal({ isOpen, onClose, onSaveSuccess, semesterId
         if (isOpen) {
             if (initialData) {
                 setIsActive(initialData.isActive);
-                const formatToYyyyMmDd = (dateString?: string) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
-                setStartDate(formatToYyyyMmDd(initialData.startDate));
-                setEndDate(formatToYyyyMmDd(initialData.endDate));
+                // Gibag-o nga function aron ma-format ang petsa ngadto sa MM-dd-yyyy
+                const formatToMmDdYyyy = (dateString?: string) => {
+                    if (!dateString) return '';
+                    const date = new Date(dateString);
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${month}-${day}-${year}`;
+                };
+                setStartDate(formatToMmDdYyyy(initialData.startDate));
+                setEndDate(formatToMmDdYyyy(initialData.endDate));
             } else {
-                setIsActive(false); 
-                setStartDate(''); 
+                setIsActive(false);
+                setStartDate('');
                 setEndDate('');
             }
         }
@@ -51,7 +59,14 @@ export function SemesterStatusModal({ isOpen, onClose, onSaveSuccess, semesterId
         setIsSaving(true);
         try {
             const url = `/semesters/${semesterId}/status`;
-            const body = { status: isActive ? 1 : 0, start_date: startDate || null, end_date: endDate || null, };
+            // I-convert balik sa YYYY-MM-DD sa dili pa ipadala sa backend kon gikinahanglan
+            const toApiFormat = (dateString: string) => dateString ? new Date(dateString).toISOString().split('T')[0] : null;
+
+            const body = { 
+                status: isActive ? 1 : 0, 
+                start_date: toApiFormat(startDate), 
+                end_date: toApiFormat(endDate),
+            };
             const response = await axios.put(url, body, { headers: { 'Authorization': `Bearer ${token}` } });
             toast.success(response.data.message || 'Semester status updated!');
             onSaveSuccess(semesterName, {
@@ -64,6 +79,18 @@ export function SemesterStatusModal({ isOpen, onClose, onSaveSuccess, semesterId
         finally { setIsSaving(false); }
     };
 
+    // Siguroha nga ang input type="date" magpabilin aron magamit ang date picker sa browser
+    // Ang pagpakita sa format magdepende sa locale sa browser, apan ang value ipasa sa husto.
+    // Kon gusto nimo og custom display format, kinahanglan nimo og custom date picker component.
+    const toInputFormat = (dateString: string) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent>
@@ -72,8 +99,8 @@ export function SemesterStatusModal({ isOpen, onClose, onSaveSuccess, semesterId
                     <div className="space-y-2"><Label>Semester</Label><p className="font-semibold text-lg">{semesterName}</p></div>
                     <div className="flex items-center space-x-2 pt-2"><Switch id="semester-status" checked={isActive} onCheckedChange={setIsActive} /><Label htmlFor="semester-status" className="cursor-pointer">{isActive ? 'Active' : 'Inactive'}</Label></div>
                     <div className="grid grid-cols-2 gap-4 pt-2">
-                        <div className="space-y-2"><Label htmlFor="startDate">Start Date</Label><Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required={isActive} /></div>
-                        <div className="space-y-2"><Label htmlFor="endDate">End Date</Label><Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required={isActive} /></div>
+                        <div className="space-y-2"><Label htmlFor="startDate">Start Date</Label><Input id="startDate" type="date" value={toInputFormat(startDate)} onChange={e => setStartDate(e.target.value)} required={isActive} /></div>
+                        <div className="space-y-2"><Label htmlFor="endDate">End Date</Label><Input id="endDate" type="date" value={toInputFormat(endDate)} onChange={e => setEndDate(e.target.value)} required={isActive} /></div>
                     </div>
                     <DialogFooter className='pt-4'>
                         <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
