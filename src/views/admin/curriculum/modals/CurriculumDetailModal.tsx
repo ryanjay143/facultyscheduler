@@ -1,6 +1,7 @@
 // src/pages/Curriculum/modals/CurriculumDetailModal.tsx
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"; // Assuming you have a Drawer component from your UI library
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,45 @@ import type { JSX } from "react";
 import { useState, useEffect, useMemo } from 'react';
 import axios from '../../../../plugin/axios';
 import { toast } from 'sonner';
+
+// Define the structure for elective subjects
+interface ElectiveSubject {
+    code: string;
+    name: string;
+    units: number;
+    instructional: string;
+}
+
+// Data from the image for professional electives - This is hardcoded as per the example
+const professionalElectives: ElectiveSubject[] = [
+    { code: 'CSCC 21.1', name: 'Software Engineering 1', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'CSCC 36', name: 'Advanced Topics in Human Computer Interaction', units: 3, instructional: 'lecture only' },
+    { code: 'CSCC 37', name: 'User Interface Design and Development', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'CSCC 40', name: 'Introduction to Artificial Intelligence', units: 3, instructional: 'lecture only' },
+    { code: 'CSCC 44', name: 'Introduction to Data Mining', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'CSCC 46', name: 'Introduction to Robotics', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ISCC 11', name: 'Organization and Management Concepts', units: 3, instructional: 'lecture only' },
+    { code: 'ISCC 12', name: 'Financial Management', units: 3, instructional: 'lecture only' },
+    { code: 'ISCC 16', name: 'Technopreneurship', units: 3, instructional: 'lecture only' },
+    { code: 'ISCC 17', name: 'Electronic Commerce', units: 3, instructional: 'lecture only' },
+    { code: 'ISCC 18', name: 'Introduction to Enterprise Resource Planning', units: 3, instructional: 'lecture only' },
+    { code: 'ISCC 21.1', name: 'IS Project Management', units: 3, instructional: 'lecture only' },
+    { code: 'ISCC 22.1', name: 'Systems Analysis and Design', units: 3, instructional: 'lecture only' },
+    { code: 'ISCC 31', name: 'Current Issues and Trends in Computing', units: 3, instructional: 'lecture only' },
+    { code: 'ITCC 12', name: 'Platform Technologies', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 17', name: 'Advanced Systems Integration and Architecture', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 18', name: 'Advanced Integrative Programming and Technologies', units: 3, instructional: 'lec and lab' },
+    { code: 'ITCC 19', name: 'Introduction to Geographic Information Systems', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 34', name: 'Contemporary Database Technologies', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 35', name: 'Advanced Web Systems and Technologies', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 36', name: 'Introduction to Cloud Computing', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 37', name: 'Data Warehousing', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 38', name: 'Parallel and Distributed Computing', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 39', name: 'IT Industry Management', units: 3, instructional: 'lecture only' },
+    { code: 'ITCC 40', name: 'Web Design and Development', units: 3, instructional: 'integrated lec/lab' },
+    { code: 'ITCC 41', name: 'Mobile Applications Development', units: 3, instructional: 'integrated lec/lab' },
+];
+
 
 interface CurriculumDetailModalProps {
     isOpen: boolean;
@@ -21,7 +61,6 @@ interface CurriculumDetailModalProps {
     onAddSubject: (semester: string, semesterId?: number) => void;
     onEditSubject: (semester: string, subject: Subject) => void;
     onDeleteSubject: (semesterName: string, subjectId?: number) => void;
-    // The signature is updated to include the program's effective year
     onSetSemesterStatus: (semesterName: string, semesterData: Semester, effectiveYear: string) => void;
     refreshKey?: number;
     updatedSubjectData?: { semesterName: string; subject: Subject } | null;
@@ -37,7 +76,6 @@ const sortSemesterKeys = (a: string, b: string): number => {
     if (yearNumA !== yearNumB) return yearNumA - yearNumB;
     if (semA?.includes('Summer')) return 1;
     if (semB?.includes('Summer')) return -1;
-    // Assuming format is "1st Semester", "2nd Semester"
     if (semA?.includes('1st')) return -1;
     if (semB?.includes('1st')) return 1;
     return 0;
@@ -50,6 +88,13 @@ export function CurriculumDetailModal({
 }: CurriculumDetailModalProps): JSX.Element {
     const [semesters, setSemesters] = useState<{ [key: string]: Semester }>({});
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [selectedElective, setSelectedElective] = useState<Subject | null>(null);
+
+    const handleViewElectives = (subject: Subject) => {
+        setSelectedElective(subject);
+        setIsDrawerOpen(true);
+    };
 
     useEffect(() => {
         if (!isOpen) return;
@@ -135,16 +180,13 @@ export function CurriculumDetailModal({
                     <DialogDescription className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />Academic Year of Effectivity: {program.effectiveYear}</DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow overflow-y-auto px-6 py-4 space-y-8">
-                    {isLoading ? (<div className="space-y-6">{[1, 2].map(i => (<div key={i} className="bg-card border rounded-xl p-4 animate-pulse"><div className="h-6 bg-muted/60 rounded w-1/3 mb-4" /><div className="h-48 bg-muted/30 rounded" /></div>))}</div>) 
-                    : sortedSemesters.length === 0 ? (<div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center h-full">
-                        <Layers size={56} className="mx-auto mb-4" /><h4 className="font-semibold text-xl text-foreground">No Semesters Found</h4><p className="max-w-md mx-auto mt-2 text-sm">This curriculum is empty.</p>
-                        </div>) 
+                    {isLoading ? ( <div className="space-y-6">{[1, 2].map(i => (<div key={i} className="bg-card border rounded-xl p-4 animate-pulse"><div className="h-6 bg-muted/60 rounded w-1/3 mb-4" /><div className="h-48 bg-muted/30 rounded" /></div>))}</div>) 
+                    : sortedSemesters.length === 0 ? (<div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center h-full"><Layers size={56} className="mx-auto mb-4" /><h4 className="font-semibold text-xl text-foreground">No Semesters Found</h4><p className="max-w-md mx-auto mt-2 text-sm">This curriculum is empty.</p></div>) 
                     : (sortedSemesters.map(([semesterName, semesterData]) => (
                             <div key={semesterName} className={`group/semester border rounded-xl overflow-hidden shadow-sm transition-opacity ${!semesterData.isActive ? 'opacity-70 bg-muted/20' : 'bg-card'}`}>
                                 <div className="flex justify-between items-center p-4 bg-muted/30 border-b">
                                     <div className="flex items-center gap-3"><h4 className="text-lg font-semibold text-foreground">{semesterName}</h4><Badge variant={semesterData.isActive ? 'default' : 'destructive'}>{semesterData.isActive ? 'Active' : 'Inactive'}</Badge></div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover/semester:opacity-100 transition-opacity">
-                                        {/* Updated onClick to pass program.effectiveYear */}
                                         <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(semesterName, semesterData, program.effectiveYear)}><SlidersHorizontal size={16}/></Button>
                                         <Button variant="ghost" size="icon" title="Rename Semester" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSemester(semesterData.id, semesterName)}><Edit size={16}/></Button>
                                     </div>
@@ -158,7 +200,7 @@ export function CurriculumDetailModal({
                                                 <TableHead colSpan={3} className="text-center border-r">Units</TableHead>
                                                 <TableHead colSpan={3} className="text-center border-r">Hours per week</TableHead>
                                                 <TableHead rowSpan={2} className="align-middle text-center border-r">Pre-requisite</TableHead>
-                                                <TableHead rowSpan={2} className="align-middle w-[50px]"></TableHead>
+                                                <TableHead rowSpan={2} className="align-middle w-[100px] text-center">Actions</TableHead>
                                             </TableRow>
                                             <TableRow>
                                                 <TableHead className="text-center border-r">Total</TableHead><TableHead className="text-center border-r">Lec</TableHead><TableHead className="text-center border-r">Lab</TableHead>
@@ -166,21 +208,40 @@ export function CurriculumDetailModal({
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {semesterData.subjects.length > 0 ? semesterData.subjects.map((subject) => (
-                                                <TableRow key={subject.id || subject.code}>
-                                                    <TableCell className="w-[150px] font-semibold uppercase text-center">{subject.code}</TableCell>
-                                                    <TableCell>{subject.name}</TableCell>
-                                                    <TableCell className="text-center font-bold text-primary">{subject.unitsTotal}</TableCell>
-                                                    <TableCell className="text-center">{subject.unitsLec}</TableCell><TableCell className="text-center">{subject.unitsLab}</TableCell>
-                                                    <TableCell className="text-center font-bold text-primary">{subject.hoursTotal}</TableCell>
-                                                    <TableCell className="text-center">{subject.hoursLec}</TableCell><TableCell className="text-center">{subject.hoursLab}</TableCell>
-                                                    <TableCell className="w-[150px] text-center">{subject.prerequisite}</TableCell>
-                                                    <TableCell className="text-center"><div className="flex justify-end">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSubject(semesterName, subject)} ><Edit size={16}/></Button>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDeleteSubject(semesterName, subject.id)} ><Trash2 size={16}/></Button>
-                                                        </div></TableCell>
-                                                </TableRow>
-                                            )) : (<TableRow><TableCell colSpan={10} className="text-center h-24 text-muted-foreground">No subjects added for this semester.</TableCell></TableRow>)}
+                                            {semesterData.subjects.length > 0 ? semesterData.subjects.map((subject) => {
+                                                const isProfessionalElective = subject.name.startsWith("PROFESSIONAL ELECTIVE") && subject.code.startsWith("ELECTIVE");
+                                                return (
+                                                    <TableRow key={subject.id || subject.code}>
+                                                        <TableCell className="w-[150px] font-semibold uppercase text-center">{subject.code}</TableCell>
+                                                        <TableCell>
+                                                            {isProfessionalElective ? (
+                                                                <Button 
+                                                                    variant="link" 
+                                                                    className="text-left p-0 h-auto font-normal text-base text-blue-600 hover:underline" 
+                                                                    onClick={() => handleViewElectives(subject)}
+                                                                >
+                                                                    {subject.name}
+                                                                </Button>
+                                                            ) : (
+                                                                subject.name
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-bold text-primary">{subject.unitsTotal}</TableCell>
+                                                        <TableCell className="text-center">{subject.unitsLec}</TableCell>
+                                                        <TableCell className="text-center">{subject.unitsLab}</TableCell>
+                                                        <TableCell className="text-center font-bold text-primary">{subject.hoursTotal}</TableCell>
+                                                        <TableCell className="text-center">{subject.hoursLec}</TableCell>
+                                                        <TableCell className="text-center">{subject.hoursLab}</TableCell>
+                                                        <TableCell className="w-[150px] text-center">{subject.prerequisite}</TableCell>
+                                                        <TableCell className="text-center">
+                                                            <div className="flex justify-end items-center gap-1">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSubject(semesterName, subject)}><Edit size={16} /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDeleteSubject(semesterName, subject.id)}><Trash2 size={16} /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            }) : (<TableRow><TableCell colSpan={10} className="text-center h-24 text-muted-foreground">No subjects added for this semester.</TableCell></TableRow>)}
                                         </TableBody>
                                         <TableFooter className="sticky bottom-0 bg-muted/80 backdrop-blur-sm">
                                             <TableRow>
@@ -201,11 +262,48 @@ export function CurriculumDetailModal({
                         ))
                     )}
                 </div>
-                 <DialogFooter className="mt-auto p-6 bg-gray-50 border-t rounded-b-lg flex flex-col md:flex-row md:justify-end gap-2">
+                <DialogFooter className="mt-auto p-6 bg-gray-50 border-t rounded-b-lg flex flex-col md:flex-row md:justify-end gap-2">
                     <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
                     <Button onClick={onAddSemester} className="flex items-center gap-2"><Layers size={16}/> Add Year/Semester</Button>
                 </DialogFooter>
             </DialogContent>
+
+            {/* --- Elective Subjects Drawer --- */}
+            <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+                <DrawerContent className="p-4">
+                    <DrawerHeader className="text-left">
+                        <DrawerTitle>{selectedElective?.name}</DrawerTitle>
+                        <DrawerDescription>The following subjects can be taken for this elective.</DrawerDescription>
+                    </DrawerHeader>
+                    <div className=" px-4 max-h-[80vh]">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Course Code</TableHead>
+                                    <TableHead>Descriptive Title</TableHead>
+                                    <TableHead className="text-center">Units</TableHead>
+                                    <TableHead>Instructional</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {professionalElectives.map((subject) => (
+                                    <TableRow key={subject.code}>
+                                        <TableCell className="font-semibold">{subject.code}</TableCell>
+                                        <TableCell>{subject.name}</TableCell>
+                                        <TableCell className="text-center">{subject.units}</TableCell>
+                                        <TableCell>{subject.instructional}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <DrawerFooter className="pt-4">
+                        <DrawerClose asChild>
+                            <Button variant="outline">Close</Button>
+                        </DrawerClose>
+                    </DrawerFooter>
+                </DrawerContent>
+            </Drawer>
         </Dialog>
     );
 }

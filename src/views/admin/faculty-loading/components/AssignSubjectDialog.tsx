@@ -66,7 +66,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                 try {
                     const response = await axios.get(`/faculties/${faculty.id}/availability`, { headers: { Authorization: `Bearer ${token}` } });
                     setFacultySchedule(response.data);
-                } catch (error) { setFacultySchedule({}); } 
+                } catch (error) { setFacultySchedule({}); }
                 finally { setIsLoadingSchedule(false); }
             };
             fetchAvailability();
@@ -74,17 +74,23 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     }, [isOpen, faculty]);
 
     useEffect(() => { if (selectedSubject) setStep(2); }, [selectedSubject]);
-    
+
     useEffect(() => {
-        const validate = (type: 'lec' | 'lab', units: number) => {
+        const validate = (type: 'lec' | 'lab', hours: number) => {
             const { day, startTime, endTime } = schedules[type];
-            if (!startTime || !endTime || !selectedSubject || !day || units === 0) return null;
+            if (!startTime || !endTime || !selectedSubject || !day || hours === 0) return null;
             const startMinutes = timeToMinutes(startTime);
             const endMinutes = timeToMinutes(endTime);
-            const requiredDuration = units * 60;
+            const requiredDuration = hours * 60;
             const actualDuration = endMinutes - startMinutes;
-            if (actualDuration !== requiredDuration) return `Duration must be ${units} hour(s).`;
+
             if (startMinutes >= endMinutes) return "End time must be after start time.";
+            
+            // --- MODIFIED VALIDATION LOGIC ---
+            // Allows selected session duration to be less than or equal to the required hours.
+            // Example: a 3-hour lecture can be scheduled as 08:00-09:30 (1.5 hours).
+            if (actualDuration > requiredDuration) return `Duration cannot exceed ${hours} hour(s). You may schedule shorter sessions as long as they do not exceed the total required hours.`; 
+
             const dayAvailability = facultySchedule[day];
             if (!dayAvailability?.length) return "Faculty is not available on this day.";
             const isWithin = dayAvailability.some(slot =>
@@ -95,8 +101,8 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         };
         if (selectedSubject) {
             setTimeErrors({
-                lec: validate('lec', selectedSubject.lec_units ?? 0),
-                lab: validate('lab', selectedSubject.lab_units ?? 0),
+                lec: validate('lec', selectedSubject.total_lec_hrs ?? 0),
+                lab: validate('lab', selectedSubject.total_lab_hrs ?? 0),
             });
         }
     }, [schedules, selectedSubject, facultySchedule]);
@@ -107,7 +113,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
             setAvailableRooms(prev => ({...prev, [type]: []}));
             return;
         }
-        
+
         setIsLoadingRooms(prev => ({ ...prev, [type]: true }));
         const token = localStorage.getItem('accessToken');
         if (!token) { setIsLoadingRooms(prev => ({ ...prev, [type]: false })); return; }
@@ -122,7 +128,20 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                     type: type === 'lec' ? 'Lecture' : 'Laboratory',
                 }
             });
-            setAvailableRooms(prev => ({...prev, [type]: response.data.rooms || []}));
+            const rooms: any[] = response.data.rooms || [];
+
+            // Fetch each room's full availability so we can display it in the UI
+            const roomsWithAvail = await Promise.all(rooms.map(async (room) => {
+                try {
+                    const r = await axios.get(`/rooms/${room.id}/availabilities`, { headers: { Authorization: `Bearer ${token}` } });
+                    return { ...room, availabilities: r.data.availabilities || [] };
+                } catch (e) {
+                    // If fetching a single room's avail fails, return room without availabilities
+                    return { ...room, availabilities: [] };
+                }
+            }));
+
+            setAvailableRooms(prev => ({...prev, [type]: roomsWithAvail}));
         } catch (error) {
             toast.error(`Failed to fetch available ${type} rooms.`);
             setAvailableRooms(prev => ({...prev, [type]: []}));
@@ -131,11 +150,11 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         }
     }, [schedules, timeErrors]);
 
-    const isLecScheduleValid = useMemo(() => (selectedSubject?.lec_units ?? 0) > 0 ? (schedules.lec.day && schedules.lec.startTime && schedules.lec.endTime && !timeErrors.lec) : true, [schedules.lec, timeErrors.lec, selectedSubject]);
-    const isLabScheduleValid = useMemo(() => (selectedSubject?.lab_units ?? 0) > 0 ? (schedules.lab.day && schedules.lab.startTime && schedules.lab.endTime && !timeErrors.lab) : true, [schedules.lab, timeErrors.lab, selectedSubject]);
+    const isLecScheduleValid = useMemo(() => (selectedSubject?.total_lec_hrs ?? 0) > 0 ? (schedules.lec.day && schedules.lec.startTime && schedules.lec.endTime && !timeErrors.lec) : true, [schedules.lec, timeErrors.lec, selectedSubject]);
+    const isLabScheduleValid = useMemo(() => (selectedSubject?.total_lab_hrs ?? 0) > 0 ? (schedules.lab.day && schedules.lab.startTime && schedules.lab.endTime && !timeErrors.lab) : true, [schedules.lab, timeErrors.lab, selectedSubject]);
 
-    useEffect(() => { if (isLecScheduleValid && (selectedSubject?.lec_units ?? 0) > 0) fetchAvailableRooms('lec'); }, [isLecScheduleValid, schedules.lec, selectedSubject, fetchAvailableRooms]);
-    useEffect(() => { if (isLabScheduleValid && (selectedSubject?.lab_units ?? 0) > 0) fetchAvailableRooms('lab'); }, [isLabScheduleValid, schedules.lab, selectedSubject, fetchAvailableRooms]);
+    useEffect(() => { if (isLecScheduleValid && (selectedSubject?.total_lec_hrs ?? 0) > 0) fetchAvailableRooms('lec'); }, [isLecScheduleValid, schedules.lec, selectedSubject, fetchAvailableRooms]);
+    useEffect(() => { if (isLabScheduleValid && (selectedSubject?.total_lab_hrs ?? 0) > 0) fetchAvailableRooms('lab'); }, [isLabScheduleValid, schedules.lab, selectedSubject, fetchAvailableRooms]);
 
     useEffect(() => {
         if(isLecScheduleValid && isLabScheduleValid && selectedSubject) {
@@ -161,12 +180,12 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     const handleAssignClick = () => {
         if (!selectedSubject) return;
         const schedulesToAssign: { type: 'LEC' | 'LAB', day: string, time: string, roomId: number }[] = [];
-        if ((selectedSubject.lec_units ?? 0) > 0) {
+        if ((selectedSubject.total_lec_hrs ?? 0) > 0) {
             const { day, startTime, endTime } = schedules.lec;
             if (!day || !startTime || !endTime || !selectedRooms.lec) { toast.error("Incomplete lecture schedule or room selection."); return; }
             schedulesToAssign.push({ type: 'LEC', day, time: `${startTime}-${endTime}`, roomId: selectedRooms.lec });
         }
-        if ((selectedSubject.lab_units ?? 0) > 0) {
+        if ((selectedSubject.total_lab_hrs ?? 0) > 0) {
             const { day, startTime, endTime } = schedules.lab;
             if (!day || !startTime || !endTime || !selectedRooms.lab) { toast.error("Incomplete laboratory schedule or room selection."); return; }
             schedulesToAssign.push({ type: 'LAB', day, time: `${startTime}-${endTime}`, roomId: selectedRooms.lab });
@@ -175,12 +194,12 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         onClose();
     };
 
-    const isLecRoomSelected = (selectedSubject?.lec_units ?? 0) > 0 ? !!selectedRooms.lec : true;
-    const isLabRoomSelected = (selectedSubject?.lab_units ?? 0) > 0 ? !!selectedRooms.lab : true;
+    const isLecRoomSelected = (selectedSubject?.total_lec_hrs ?? 0) > 0 ? !!selectedRooms.lec : true;
+    const isLabRoomSelected = (selectedSubject?.total_lab_hrs ?? 0) > 0 ? !!selectedRooms.lab : true;
     const isButtonDisabled = !selectedSubject || !isLecScheduleValid || !isLabScheduleValid || !isLecRoomSelected || !isLabRoomSelected;
     const hasAvailability = Object.values(facultySchedule).some(slots => slots.length > 0);
 
-    const ScheduleInputGroup = ({ type, units }: { type: 'lec' | 'lab', units: number }) => {
+    const ScheduleInputGroup = ({ type, hours }: { type: 'lec' | 'lab', hours: number }) => {
         const timeBounds = useMemo(() => {
             const day = schedules[type].day;
             if (!day || !facultySchedule[day]?.length) return { min: undefined, max: undefined };
@@ -192,7 +211,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
 
         return (
             <div className="pt-4 border-t space-y-4">
-                <h4 className="font-semibold text-md text-foreground">{type === 'lec' ? 'Lecture' : 'Laboratory'} Schedule ({units} units)</h4>
+                <h4 className="font-semibold text-md text-foreground">{type === 'lec' ? 'Lecture' : 'Laboratory'} Schedule ({hours} hours)</h4>
                 <div className="grid grid-cols-1 gap-4">
                     <div>
                         <Label htmlFor={`${type}-day`}>Day of Class</Label>
@@ -221,20 +240,37 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         );
     };
 
+    // Helper to format time strings like "08:00:00" -> "08:00"
+    const formatTimeShort = (t?: string) => {
+        if (!t) return '';
+        const parts = t.split(':');
+        if (parts.length >= 2) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+        return t;
+    };
+
     const RoomSelectionGroup = ({ type }: { type: 'lec' | 'lab' }) => (
         <div className="pt-4 border-t space-y-3">
             <h4 className="font-semibold text-md text-foreground">{type === 'lec' ? 'Lecture' : 'Laboratory'} Room</h4>
             {isLoadingRooms[type] ? <div className="flex items-center justify-center h-24"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div> :
              availableRooms[type].length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2 -mr-2">
-                    {availableRooms[type].map(room => (
+                    {availableRooms[type].map(room => {
+                        const roomAvail: any[] = (room as any).availabilities || [];
+                        const selectedDay = schedules[type].day || '';
+                        const availForDay = roomAvail.filter(a => (a.day || '').toString().toLowerCase() === selectedDay.toString().toLowerCase());
+                        const availText = availForDay.length > 0 ? availForDay.map(a => `${formatTimeShort(a.start_time ?? a.start)}-${formatTimeShort(a.end_time ?? a.end)}`).join(', ') : 'No availability on selected day';
+                        // Debug: show fetched room availability in console if needed
+                        // console.debug('room availabilities for', room.id, roomAvail);
+                        return (
                         <button key={room.id} onClick={() => setSelectedRooms(prev => ({...prev, [type]: room.id}))}
                             className={`p-2 border rounded-md text-left transition-all relative ${selectedRooms[type] === room.id ? 'bg-primary/10 border-primary shadow-sm' : 'bg-background hover:border-primary/50'}`}>
                             {selectedRooms[type] === room.id && <Check className="h-4 w-4 text-primary absolute top-2 right-2" />}
                             <p className="font-semibold text-sm">{room.roomNumber}</p>
                             <p className="text-xs text-muted-foreground">Cap: {room.capacity ?? '--'}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{schedules[type].day ? (<><strong className="text-foreground">Day:</strong> {schedules[type].day} &middot; <strong className="text-foreground">Room avail:</strong> {availText}</>) : 'Select day to see room availability'}</p>
                         </button>
-                    ))}
+                        );
+                    })}
                 </div>
             ) : <p className="text-sm text-muted-foreground text-center py-4">No available rooms for this schedule.</p>}
         </div>
@@ -247,7 +283,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                     <DialogTitle className="text-2xl font-bold tracking-tight">Assign Subject to {faculty.name}</DialogTitle>
                     <DialogDescription>Follow the steps below to search, select, and schedule a subject.</DialogDescription>
                 </DialogHeader>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow overflow-y-auto px-6 py-6">
                     {/* --- STEP 1: SELECT SUBJECT --- */}
                     <div className="bg-muted/40 p-4 rounded-lg flex flex-col">
@@ -269,9 +305,9 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                             {selectedSubject?.id === subject.id && <CheckCircle className="h-5 w-5 text-primary absolute top-3 right-3" />}
                                             <p className="font-semibold text-foreground pr-6">{subject.subject_code} - {subject.des_title}</p>
                                             <div className="grid grid-cols-3 gap-2 mt-2 text-sm text-muted-foreground">
-                                                <span>Total Units: <strong>{subject.total_units ?? 0}</strong></span>
-                                                <span>Lec: <strong>{subject.lec_units ?? 0}</strong></span>
-                                                <span>Lab: <strong>{subject.lab_units ?? 0}</strong></span>
+                                                <span>Total Hours: <strong>{subject.total_hrs ?? 0}</strong></span>
+                                                <span>Lec Hrs: <strong>{subject.total_lec_hrs ?? 0}</strong></span>
+                                                <span>Lab Hrs: <strong>{subject.total_lab_hrs ?? 0}</strong></span>
                                             </div>
                                         </button>
                                     ))
@@ -305,14 +341,14 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                         <Label className="block text-sm font-semibold text-foreground mb-2">Faculty's Weekly Availability</Label>
                                         <FacultyScheduleDisplay schedule={facultySchedule} />
                                     </div>
-                                    {(selectedSubject?.lec_units ?? 0) > 0 && <ScheduleInputGroup type="lec" units={selectedSubject?.lec_units ?? 0} />}
-                                    {(selectedSubject?.lab_units ?? 0) > 0 && <ScheduleInputGroup type="lab" units={selectedSubject?.lab_units ?? 0} />}
+                                    {(selectedSubject?.total_lec_hrs ?? 0) > 0 && <ScheduleInputGroup type="lec" hours={selectedSubject?.total_lec_hrs ?? 0} />}
+                                    {(selectedSubject?.total_lab_hrs ?? 0) > 0 && <ScheduleInputGroup type="lab" hours={selectedSubject?.total_lab_hrs ?? 0} />}
                                 </div>
                             )}
                             </div>
                         )}
                     </div>
-                    
+
                     {/* --- STEP 3: SELECT ROOM --- */}
                     <div className={`bg-muted/40 p-4 rounded-lg flex flex-col transition-all ${step < 3 && 'opacity-50 pointer-events-none'}`}>
                         <div className="flex items-center gap-3 mb-4">
@@ -323,8 +359,8 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                         </div>
                         {step >= 3 && (
                             <div className="flex-grow overflow-y-auto -mr-2 pr-2 space-y-4">
-                                {(selectedSubject?.lec_units ?? 0) > 0 && <RoomSelectionGroup type="lec" />}
-                                {(selectedSubject?.lab_units ?? 0) > 0 && <RoomSelectionGroup type="lab" />}
+                                {(selectedSubject?.total_lec_hrs ?? 0) > 0 && <RoomSelectionGroup type="lec" />}
+                                {(selectedSubject?.total_lab_hrs ?? 0) > 0 && <RoomSelectionGroup type="lab" />}
                             </div>
                         )}
                     </div>
