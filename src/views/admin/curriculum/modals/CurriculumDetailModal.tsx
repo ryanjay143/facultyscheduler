@@ -209,7 +209,7 @@ export function CurriculumDetailModal({
                                         </TableHeader>
                                         <TableBody>
                                             {semesterData.subjects.length > 0 ? semesterData.subjects.map((subject) => {
-                                                const isProfessionalElective = subject.name.startsWith("PROFESSIONAL ELECTIVE") && subject.code.startsWith("ELECTIVE");
+                                                const isProfessionalElective = subject.name.toUpperCase().startsWith("PROFESSIONAL ELECTIVE") && subject.code.toUpperCase().startsWith("ELECTIVE");
                                                 return (
                                                     <TableRow key={subject.id || subject.code}>
                                                         <TableCell className="w-[150px] font-semibold uppercase text-center">{subject.code}</TableCell>
@@ -275,7 +275,7 @@ export function CurriculumDetailModal({
                         <DrawerTitle>{selectedElective?.name}</DrawerTitle>
                         <DrawerDescription>The following subjects can be taken for this elective.</DrawerDescription>
                     </DrawerHeader>
-                    <div className=" px-4 max-h-[80vh]">
+                    <div className="overflow-y-auto px-4 max-h-[70vh]">
                         <Table>
                             <TableHeader>
                                 <TableRow>
