@@ -275,7 +275,7 @@ export function CurriculumDetailModal({
                         <DrawerTitle>{selectedElective?.name}</DrawerTitle>
                         <DrawerDescription>The following subjects can be taken for this elective.</DrawerDescription>
                     </DrawerHeader>
-                    <div className="overflow-y-auto px-4 max-h-[70vh]">
+                    <div className=" px-4 max-h-[90vh]">
                         <Table>
                             <TableHeader>
                                 <TableRow>
