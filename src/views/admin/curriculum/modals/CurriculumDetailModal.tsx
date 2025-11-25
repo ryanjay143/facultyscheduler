@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Layers, Edit, Trash2, Plus, SlidersHorizontal } from "lucide-react";
+import { Layers, Edit, Trash2, Plus, SlidersHorizontal, CalendarDays } from "lucide-react";
 import type { Program, Subject, Semester } from '../types';
 import type { JSX } from "react";
 import { useState, useEffect, useMemo } from 'react';
@@ -21,7 +21,8 @@ interface CurriculumDetailModalProps {
     onAddSubject: (semester: string, semesterId?: number) => void;
     onEditSubject: (semester: string, subject: Subject) => void;
     onDeleteSubject: (semesterName: string, subjectId?: number) => void;
-    onSetSemesterStatus: (semesterName: string, semesterData: Semester) => void;
+    // The signature is updated to include the program's effective year
+    onSetSemesterStatus: (semesterName: string, semesterData: Semester, effectiveYear: string) => void;
     refreshKey?: number;
     updatedSubjectData?: { semesterName: string; subject: Subject } | null;
     newSemesterData?: { name: string; semester: Semester } | null;
@@ -36,7 +37,10 @@ const sortSemesterKeys = (a: string, b: string): number => {
     if (yearNumA !== yearNumB) return yearNumA - yearNumB;
     if (semA?.includes('Summer')) return 1;
     if (semB?.includes('Summer')) return -1;
-    return parseInt(semA) - parseInt(semB);
+    // Assuming format is "1st Semester", "2nd Semester"
+    if (semA?.includes('1st')) return -1;
+    if (semB?.includes('1st')) return 1;
+    return 0;
 };
 
 export function CurriculumDetailModal({
@@ -118,7 +122,7 @@ export function CurriculumDetailModal({
             });
         }
     }, [updatedSemesterData]);
-    
+
     const sortedSemesters = useMemo(() => {
         return Object.entries(semesters).sort(([keyA], [keyB]) => sortSemesterKeys(keyA, keyB));
     }, [semesters]);
@@ -128,22 +132,20 @@ export function CurriculumDetailModal({
             <DialogContent className="max-w-7xl h-[95vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-4 bg-muted/50 border-b rounded-t-lg">
                     <DialogTitle className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">{program.name}<span className="text-sm font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">{program.abbreviation}</span></DialogTitle>
-                    <DialogDescription>Academic Year of Effectivity: {program.effectiveYear}</DialogDescription>
+                    <DialogDescription className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />Academic Year of Effectivity: {program.effectiveYear}</DialogDescription>
                 </DialogHeader>
                 <div className="flex-grow overflow-y-auto px-6 py-4 space-y-8">
                     {isLoading ? (<div className="space-y-6">{[1, 2].map(i => (<div key={i} className="bg-card border rounded-xl p-4 animate-pulse"><div className="h-6 bg-muted/60 rounded w-1/3 mb-4" /><div className="h-48 bg-muted/30 rounded" /></div>))}</div>) 
                     : sortedSemesters.length === 0 ? (<div className="text-center py-20 text-muted-foreground flex flex-col items-center justify-center h-full">
                         <Layers size={56} className="mx-auto mb-4" /><h4 className="font-semibold text-xl text-foreground">No Semesters Found</h4><p className="max-w-md mx-auto mt-2 text-sm">This curriculum is empty.</p>
-                        {/* <Button onClick={onAddSemester} className="mt-6">
-                            <Layers size={16} className="mr-2"/> Add Year/Semester
-                        </Button> */}
                         </div>) 
                     : (sortedSemesters.map(([semesterName, semesterData]) => (
                             <div key={semesterName} className={`group/semester border rounded-xl overflow-hidden shadow-sm transition-opacity ${!semesterData.isActive ? 'opacity-70 bg-muted/20' : 'bg-card'}`}>
                                 <div className="flex justify-between items-center p-4 bg-muted/30 border-b">
                                     <div className="flex items-center gap-3"><h4 className="text-lg font-semibold text-foreground">{semesterName}</h4><Badge variant={semesterData.isActive ? 'default' : 'destructive'}>{semesterData.isActive ? 'Active' : 'Inactive'}</Badge></div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover/semester:opacity-100 transition-opacity">
-                                        <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(semesterName, semesterData)}><SlidersHorizontal size={16}/></Button>
+                                        {/* Updated onClick to pass program.effectiveYear */}
+                                        <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(semesterName, semesterData, program.effectiveYear)}><SlidersHorizontal size={16}/></Button>
                                         <Button variant="ghost" size="icon" title="Rename Semester" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSemester(semesterData.id, semesterName)}><Edit size={16}/></Button>
                                     </div>
                                 </div>

@@ -13,7 +13,7 @@ import { ProgramCard } from './components/ProgramCard';
 import { SkeletonProgramCard } from './components/SkeletonProgramCard';
 import { CurriculumDetailModal } from './modals/CurriculumDetailModal';
 import { ProgramFormModal } from './modals/ProgramFormModal';
-import { SemesterFormModal } from './modals/SemesterFormModal'; 
+import { SemesterFormModal } from './modals/SemesterFormModal';
 import { SemesterRenameModal } from './modals/SemesterRenameModal';
 import { SubjectFormModal } from './modals/SubjectFormModal';
 import { SemesterStatusModal } from './modals/SemesterStatusModal';
@@ -24,16 +24,15 @@ function Curriculum() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [yearFilter, setYearFilter] = useState('All Years');
-    const [statusFilter, setStatusFilter] = useState('Active'); 
+    const [statusFilter, setStatusFilter] = useState('Active');
     const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
 
     const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
     const [editingProgram, setEditingProgram] = useState<Program | null>(null);
     
-    const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false); 
+    const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
     const [isSemesterRenameModalOpen, setIsSemesterRenameModalOpen] = useState(false);
     const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
-    const [isSemesterStatusModalOpen, setIsSemesterStatusModalOpen] = useState(false);
     
     const [refreshSemestersKey, setRefreshSemestersKey] = useState(0);
     
@@ -42,10 +41,17 @@ function Curriculum() {
     const [updatedSemesterData, setUpdatedSemesterData] = useState<{ name: string; semester: Partial<Semester>; newName?: string } | null>(null);
 
     const [editingSubjectInfo, setEditingSubjectInfo] = useState<{ semester: string; semesterId?: number; subject: Subject | null } | null>(null);
-    const [editingSemester, setEditingSemester] = useState<{ name: string | null; semester: Semester | null }>({ name: null, semester: null });
     const [renamingSemester, setRenamingSemester] = useState<{ id: number | null; name: string | null }>({ id: null, name: null });
 
     const navigate = useNavigate();
+
+    // --- 1. STATE FOR SEMESTER STATUS MODAL (Corrected) ---
+    // This state object now holds all data required by the SemesterStatusModal.
+    const [semesterStatusContext, setSemesterStatusContext] = useState<{
+        name: string;
+        semester: Semester;
+        effectiveYear: string;
+    } | null>(null);
 
     const fetchPrograms = useCallback(async (showLoading = true) => {
         if(showLoading) setIsLoading(true);
@@ -55,28 +61,46 @@ function Curriculum() {
             const response = await axios.get('/program', { headers: { 'Authorization': `Bearer ${token}` } });
             const programList: any[] = Array.isArray(response.data.programs) ? response.data.programs : Object.values(response.data.programs || {});
             
+            // --- FIX IS APPLIED HERE ---
             const transformedPrograms: Program[] = programList.map((program: any) => ({
-                id: program.id, name: program.program_name, abbreviation: program.abbreviation,
+                id: program.id,
+                // Use `|| ''` to provide a fallback empty string if the API value is null
+                name: program.program_name || '', 
+                abbreviation: program.abbreviation || '',
+                // --- END OF FIX ---
                 effectiveYear: `${program.year_from}-${program.year_to}`,
-                total_subjects: program.total_subjects || 0, total_units: program.total_units || 0,
-                isActive: program.status === 0, // 0 = Active, 1 = Inactive
+                total_subjects: program.total_subjects || 0, 
+                total_units: program.total_units || 0,
+                isActive: program.status === 0,
                 semesters: program.semesters ? Object.entries(program.semesters).reduce((acc, [key, value]: [string, any]) => {
                     acc[key] = {
                         id: value.id,
                         subjects: (value.subjects || []).map((s: any) => ({
-                            id: s.id, code: s.subject_code, name: s.des_title, unitsTotal: s.total_units, unitsLec: s.lec_units, unitsLab: s.lab_units,
-                            hoursTotal: s.total_hrs, hoursLec: s.total_lec_hrs, hoursLab: s.total_lab_hrs, prerequisite: s.pre_requisite || ''
+                            id: s.id, 
+                            code: s.subject_code, 
+                            name: s.des_title, 
+                            unitsTotal: s.total_units, 
+                            unitsLec: s.lec_units, 
+                            unitsLab: s.lab_units,
+                            hoursTotal: s.total_hrs, 
+                            hoursLec: s.total_lec_hrs, 
+                            hoursLab: s.total_lab_hrs, 
+                            prerequisite: s.pre_requisite || ''
                         })),
                         isActive: value.status === 1,
-                        startDate: value.start_date, endDate: value.end_date
+                        startDate: value.start_date, 
+                        endDate: value.end_date
                     };
                     return acc;
                 }, {} as { [key: string]: Semester }) : {},
                 subjects: program.subjects || {}
             }));
             setPrograms(transformedPrograms);
-        } catch (error: any) { toast.error("Failed to fetch programs."); } 
-        finally { if(showLoading) setIsLoading(false); }
+        } catch (error: any) { 
+            toast.error("Failed to fetch programs."); 
+        } finally { 
+            if(showLoading) setIsLoading(false); 
+        }
     }, [navigate]);
 
     useEffect(() => { fetchPrograms(true); }, [fetchPrograms]);
@@ -84,7 +108,16 @@ function Curriculum() {
     useEffect(() => { if (newSemesterData) setNewSemesterData(null); }, [newSemesterData]);
     useEffect(() => { if (updatedSemesterData) setUpdatedSemesterData(null); }, [updatedSemesterData]);
 
-    const handleOpenSemesterStatus = (semesterName: string, semesterData: Semester) => { setEditingSemester({ name: semesterName, semester: semesterData }); setIsSemesterStatusModalOpen(true); };
+    // --- 2. HANDLER FUNCTION (Corrected) ---
+    // This now accepts `effectiveYear` and saves it to the state, triggering the modal.
+    const handleOpenSemesterStatus = (semesterName: string, semesterData: Semester, effectiveYear: string) => {
+        setSemesterStatusContext({
+            name: semesterName,
+            semester: semesterData,
+            effectiveYear: effectiveYear
+        });
+    };
+
     const handleEditSemester = (semesterId: number, semesterName: string) => { setRenamingSemester({ id: semesterId, name: semesterName }); setIsSemesterRenameModalOpen(true); };
     const handleSaveProgram = () => { fetchPrograms(false); setIsProgramModalOpen(false); };
     const handleAddProgram = () => { setEditingProgram(null); setIsProgramModalOpen(true); };
@@ -194,6 +227,7 @@ function Curriculum() {
 
     const handleSemesterStatusUpdate = (semesterName: string, updatedData: Partial<Semester>) => {
         setUpdatedSemesterData({ name: semesterName, semester: updatedData });
+        setSemesterStatusContext(null); // Close modal on success
     };
 
     const handleSemesterRename = (oldName: string, newName: string) => {
@@ -254,7 +288,20 @@ function Curriculum() {
             <SemesterFormModal isOpen={isSemesterModalOpen} onClose={() => setIsSemesterModalOpen(false)} onSave={handleBulkSemesterSave} programId={selectedProgram ? selectedProgram.id : 0} />
             <SemesterRenameModal isOpen={isSemesterRenameModalOpen} onClose={() => setIsSemesterRenameModalOpen(false)} onSaveSuccess={handleSemesterRename} semesterId={renamingSemester.id} initialData={renamingSemester.name || ''} />
             {editingSubjectInfo && (<SubjectFormModal isOpen={isSubjectModalOpen} onClose={() => setIsSubjectModalOpen(false)} onSave={(subjectData, isEditing) => handleSubjectModalSave(editingSubjectInfo.semester, editingSubjectInfo.semesterId, subjectData, isEditing)} initialData={editingSubjectInfo.subject} programId={selectedProgram?.id ?? 0} semesterName={editingSubjectInfo.semester || ''} semesterId={editingSubjectInfo.semesterId} />)}
-            <SemesterStatusModal isOpen={isSemesterStatusModalOpen} onClose={() => setIsSemesterStatusModalOpen(false)} onSaveSuccess={handleSemesterStatusUpdate} semesterId={editingSemester?.semester?.id || null} semesterName={editingSemester?.name || ''} initialData={editingSemester?.semester || null} />
+            
+            {/* --- 3. MODAL INVOCATION (Corrected) --- */}
+            {/* This now uses the new context state and passes effectiveYear as a prop. */}
+            {semesterStatusContext && (
+                <SemesterStatusModal
+                    isOpen={!!semesterStatusContext}
+                    onClose={() => setSemesterStatusContext(null)}
+                    onSaveSuccess={handleSemesterStatusUpdate}
+                    semesterId={semesterStatusContext.semester?.id || null}
+                    semesterName={semesterStatusContext.name || ''}
+                    initialData={semesterStatusContext.semester || null}
+                    effectiveYear={semesterStatusContext.effectiveYear}
+                />
+            )}
         </>
     );
 }
