@@ -125,12 +125,17 @@ function MainFacultyLoading() {
     };
 
 
-    const handleAssignSubject = (facultyId: number, subjectId: number, schedule: { day: string; time: string }) => {
-        console.log("Assigning Subject:", { facultyId, subjectId, schedule });
+    const handleAssignSubject = (facultyId: number, subjectId: number, schedules: { type: 'LEC' | 'LAB'; day: string; time: string; roomId: number }[]) => {
+        console.log("Assigning Subject:", { facultyId, subjectId, schedules });
+
+        const scheduleSummary = schedules
+            .map(s => `${s.type} ${s.day} at ${s.time}${s.roomId ? ` (Room ${s.roomId})` : ''}`)
+            .join('; ');
+
         Swal.fire({
             icon: 'success',
             title: 'Assignment Recorded',
-            text: `Subject ${subjectId} assigned to faculty ${facultyId} on ${schedule.day} at ${schedule.time}.`,
+            text: `Subject ${subjectId} assigned to faculty ${facultyId}: ${scheduleSummary}`,
             timer: 2000,
             showConfirmButton: false
         });
