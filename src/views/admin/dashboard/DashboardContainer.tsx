@@ -1,14 +1,67 @@
+import { useEffect, useState } from "react";
 import Cards from "./cards/Cards";
 import { UpcomingSchedules } from "./cards/UpcomingSchedules";
 import { motion } from "framer-motion";
 import { CalendarCheck } from "lucide-react";
+import axios from "../../../plugin/axios";
+
+export interface DashboardData {
+  counts: {
+    total_scheduled_classes: number;
+    total_faculty_active: number;
+    total_rooms_utilized: number;
+    total_subjects_taught: number;
+  };
+  details: ScheduleDetail[];
+  day: string;
+  date: string;
+}
+
+export interface ScheduleDetail {
+  id: number;
+  subject_code: string;
+  description: string;
+  type: 'LEC' | 'LAB';
+  day: string;
+  start_time: string;
+  end_time: string;
+  room_number: string;
+  faculty_name: string;
+  faculty_img: string | null;
+}
 
 function DashboardContainer() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        const response = await axios.get('dashboard/today-statistics', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (response.data.success) {
+          setData(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // REMOVED THE FULL PAGE LOADER HERE so the Welcome section shows immediately
+
   return (
-    // Ang AdminContainerLayouts na ang bahala sa padding at background
-    // kaya hindi na kailangan ng extra layout divs dito.
     <>
-      {/* Hero / Welcome Section */}
+      {/* Hero / Welcome Section - ALWAYS VISIBLE */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -26,20 +79,23 @@ function DashboardContainer() {
           <h1 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">
             Welcome Back, Admin!
           </h1>
-          <p className="text-white/80 max-w-2xl">
-            Here's a snapshot of your system's key metrics and today's schedule.
+          <p className="text-white/80 max-w-2xl mt-2">
+             {loading 
+                ? "Loading schedule data..." 
+                : `Here's a snapshot of today's schedule (${data?.day}, ${data?.date}).`
+             }
           </p>
         </div>
       </motion.div>
 
-      {/* KPI Cards Section */}
+      {/* Cards Section - Pass 'isLoading' prop */}
       <div className="mb-8">
-        <Cards />
+        <Cards counts={data?.counts} isLoading={loading} />
       </div>
 
-      {/* Upcoming Schedules Section */}
+      {/* Upcoming Schedules Section - Pass 'isLoading' prop */}
       <div>
-        <UpcomingSchedules />
+        <UpcomingSchedules schedules={data?.details || []} isLoading={loading} />
       </div>
     </>
   );

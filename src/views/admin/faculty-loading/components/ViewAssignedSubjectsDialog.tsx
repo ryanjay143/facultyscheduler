@@ -1,15 +1,17 @@
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
-import { ListX } from "lucide-react"
-import type { Faculty } from "../type";
-
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; 
+import { User, BookOpen } from "lucide-react";
+import type { Faculty } from "../type"; 
+import { FacultyLoadedSchedule } from "./FacultyLoadedSchedule";
 
 interface ViewAssignedSubjectsDialogProps {
   isOpen: boolean;
@@ -18,49 +20,85 @@ interface ViewAssignedSubjectsDialogProps {
 }
 
 export function ViewAssignedSubjectsDialog({ isOpen, onClose, faculty }: ViewAssignedSubjectsDialogProps) {
+  // Stores the total number of items (Lec + Lab)
+  const [totalSubjects, setTotalSubjects] = useState<number>(0);
+
   if (!faculty) return null;
 
-  const hasSubjects = faculty.assignedSubjects && faculty.assignedSubjects.length > 0;
+  const getInitials = (name: string) => {
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase().substring(0, 2);
+  };
+
+  const getProfileSrc = (pic: string | null | undefined) => {
+     if (!pic) return '';
+     if (pic.startsWith('http') || pic.startsWith('data:')) return pic;
+     return `${import.meta.env.VITE_URL}/${pic}`; 
+  };
+
+  // Called when child component finishes fetching
+  const handleDataLoaded = (count: number) => {
+    setTotalSubjects(count);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Assigned Subjects</DialogTitle>
-          <DialogDescription>
-            Viewing schedule for <span className="font-semibold text-primary">{faculty.name}</span>.
-          </DialogDescription>
+      <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col p-0 gap-0 overflow-hidden border-0 shadow-2xl">
+        
+        {/* HEADER */}
+        <DialogHeader className="px-6 py-6 border-b bg-muted/20">
+          <div className="flex items-center gap-5">
+             <div className="relative">
+                 <Avatar className="h-20 w-20 border-4 border-background shadow-lg ring-1 ring-muted">
+                    <AvatarImage 
+                        src={getProfileSrc(faculty.profile_picture)} 
+                        alt={faculty.name} 
+                        className="object-cover"
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-lg font-bold">
+                        {getInitials(faculty.name)}
+                    </AvatarFallback>
+                 </Avatar>
+                 <span className="absolute bottom-1 right-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-white" />
+             </div>
+             
+             <div className="space-y-1.5">
+                <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">
+                    {faculty.name}
+                </DialogTitle>
+                
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1.5 bg-background px-2.5 py-1 rounded-md border shadow-sm">
+                        <User className="h-3.5 w-3.5 text-blue-500" />
+                        Faculty Member
+                    </span>
+                    <span className="flex items-center gap-1.5 bg-background px-2.5 py-1 rounded-md border shadow-sm">
+                        <BookOpen className="h-3.5 w-3.5 text-amber-500" />
+                        {/* Display the Total Count (Lec + Lab included) */}
+                        <span className="font-semibold text-foreground">{totalSubjects}</span> Total Subjects Assigned
+                    </span>
+                </div>
+             </div>
+          </div>
         </DialogHeader>
 
-        <div className="mt-4 max-h-[60vh] overflow-y-auto pr-2">
-          {hasSubjects ? (
-            <ul className="space-y-4">
-              {faculty.assignedSubjects.map((subject, index) => (
-                <li key={subject.id}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold text-foreground">{subject.des_title}</p>
-                      <p className="text-sm text-muted-foreground">{subject.subject_code}</p>
-                    </div>
-                    <Badge variant="secondary" className="font-mono text-xs">
-                      {subject.schedule.time}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Schedule: <span className="font-medium text-foreground">{subject.schedule.day}</span>
-                  </p>
-                  {index < faculty.assignedSubjects.length - 1 && <Separator className="mt-4" />}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground bg-muted/50 rounded-lg">
-              <ListX size={40} className="mb-4 text-slate-500" />
-              <h3 className="text-lg font-semibold text-foreground">No Subjects Assigned</h3>
-              <p className="text-sm">This faculty member does not have any subjects yet.</p>
-            </div>
-          )}
+        {/* CONTENT */}
+        <div className="flex-1 overflow-hidden bg-background">
+           <FacultyLoadedSchedule 
+                facultyId={faculty.id} 
+                onDataLoaded={handleDataLoaded} 
+           />
         </div>
+
+        {/* FOOTER */}
+        <DialogFooter className="px-6 py-4 border-t bg-muted/10 flex items-center justify-between sm:justify-between">
+            <span className="text-xs text-muted-foreground italic">
+                * Schedule is subject to changes by the department head.
+            </span>
+            <DialogClose asChild>
+                <Button variant="outline" className="px-6">Close</Button>
+            </DialogClose>
+        </DialogFooter>
+        
       </DialogContent>
     </Dialog>
   );

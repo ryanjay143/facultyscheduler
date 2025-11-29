@@ -268,42 +268,80 @@ export function CurriculumDetailModal({
                 </DialogFooter>
             </DialogContent>
 
-            {/* --- Elective Subjects Drawer --- */}
             <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-                <DrawerContent className="p-4">
-                    <DrawerHeader className="text-left">
-                        <DrawerTitle>{selectedElective?.name}</DrawerTitle>
-                        <DrawerDescription>The following subjects can be taken for this elective.</DrawerDescription>
-                    </DrawerHeader>
-                    <div className=" px-4 max-h-[90vh]">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Course Code</TableHead>
-                                    <TableHead>Descriptive Title</TableHead>
-                                    <TableHead className="text-center">Units</TableHead>
-                                    <TableHead>Instructional</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {professionalElectives.map((subject) => (
-                                    <TableRow key={subject.code}>
-                                        <TableCell className="font-semibold">{subject.code}</TableCell>
-                                        <TableCell>{subject.name}</TableCell>
-                                        <TableCell className="text-center">{subject.units}</TableCell>
-                                        <TableCell>{subject.instructional}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <DrawerFooter className="pt-4">
-                        <DrawerClose asChild>
-                            <Button variant="outline">Close</Button>
-                        </DrawerClose>
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
+  <DrawerContent className="p-0">
+    <DrawerHeader className="text-left px-5 py-4 border-b">
+      <div className="flex items-center justify-between">
+        <div>
+          <DrawerTitle className="text-base md:text-lg">
+            {selectedElective?.name || "Elective Subjects"}
+          </DrawerTitle>
+          <DrawerDescription className="text-xs md:text-sm">
+            The following subjects can be taken for this elective.
+          </DrawerDescription>
+        </div>
+        <Badge variant="secondary" className="ml-2">
+          {professionalElectives.length} items
+        </Badge>
+      </div>
+    </DrawerHeader>
+
+    <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+      <Table className="min-w-[720px]">
+        <TableHeader className="sticky top-0 bg-background z-10">
+          <TableRow className="[&>th]:py-2 [&>th]:text-xs">
+            <TableHead className="w-[140px]">Course Code</TableHead>
+            <TableHead className="w-[420px]">Descriptive Title</TableHead>
+            <TableHead className="text-right w-[80px]">Units</TableHead>
+            <TableHead className="w-[200px]">Instructional</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {professionalElectives.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                No elective subjects available.
+              </TableCell>
+            </TableRow>
+          ) : (
+            professionalElectives.map((subject) => (
+              <TableRow
+                key={subject.code}
+                className="hover:bg-muted/40 transition-colors [&>td]:py-2 text-sm"
+              >
+                <TableCell className="font-semibold">{subject.code}</TableCell>
+                <TableCell title={subject.name} className="truncate">
+                  <span className="line-clamp-1">{subject.name}</span>
+                </TableCell>
+                <TableCell className="text-right tabular-nums font-medium">{subject.units}</TableCell>
+                <TableCell className="text-muted-foreground">{subject.instructional}</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+        {professionalElectives.length > 0 && (
+          <TableFooter className="bg-muted/40">
+            <TableRow className="[&>td]:py-2">
+              <TableCell colSpan={2} className="text-right font-medium text-sm">
+                Total Units
+              </TableCell>
+              <TableCell className="text-right font-semibold">
+                {professionalElectives.reduce((t, s) => t + (Number(s.units) || 0), 0)}
+              </TableCell>
+              <TableCell />
+            </TableRow>
+          </TableFooter>
+        )}
+      </Table>
+    </div>
+
+    <DrawerFooter className="px-5 py-3 border-t">
+      <DrawerClose asChild>
+        <Button variant="outline" size="sm">Close</Button>
+      </DrawerClose>
+    </DrawerFooter>
+  </DrawerContent>
+</Drawer>
         </Dialog>
     );
 }

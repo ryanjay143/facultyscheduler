@@ -232,7 +232,21 @@ function FacultyTable() {
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   
   const statuses = ["All", "Active", "Inactive"];
-  const expertiseOptions = [ "Computer Networks", "HCI", "Computer Graphics & Vision", "Software Engineering", "Software Development", "Cyber Security", "Programming", "Game Development" ];
+  const expertiseOptions = [
+    "Computer Networks",
+    "HCI",
+    "Computer Graphics & Vision",
+    "Software Engineering",
+    "Software Development",
+    "Cyber Security",
+    "Programming",
+    "Mobile App Development", 
+    "Data Science",
+    "Artificial Intelligence",
+    "Information Systems",
+    "Machine Learning",
+    "Robotics"
+  ];
 
   return (
     <>

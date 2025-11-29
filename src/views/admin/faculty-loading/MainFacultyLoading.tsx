@@ -1,25 +1,15 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { Info, Search } from 'lucide-react';
 import Swal from 'sweetalert2';
 import axios from '../../../plugin/axios';
 import { Input } from '@/components/ui/input';
 import type { Faculty, Subject } from './type';
-import { FacultyCard } from './components/card/FacultyCard';
 import { FacultyCardSkeleton } from './components/card/FacultyCardSkeleton';
 import { AssignSubjectDialog } from './components/AssignSubjectDialog';
 import { ViewAssignedSubjectsDialog } from './components/ViewAssignedSubjectsDialog';
+import { FacultyCard } from './components/card/FacultyCard';
 
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-    },
-  },
-};
 
 function MainFacultyLoading() {
     const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -62,15 +52,26 @@ function MainFacultyLoading() {
                 ];
                 // --- END DEMO DATA ---
 
-                const mappedFaculties: Faculty[] = facultyRes.data.faculties.map((f: any, index: number) => ({
+               const mappedFaculties: Faculty[] = facultyRes.data.faculties.map((f: any, index: number) => ({
                     id: f.id,
-                    name: f.user.name,
-                    expertise: f.expertises.map((e: any) => e.list_of_expertise),
-                    availability: {},
-                    maxUnits: f.t_load_units,
-                    // Assign demo subjects to the first faculty for demonstration
-                    assignedSubjects: index === 0 ? demoAssignedSubjects : [],
+                    name: f.user.name, 
+                    
+                    // Siguradoa nga string ni siya
+                    department: f.department || "No Department", 
+
+                    // Map expertise
+                    expertise: f.expertises ? f.expertises.map((e: any) => e.list_of_expertise) : [],
+                    
                     profile_picture: f.profile_picture,
+
+                    // [FIX HERE] - Kuhaa ang exact values gikan sa backend response (f)
+                    t_load_units: f.t_load_units ?? 0,    // Mao ni ang Teaching Load
+                    deload_units: f.deload_units ?? 0,    // Mao ni ang Deload
+                    overload_units: f.overload_units ?? 0,// Mao ni ang Overload
+
+                    // Required fields (Pwede ra i-set as blank/default kung wala sa backend)
+                    availability: {},
+                    assignedSubjects: index === 0 ? demoAssignedSubjects : [], 
                 }));
 
                 setFaculties(mappedFaculties);
@@ -128,17 +129,17 @@ function MainFacultyLoading() {
     const handleAssignSubject = (facultyId: number, subjectId: number, schedules: { type: 'LEC' | 'LAB'; day: string; time: string; roomId: number }[]) => {
         console.log("Assigning Subject:", { facultyId, subjectId, schedules });
 
-        const scheduleSummary = schedules
-            .map(s => `${s.type} ${s.day} at ${s.time}${s.roomId ? ` (Room ${s.roomId})` : ''}`)
-            .join('; ');
+        // const _scheduleSummary = schedules
+        //     .map(s => `${s.type} ${s.day} at ${s.time}${s.roomId ? ` (Room ${s.roomId})` : ''}`)
+        //     .join('; ');
 
-        Swal.fire({
-            icon: 'success',
-            title: 'Assignment Recorded',
-            text: `Subject ${subjectId} assigned to faculty ${facultyId}: ${scheduleSummary}`,
-            timer: 2000,
-            showConfirmButton: false
-        });
+        // Swal.fire({
+        //     icon: 'success',
+        //     title: 'Assignment Recorded',
+        //     text: `Subject ${subjectId} assigned to faculty ${facultyId}: ${scheduleSummary}`,
+        //     timer: 2000,
+        //     showConfirmButton: false
+        // });
     };
 
     return (
@@ -189,21 +190,11 @@ function MainFacultyLoading() {
                         ))}
                     </div>
                 ) : filteredFaculties.length > 0 ? (
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-                    >
-                        {filteredFaculties.map((faculty) => (
-                           <FacultyCard
-                                key={faculty.id}
-                                faculty={faculty}
-                                onAssignClick={handleOpenAssignModal}
-                                onViewSubjectsClick={handleOpenViewModal} // Pass new handler
-                           />
-                        ))}
-                    </motion.div>
+                    <FacultyCard
+                        data={filteredFaculties}
+                        onAssignClick={handleOpenAssignModal}
+                        onViewSubjectsClick={handleOpenViewModal}
+                    />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground bg-muted/50 rounded-lg border-2 border-dashed">
                         <Info size={40} className="mb-4 text-primary" />

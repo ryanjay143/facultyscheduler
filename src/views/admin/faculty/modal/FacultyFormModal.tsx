@@ -1,5 +1,3 @@
-// src/components/modal/FacultyFormModal.tsx
-
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
