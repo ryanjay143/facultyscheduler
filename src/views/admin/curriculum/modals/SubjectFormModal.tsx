@@ -95,9 +95,9 @@ export function SubjectFormModal(props: SubjectFormProps) {
             await onSave(subject, isEditing);
             // Close modal on success
             onClose();
-        } catch (err) {
+        } catch (err:any) {
             console.error('Subject save failed:', err);
-            toast.error('Failed to save subject.');
+            toast.error("The subject code has already been taken");
         } finally {
             setIsSaving(false);
         }

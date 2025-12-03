@@ -44,34 +44,21 @@ function MainFacultyLoading() {
                     axios.get(`/get-subjects`, axiosConfig)
                 ]);
 
-                // --- DEMO DATA FOR ASSIGNED SUBJECTS ---
-                // In your real app, this data would come from the API
-                const demoAssignedSubjects = [
-                    { id: 101, subject_code: 'CS 101', des_title: 'Intro to Programming', schedule: { day: 'MWF', time: '10:00 - 11:00 AM' } },
-                    { id: 102, subject_code: 'IT 203', des_title: 'Database Systems', schedule: { day: 'TTH', time: '1:00 - 2:30 PM' } },
-                ];
-                // --- END DEMO DATA ---
-
-               const mappedFaculties: Faculty[] = facultyRes.data.faculties.map((f: any, index: number) => ({
+               const mappedFaculties: Faculty[] = facultyRes.data.faculties.map((f: any) => ({
                     id: f.id,
                     name: f.user.name, 
                     
-                    // Siguradoa nga string ni siya
                     department: f.department || "No Department", 
-
-                    // Map expertise
                     expertise: f.expertises ? f.expertises.map((e: any) => e.list_of_expertise) : [],
-                    
                     profile_picture: f.profile_picture,
 
-                    // [FIX HERE] - Kuhaa ang exact values gikan sa backend response (f)
-                    t_load_units: f.t_load_units ?? 0,    // Mao ni ang Teaching Load
-                    deload_units: f.deload_units ?? 0,    // Mao ni ang Deload
-                    overload_units: f.overload_units ?? 0,// Mao ni ang Overload
+                    // Exact values from backend (Confirmed by JSON)
+                    t_load_units: f.t_load_units ?? 0,    
+                    deload_units: f.deload_units ?? 0,    
+                    overload_units: f.overload_units ?? 0,
 
-                    // Required fields (Pwede ra i-set as blank/default kung wala sa backend)
                     availability: {},
-                    assignedSubjects: index === 0 ? demoAssignedSubjects : [], 
+                    assignedSubjects: [],
                 }));
 
                 setFaculties(mappedFaculties);
@@ -94,12 +81,21 @@ function MainFacultyLoading() {
 
     // Handlers for Assigning Subjects
     const handleOpenAssignModal = (faculty: Faculty) => {
-        const facultyExpertise = faculty.expertise.map(e => e.toLowerCase().trim());
-        if (facultyExpertise.length === 0) {
-            setSubjectsForModal(allSubjects);
+        // Normalize and tokenize expertise terms (remove short/common words)
+        const facultyExpertise = faculty.expertise
+            .map(e => (e || '').toLowerCase().trim())
+            .filter(Boolean)
+            .flatMap(e => e.split(/\s+|[,;/]+/).map(t => t.trim()))
+            .filter(t => t.length > 2);
+
+        if (!facultyExpertise.length) {
+            // If faculty has no expertise listed, pass an empty array so the dialog
+            // can decide what to show (we avoid forcing all subjects).
+            setSubjectsForModal([]);
         } else {
             const relevantSubjects = allSubjects.filter(subject => {
-                const subjectText = `${subject.des_title} ${subject.subject_code}`.toLowerCase();
+                const subjectText = `${subject.des_title ?? ''} ${subject.subject_code ?? ''} ${(subject as any).pre_requisite ?? ''}`.toLowerCase();
+                // Match if ANY expertise token appears in the subject text
                 return facultyExpertise.some(exp => subjectText.includes(exp));
             });
             setSubjectsForModal(relevantSubjects);
@@ -125,21 +121,16 @@ function MainFacultyLoading() {
         setFacultyForViewModal(null);
     };
 
-
-    const handleAssignSubject = (facultyId: number, subjectId: number, schedules: { type: 'LEC' | 'LAB'; day: string; time: string; roomId: number }[]) => {
+    // --- UPDATED HANDLER HERE ---
+    const handleAssignSubject = (
+        facultyId: number, 
+        subjectId: number, 
+        schedules: { type: 'LEC' | 'LAB'; day: string; time: string; roomId: number }[]
+    ) => {
         console.log("Assigning Subject:", { facultyId, subjectId, schedules });
-
-        // const _scheduleSummary = schedules
-        //     .map(s => `${s.type} ${s.day} at ${s.time}${s.roomId ? ` (Room ${s.roomId})` : ''}`)
-        //     .join('; ');
-
-        // Swal.fire({
-        //     icon: 'success',
-        //     title: 'Assignment Recorded',
-        //     text: `Subject ${subjectId} assigned to faculty ${facultyId}: ${scheduleSummary}`,
-        //     timer: 2000,
-        //     showConfirmButton: false
-        // });
+        
+        // Example: If you need to refresh data immediately after assignment,
+        // you can call a refresh function here or trigger a state update.
     };
 
     return (
@@ -151,7 +142,7 @@ function MainFacultyLoading() {
                         onClose={handleCloseAssignModal}
                         faculty={selectedFaculty}
                         availableSubjects={subjectsForModal}
-                        onAssign={handleAssignSubject}
+                        onAssign={handleAssignSubject} // Now signatures match
                     />
                 )}
                 {isViewModalOpen && facultyForViewModal && (

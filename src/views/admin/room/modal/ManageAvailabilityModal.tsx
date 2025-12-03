@@ -9,16 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Trash2, PlusCircle, ServerCrash } from "lucide-react";
 import { toast } from "sonner";
-import axios from "../../../../plugin/axios";
-import type { Room } from "../RoomContainer";
-
-// Type para sa usa ka availability slot
-type AvailabilitySlot = {
-  id: number;
-  day: string;
-  start_time: string;
-  end_time: string;
-};
+import axios from "../../../../plugin/axios"; // Adjust path as necessary
+// FIX: Update imports to use the centralized types file
+import type { Room, AvailabilitySlot } from "../classroom"; 
 
 type Props = {
   isOpen: boolean;
@@ -28,13 +21,13 @@ type Props = {
 
 const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-// --- BAG-O: Helper function para i-convert ang oras ---
+// --- Helper function para i-convert ang oras ---
 const formatTimeTo12Hour = (time24: string): string => {
     if (!time24) return '';
     const [hours, minutes] = time24.split(':');
     const h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12; // Convert 0 to 12 for 12 AM
+    const h12 = h % 12 || 12; 
     return `${String(h12).padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
@@ -58,7 +51,11 @@ export function ManageAvailabilityModal({ isOpen, onClose, room }: Props) {
           const response = await axios.get(`/rooms/${room.id}/availabilities`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setAvailabilities(response.data.availabilities || []);
+          
+          const sortedAvailabilities = (response.data.availabilities || []).sort((a: AvailabilitySlot, b: AvailabilitySlot) => 
+                daysOfWeek.indexOf(a.day) - daysOfWeek.indexOf(b.day) || a.start_time.localeCompare(b.start_time)
+            );
+          setAvailabilities(sortedAvailabilities);
         } catch (error) {
           toast.error("Failed to fetch availability.");
           console.error("Fetch availability error:", error);
@@ -85,7 +82,6 @@ export function ManageAvailabilityModal({ isOpen, onClose, room }: Props) {
     setIsProcessing(true);
     try {
       const token = localStorage.getItem('accessToken');
-      // Siguraduhon nga naay ':00' (seconds) ang ipasa sa backend
       const payload = { 
         availabilities: [{
             ...newSlotData,
@@ -97,19 +93,16 @@ export function ManageAvailabilityModal({ isOpen, onClose, room }: Props) {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      const createdSlots = response.data.availabilities;
+      const createdSlots: AvailabilitySlot[] = response.data.availabilities;
       setAvailabilities(prev => [...prev, ...createdSlots].sort((a, b) => daysOfWeek.indexOf(a.day) - daysOfWeek.indexOf(b.day) || a.start_time.localeCompare(b.start_time)));
       setNewSlotData(defaultNewSlot);
       toast.success("New availability slot added!");
     } catch (error: any) {
         if (error.response?.status === 422) {
             const errors = error.response.data.errors;
-            // Pangitaon nato ang error gikan sa custom validation rule
             if (errors && errors['availabilities.0.day']) {
-                // Ipakita ang specific message gikan sa backend.
                 toast.error(errors['availabilities.0.day'][0]);
             } else {
-                // Kung lain nga validation error, ipakita ang general message.
                 toast.error("Invalid data provided. Please check the time format and day.");
             }
         } else {
@@ -167,7 +160,6 @@ export function ManageAvailabilityModal({ isOpen, onClose, room }: Props) {
                                 {availabilities.map(slot => (
                                     <TableRow key={slot.id}>
                                         <TableCell>{slot.day}</TableCell>
-                                        {/* GI-UPDATE: Gamiton ang format function */}
                                         <TableCell>{formatTimeTo12Hour(slot.start_time)}</TableCell>
                                         <TableCell>{formatTimeTo12Hour(slot.end_time)}</TableCell>
                                         <TableCell className="text-right">
@@ -202,7 +194,6 @@ export function ManageAvailabilityModal({ isOpen, onClose, room }: Props) {
                     </div>
                     <div className="space-y-1">
                         <Label htmlFor="start_time">Start Time</Label>
-                        {/* GI-UPDATE: Gikuha ang 'step' para mas dali ang pag-input */}
                         <Input id="start_time" type="time" value={newSlotData.start_time} onChange={(e) => handleInputChange('start_time', e.target.value)} required />
                     </div>
                     <div className="space-y-1">

@@ -6,9 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { Room } from "../RoomContainer";
+import type { Room, RoomFormData } from "../classroom";
 
-type RoomFormData = Omit<Room, "id" | "status" | "created_at" | "updated_at">;
 
 type RoomFormModalProps = {
   isOpen: boolean;
@@ -45,9 +44,12 @@ export function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomForm
     e.preventDefault();
     setIsProcessing(true);
     try {
-        await onSave(formData);
+        // Since onSave is expected to be an async handler in RoomContainer
+        await onSave(formData); 
     } finally {
-        setIsProcessing(false);
+        // The processing state should likely be controlled outside this function 
+        // after onSave triggers a re-fetch and modal closes, but for safety:
+        setIsProcessing(false); 
     }
   };
 
@@ -55,6 +57,7 @@ export function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomForm
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
+      // Ensure capacity is correctly set to number or null
       [name]: name === "capacity" ? (value === '' ? null : Number(value)) : value,
     }));
   };
@@ -103,7 +106,7 @@ export function RoomFormModal({ isOpen, onClose, onSave, initialData }: RoomForm
 
           <DialogFooter className="pt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline" disabled={isProcessing}>Cancel</Button>
             </DialogClose>
             <Button type="submit" disabled={isProcessing}>
               {isProcessing ? 'Saving...' : 'Save Room'}

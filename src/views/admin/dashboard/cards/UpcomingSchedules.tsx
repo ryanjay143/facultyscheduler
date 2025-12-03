@@ -12,9 +12,18 @@ import {
     Loader2,
     Filter,
     FlaskConical,
-    Presentation
+    Presentation,
+    Users 
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+// --- NEW IMPORTS FOR SHADCN SELECT ---
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ScheduleDetail } from "../DashboardContainer"; 
 
 const scheduleColorPalette = [
@@ -82,46 +91,58 @@ export const UpcomingSchedules: React.FC<{ schedules: ScheduleDetail[], isLoadin
 
             {/* --- FILTERS --- */}
             {!isLoading && schedules.length > 0 && (
-                <div className="flex gap-2">
-                    {/* Faculty Filter */}
-                    <div className="relative">
-                        <select 
-                            className="h-9 w-[140px] appearance-none rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 pl-8"
-                            value={selectedFaculty}
-                            onChange={(e) => {
-                                setSelectedFaculty(e.target.value);
-                                setShowAll(false); // Reset view on filter change
-                            }}
-                        >
-                            <option value="ALL">All Faculty</option>
+                <div className="flex gap-2 flex-wrap md:flex-nowrap">
+                    
+                    {/* Faculty Filter (Shadcn Select) */}
+                    <Select 
+                        value={selectedFaculty} 
+                        onValueChange={(val) => {
+                            setSelectedFaculty(val);
+                            setShowAll(false);
+                        }}
+                    >
+                        <SelectTrigger className="w-[160px] h-9">
+                            <div className="flex items-center gap-2 text-muted-foreground truncate">
+                                <Filter className="h-4 w-4 shrink-0" />
+                                <SelectValue placeholder="All Faculty" />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Faculty</SelectItem>
                             {uniqueFaculties.map((fac, i) => (
-                                <option key={i} value={fac}>{fac}</option>
+                                <SelectItem key={i} value={fac}>
+                                    {fac}
+                                </SelectItem>
                             ))}
-                        </select>
-                        <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    </div>
+                        </SelectContent>
+                    </Select>
 
-                    {/* Type Filter */}
-                    <div className="relative">
-                        <select 
-                            className="h-9 w-[130px] appearance-none rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 pl-8"
-                            value={selectedType}
-                            onChange={(e) => {
-                                setSelectedType(e.target.value);
-                                setShowAll(false); 
-                            }}
-                        >
-                            <option value="ALL">All Types</option>
-                            <option value="LEC">Lecture</option>
-                            <option value="LAB">Laboratory</option>
-                        </select>
-                         {/* Dynamic Icon based on selection */}
-                        {selectedType === 'LAB' ? (
-                             <FlaskConical className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                        ) : (
-                             <Presentation className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                        )}
-                    </div>
+                    {/* Type Filter (Shadcn Select) */}
+                    <Select
+                        value={selectedType}
+                        onValueChange={(val) => {
+                            setSelectedType(val);
+                            setShowAll(false);
+                        }}
+                    >
+                        <SelectTrigger className="w-[140px] h-9">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                {/* Dynamic Icon inside Trigger */}
+                                {selectedType === 'LAB' ? (
+                                    <FlaskConical className="h-4 w-4 shrink-0" />
+                                ) : (
+                                    <Presentation className="h-4 w-4 shrink-0" />
+                                )}
+                                <SelectValue placeholder="All Types" />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Types</SelectItem>
+                            <SelectItem value="LEC">Lecture</SelectItem>
+                            <SelectItem value="LAB">Laboratory</SelectItem>
+                        </SelectContent>
+                    </Select>
+
                 </div>
             )}
         </div>
@@ -135,7 +156,7 @@ export const UpcomingSchedules: React.FC<{ schedules: ScheduleDetail[], isLoadin
                 <p className="text-sm">Loading schedule details...</p>
             </div>
         ) : filteredSchedules.length === 0 ? (
-            // EMPTY STATE (Either no data today, or no data matching filter)
+            // EMPTY STATE
            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
                <AlertCircle className="h-10 w-10 mb-2 opacity-50" />
                <p>
@@ -185,14 +206,25 @@ export const UpcomingSchedules: React.FC<{ schedules: ScheduleDetail[], isLoadin
                         </div>
                         
                         <div className="space-y-2 text-sm text-muted-foreground mt-4">
+                            {/* TIME */}
                             <div className="flex items-center">
                                 <Clock size={14} className="mr-2 flex-shrink-0 text-foreground/60" />
                                 <span className="font-medium text-foreground/90">{startTime} - {endTime}</span>
                             </div>
+                            
+                            {/* ROOM */}
                             <div className="flex items-center">
                                 <DoorClosed size={14} className="mr-2 flex-shrink-0 text-foreground/60" />
                                 <span>{item.room_number}</span>
                             </div>
+
+                            {/* SECTION */}
+                            <div className="flex items-center">
+                                <Users size={14} className="mr-2 flex-shrink-0 text-foreground/60" />
+                                <span>{item.section || "N/A"}</span>
+                            </div>
+
+                            {/* FACULTY */}
                             <div className="flex items-center">
                                 <User size={14} className="mr-2 flex-shrink-0 text-foreground/60" />
                                 <span>{item.faculty_name}</span>

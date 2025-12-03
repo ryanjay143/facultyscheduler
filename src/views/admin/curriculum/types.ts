@@ -40,6 +40,7 @@ export interface ElectiveSubject {
     instructional: string;
 }
 
+// Data for professional electives (hardcoded as per the example)
 export const professionalElectives: ElectiveSubject[] = [
     { code: 'CSCC 21.1', name: 'Software Engineering 1', units: 3, instructional: 'integrated lec/lab' },
     { code: 'CSCC 36', name: 'Advanced Topics in Human Computer Interaction', units: 3, instructional: 'lecture only' },

@@ -7,7 +7,8 @@ import {
     Clock, 
     MapPin, 
     Presentation, 
-    FlaskConical 
+    FlaskConical
+    // Users icon removed
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,6 +23,7 @@ interface ClassSchedule {
     day: string;
     start_time: string;
     end_time: string;
+    // section: string; // Removed Section
     subject: {
         subject_code: string;
         des_title: string;
@@ -33,7 +35,6 @@ interface ClassSchedule {
 
 interface FacultyLoadedScheduleProps {
     facultyId: number;
-    // Callback to pass the TOTAL count back to the parent dialog
     onDataLoaded?: (totalCount: number) => void;
 }
 
@@ -85,8 +86,6 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
                     const data = response.data.data;
                     setSchedules(data);
 
-                    // --- CRITICAL UPDATE: Count every single entry as 1 ---
-                    // If Monday has LEC + LAB, data.length includes both.
                     if (onDataLoaded) {
                         onDataLoaded(data.length);
                     }
@@ -134,11 +133,10 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
         <div className="h-full flex flex-col bg-muted/10 rounded-lg overflow-hidden border">
             <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col h-full w-full">
                 
-                {/* --- DAYS NAVIGATION WITH COUNTS --- */}
+                {/* --- DAYS NAVIGATION --- */}
                 <div className="bg-background border-b px-2 pt-2">
                     <TabsList className="w-full justify-start h-auto p-0 bg-transparent gap-2 overflow-x-auto no-scrollbar pb-2">
                         {daysList.map((day) => {
-                            // This counts items specifically for this day (e.g., Monday = 2)
                             const count = weeklySchedule.get(day)?.length || 0;
                             const isActiveDay = count > 0;
                             
@@ -153,7 +151,6 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
                                     `}
                                 >
                                     <span className="text-xs font-semibold uppercase text-muted-foreground">{day.substring(0, 3)}</span>
-                                    {/* Display count for the specific day */}
                                     <span className={`text-lg font-bold ${isActiveDay ? 'text-primary' : 'text-muted-foreground'}`}>
                                         {count}
                                     </span>
@@ -216,10 +213,11 @@ function ScheduleCard({ sched }: { sched: ClassSchedule }) {
     return (
         <Card className={`overflow-hidden shadow-sm hover:shadow-md transition-shadow border-l-[6px] ${theme.border}`}>
             <CardContent className="p-0 flex flex-col sm:flex-row">
+                {/* Time Column */}
                 <div className={`p-4 flex flex-col justify-center items-center sm:w-36 border-b sm:border-b-0 sm:border-r ${theme.bg}`}>
                     <div className="text-center">
                         <span className="block text-lg font-bold text-foreground leading-none">{formatTime(sched.start_time)}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-medium my-1 block">to</span>
+                        <span className="text-[10px] text-muted-foreground font-medium my-1 block">to</span>
                         <span className="block text-sm font-medium text-muted-foreground leading-none">{formatTime(sched.end_time)}</span>
                     </div>
                     <Separator className="my-3 w-12 bg-black/10" />
@@ -228,11 +226,13 @@ function ScheduleCard({ sched }: { sched: ClassSchedule }) {
                         <span>{duration}</span>
                     </div>
                 </div>
+
+                {/* Info Column */}
                 <div className="flex-1 p-4 flex flex-col justify-between">
                     <div>
                         <div className="flex justify-between items-start gap-2 mb-1">
                             <div className="flex items-center gap-2">
-                                <h3 className="text-xl font-bold text-foreground tracking-tight">{sched.subject.subject_code}</h3>
+                                <h3 className="text-xl font-bold text-foreground tracking-tight uppercase">{sched.subject.subject_code}</h3>
                                 <Badge variant="secondary" className={`${theme.badge} border-none`}>
                                     <Icon className="h-3 w-3 mr-1" />
                                     {sched.type === 'LEC' ? 'Lecture' : 'Laboratory'}
@@ -241,14 +241,21 @@ function ScheduleCard({ sched }: { sched: ClassSchedule }) {
                         </div>
                         <p className="text-sm font-medium text-muted-foreground">{sched.subject.des_title}</p>
                     </div>
-                    <div className="mt-4 pt-3 border-t flex items-center justify-between">
+
+                    {/* Footer Row: Room (Section Removed) */}
+                    <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-x-6 gap-y-2">
+                        
+                        {/* Room Info */}
                         <div className="flex items-center gap-2">
-                            <div className="bg-muted p-1.5 rounded-md"><MapPin className="h-4 w-4 text-foreground/70" /></div>
+                            <div className="bg-muted p-1.5 rounded-md">
+                                <MapPin className="h-4 w-4 text-foreground/70" />
+                            </div>
                             <div className="flex flex-col">
                                 <span className="text-[10px] uppercase font-bold text-muted-foreground leading-tight">Room</span>
                                 <span className="text-sm font-bold text-foreground">{sched.room.roomNumber}</span>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </CardContent>

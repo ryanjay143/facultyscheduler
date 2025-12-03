@@ -21,29 +21,53 @@ export interface Subject {
   total_lab_hrs: number;
   pre_requisite: string;
   semester: Semester;
+  units: number; 
+}
+
+// Helper types for Faculty Assigned Subjects (used in Dialogs)
+export interface Schedule {
+    day: string;
+    time: string;
+    
+}
+
+export interface AssignedSubject {
+    id: number;
+    subject_code: string;
+    des_title: string;
+    schedule: Schedule;
 }
 
 export interface Faculty {
     id: number;
     name: string;
     department: string;
-    profile_picture: string;
+    profile_picture: string | null; // Changed to allow nulls
     expertise: string[];
     
-    // --- NEW FIELDS FROM BACKEND ---
-    t_load_units: number;  // Regular Teaching Load
-    deload_units: number;  // Deloading Units
-    overload_units: number;// Overload Units
+    // --- LOAD UNITS (Current Status) ---
+    t_load_units: number;  // Current Regular Teaching Load
+    deload_units: number;  // Current Deloading Units
+    overload_units: number;// Current Overload Units
     
-    // Keep these if you use them for calculations elsewhere, 
-    // otherwise you might not need them anymore based on new requirement
+    // --- LOAD LIMITS (Max Capacities) ---
+    // These are required for the progress bars
+    regular_limit?: number; 
+    deload_limit?: number;
+    overload_limit?: number;
+    
+    // Optional/Legacy fields
     currentLoad?: number; 
     maxLoad?: number;
     maxSubjects?: number;
-    assignedSubjects?: any[];
+    
+    // Used for the frontend UI logic (Assign/View Modal)
+    assignedSubjects?: AssignedSubject[]; 
+    availability?: any; 
+
+    
 }
 
-// Add this interface
 export interface ClassSchedule {
     id: number;
     faculty_id: number;
@@ -60,6 +84,6 @@ export interface ClassSchedule {
     };
     room: {
         id: number;
-        roomNumber: string; // or 'name' depending on your Room model
+        roomNumber: string; 
     };
 }

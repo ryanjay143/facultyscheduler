@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Search, Filter, Eye, Edit, Trash2, ChevronLeft, ChevronRight, CalendarPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ViewScheduleModal } from "../modal/ViewScheduleModal";
-import type { Room, ScheduleEntry, Subject } from "../RoomContainer";
+
+// FIX: Update imports to use the centralized types file
+import type { Room, ScheduleEntry, Subject } from "../classroom"; 
 import { Skeleton } from "@/components/ui/skeleton";
+import ViewScheduleModal from "../modal/ViewScheduleModal";
 
 // --- Props ---
 type RoomTableProps = {
@@ -25,7 +27,11 @@ type RoomTableProps = {
 
 // --- Helper Functions ---
 const getSubjectCountForRoom = (roomId: number, schedule: ScheduleEntry[]): number => {
-  const uniqueSubjects = new Set(schedule.filter(s => s.roomId === roomId).map(s => s.subjectId));
+  const uniqueSubjects = new Set(
+    schedule
+      .filter(s => s.faculty_loading.room.id === roomId) 
+      .map(s => s.faculty_loading.subject.id)
+  );
   return uniqueSubjects.size;
 };
 
@@ -49,13 +55,21 @@ const SkeletonRoomRow = () => (
 );
 
 // --- Main Component ---
-function RoomTable({ roomsData, scheduleData, subjectsData, onEdit, onDelete, onManageAvailability, isLoading }: RoomTableProps) {
+function RoomTable({ roomsData, scheduleData, onEdit, onDelete, onManageAvailability, isLoading }: RoomTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({ type: "All" });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [isViewScheduleModalOpen, setViewScheduleModalOpen] = useState(false);
-  const [viewingRoom, setViewingRoom] = useState<Room | null>(null);
+  
+  // State for View Schedule Modal
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+
+  // Function to open the modal and set the selected room
+  const handleViewSchedule = (room: Room) => {
+      setSelectedRoom(room);
+      setIsViewModalOpen(true);
+  };
 
   const filteredData = useMemo(() => {
     return roomsData
@@ -69,10 +83,6 @@ function RoomTable({ roomsData, scheduleData, subjectsData, onEdit, onDelete, on
   }, [filteredData, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const handleViewSchedule = (room: Room) => {
-    setViewingRoom(room);
-    setViewScheduleModalOpen(true);
-  };
   const roomTypes = ["All", "Lecture", "Laboratory"];
 
   return (
@@ -143,7 +153,12 @@ function RoomTable({ roomsData, scheduleData, subjectsData, onEdit, onDelete, on
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button variant="ghost" className="text-blue-500 hover:text-blue-500" size="icon" onClick={() => handleViewSchedule(room)}>
+                                        <Button 
+                                            variant="ghost" 
+                                            className="text-blue-500 hover:text-blue-500" 
+                                            size="icon" 
+                                            onClick={() => handleViewSchedule(room)}
+                                        >
                                             <Eye className="h-4 w-4" />
                                         </Button>
                                     </TooltipTrigger>
@@ -188,12 +203,12 @@ function RoomTable({ roomsData, scheduleData, subjectsData, onEdit, onDelete, on
         </div>
       </div>
       
+      {/* View Schedule Modal Component */}
       <ViewScheduleModal 
-        isOpen={isViewScheduleModalOpen}
-        onClose={() => setViewScheduleModalOpen(false)}
-        room={viewingRoom}
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        room={selectedRoom}
         scheduleData={scheduleData}
-        subjectsData={subjectsData}
       />
     </>
   );

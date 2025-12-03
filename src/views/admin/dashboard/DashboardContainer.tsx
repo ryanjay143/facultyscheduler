@@ -22,6 +22,7 @@ export interface ScheduleDetail {
   subject_code: string;
   description: string;
   type: 'LEC' | 'LAB';
+  section: string;
   day: string;
   start_time: string;
   end_time: string;

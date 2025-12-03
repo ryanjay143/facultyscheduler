@@ -5,50 +5,12 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, Dr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Layers, Edit, Trash2, Plus, SlidersHorizontal, CalendarDays } from "lucide-react";
-import type { Program, Subject, Semester } from '../types';
+import { Layers, Edit, Trash2, Plus, SlidersHorizontal, CalendarDays, BookOpenCheck } from 'lucide-react';
+import { type Program, type Subject, type Semester, professionalElectives } from '../types';
 import type { JSX } from "react";
 import { useState, useEffect, useMemo } from 'react';
 import axios from '../../../../plugin/axios';
 import { toast } from 'sonner';
-
-// Define the structure for elective subjects
-interface ElectiveSubject {
-    code: string;
-    name: string;
-    units: number;
-    instructional: string;
-}
-
-// Data from the image for professional electives - This is hardcoded as per the example
-const professionalElectives: ElectiveSubject[] = [
-    { code: 'CSCC 21.1', name: 'Software Engineering 1', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'CSCC 36', name: 'Advanced Topics in Human Computer Interaction', units: 3, instructional: 'lecture only' },
-    { code: 'CSCC 37', name: 'User Interface Design and Development', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'CSCC 40', name: 'Introduction to Artificial Intelligence', units: 3, instructional: 'lecture only' },
-    { code: 'CSCC 44', name: 'Introduction to Data Mining', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'CSCC 46', name: 'Introduction to Robotics', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ISCC 11', name: 'Organization and Management Concepts', units: 3, instructional: 'lecture only' },
-    { code: 'ISCC 12', name: 'Financial Management', units: 3, instructional: 'lecture only' },
-    { code: 'ISCC 16', name: 'Technopreneurship', units: 3, instructional: 'lecture only' },
-    { code: 'ISCC 17', name: 'Electronic Commerce', units: 3, instructional: 'lecture only' },
-    { code: 'ISCC 18', name: 'Introduction to Enterprise Resource Planning', units: 3, instructional: 'lecture only' },
-    { code: 'ISCC 21.1', name: 'IS Project Management', units: 3, instructional: 'lecture only' },
-    { code: 'ISCC 22.1', name: 'Systems Analysis and Design', units: 3, instructional: 'lecture only' },
-    { code: 'ISCC 31', name: 'Current Issues and Trends in Computing', units: 3, instructional: 'lecture only' },
-    { code: 'ITCC 12', name: 'Platform Technologies', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 17', name: 'Advanced Systems Integration and Architecture', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 18', name: 'Advanced Integrative Programming and Technologies', units: 3, instructional: 'lec and lab' },
-    { code: 'ITCC 19', name: 'Introduction to Geographic Information Systems', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 34', name: 'Contemporary Database Technologies', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 35', name: 'Advanced Web Systems and Technologies', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 36', name: 'Introduction to Cloud Computing', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 37', name: 'Data Warehousing', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 38', name: 'Parallel and Distributed Computing', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 39', name: 'IT Industry Management', units: 3, instructional: 'lecture only' },
-    { code: 'ITCC 40', name: 'Web Design and Development', units: 3, instructional: 'integrated lec/lab' },
-    { code: 'ITCC 41', name: 'Mobile Applications Development', units: 3, instructional: 'integrated lec/lab' },
-];
 
 
 interface CurriculumDetailModalProps {
@@ -268,80 +230,96 @@ export function CurriculumDetailModal({
                 </DialogFooter>
             </DialogContent>
 
+            {/* REDESIGNED DRAWER FOR ELECTIVES VIEW (NON-CLICKABLE) */}
             <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-  <DrawerContent className="p-0">
-    <DrawerHeader className="text-left px-5 py-4 border-b">
-      <div className="flex items-center justify-between">
-        <div>
-          <DrawerTitle className="text-base md:text-lg">
-            {selectedElective?.name || "Elective Subjects"}
-          </DrawerTitle>
-          <DrawerDescription className="text-xs md:text-sm">
-            The following subjects can be taken for this elective.
-          </DrawerDescription>
-        </div>
-        <Badge variant="secondary" className="ml-2">
-          {professionalElectives.length} items
-        </Badge>
-      </div>
-    </DrawerHeader>
+                <DrawerContent className="p-0">
+                    {/* Sticky, attractive header */}
+                    <DrawerHeader className="text-left px-5 py-4 border-b bg-background/95 backdrop-blur-sm sticky top-0 z-20">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <DrawerTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+                                    <BookOpenCheck className="h-5 w-5 text-primary" />
+                                    {selectedElective?.name || "Elective Subjects"}
+                                </DrawerTitle>
+                                <DrawerDescription className="text-sm mt-1 text-muted-foreground">
+                                    List of subjects that can be taken for this elective slot. (Read-only view)
+                                </DrawerDescription>
+                            </div>
+                            <Badge variant="outline" className="text-xs font-semibold py-1 px-3 mt-1 text-primary border-primary">
+                                {professionalElectives.length} Options
+                            </Badge>
+                        </div>
+                        {/* Current placeholder subject details */}
+                        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                            <span className="font-medium text-primary">Placeholder Code:</span> {selectedElective?.code}
+                            <span className="ml-4 font-medium text-primary">Units Required:</span> {selectedElective?.unitsTotal}
+                        </div>
+                    </DrawerHeader>
 
-    <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
-      <Table className="min-w-[720px]">
-        <TableHeader className="sticky top-0 bg-background z-10">
-          <TableRow className="[&>th]:py-2 [&>th]:text-xs">
-            <TableHead className="w-[140px]">Course Code</TableHead>
-            <TableHead className="w-[420px]">Descriptive Title</TableHead>
-            <TableHead className="text-right w-[80px]">Units</TableHead>
-            <TableHead className="w-[200px]">Instructional</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {professionalElectives.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                No elective subjects available.
-              </TableCell>
-            </TableRow>
-          ) : (
-            professionalElectives.map((subject) => (
-              <TableRow
-                key={subject.code}
-                className="hover:bg-muted/40 transition-colors [&>td]:py-2 text-sm"
-              >
-                <TableCell className="font-semibold">{subject.code}</TableCell>
-                <TableCell title={subject.name} className="truncate">
-                  <span className="line-clamp-1">{subject.name}</span>
-                </TableCell>
-                <TableCell className="text-right tabular-nums font-medium">{subject.units}</TableCell>
-                <TableCell className="text-muted-foreground">{subject.instructional}</TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-        {professionalElectives.length > 0 && (
-          <TableFooter className="bg-muted/40">
-            <TableRow className="[&>td]:py-2">
-              <TableCell colSpan={2} className="text-right font-medium text-sm">
-                Total Units
-              </TableCell>
-              <TableCell className="text-right font-semibold">
-                {professionalElectives.reduce((t, s) => t + (Number(s.units) || 0), 0)}
-              </TableCell>
-              <TableCell />
-            </TableRow>
-          </TableFooter>
-        )}
-      </Table>
-    </div>
+                    <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+                        <Table className="min-w-[720px]">
+                            {/* Improved Table Header with better styling */}
+                            <TableHeader className="sticky top-0 bg-background z-10">
+                                <TableRow className="[&>th]:py-3 [&>th]:text-xs [&>th]:text-white [&>th]:font-bold [&>th]:uppercase">
+                                    <TableHead className="w-[120px]">Code</TableHead>
+                                    <TableHead className="w-[400px]">Descriptive Title</TableHead>
+                                    <TableHead className="text-right w-[80px]">Units</TableHead>
+                                    <TableHead className="w-[180px]">Instructional Type</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {professionalElectives.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                            No elective subjects available.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    professionalElectives.map((subject) => (
+                                        <TableRow
+                                            key={subject.code}
+                                            className="transition-colors [&>td]:py-3 text-sm" 
+                                        >
+                                            <TableCell className="font-semibold text-foreground">{subject.code}</TableCell>
+                                            <TableCell title={subject.name} className="font-medium text-wrap">
+                                                {subject.name}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums font-bold text-primary">{subject.units}</TableCell>
+                                            <TableCell>
+                                                {/* Using Badge for instructional type for better visual appeal */}
+                                                <Badge variant="secondary" className="capitalize text-xs font-medium">
+                                                    {subject.instructional.replace('integrated lec/lab', 'Lec/Lab').replace('lecture only', 'Lecture')}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                            {/* Improved Table Footer with sticky blur effect */}
+                            {professionalElectives.length > 0 && (
+                                <TableFooter className="bg-muted/60 sticky bottom-0 z-10 backdrop-blur-sm">
+                                    <TableRow className="[&>td]:py-3">
+                                        <TableCell colSpan={2} className="text-right font-bold text-base">
+                                            Total Units Available
+                                        </TableCell>
+                                        <TableCell className="text-right font-extrabold text-xl text-primary">
+                                            {professionalElectives.reduce((t, s) => t + (Number(s.units) || 0), 0)}
+                                        </TableCell>
+                                        <TableCell />
+                                    </TableRow>
+                                </TableFooter>
+                            )}
+                        </Table>
+                    </div>
 
-    <DrawerFooter className="px-5 py-3 border-t">
-      <DrawerClose asChild>
-        <Button variant="outline" size="sm">Close</Button>
-      </DrawerClose>
-    </DrawerFooter>
-  </DrawerContent>
-</Drawer>
+                    {/* Sticky Footer */}
+                    <DrawerFooter className="px-5 py-3 border-t bg-background/95 backdrop-blur-sm sticky bottom-0 z-20 flex justify-center">
+                        <DrawerClose asChild>
+                            <Button variant="outline" size="sm" className="w-full max-w-xs">Close View</Button>
+                        </DrawerClose>
+                    </DrawerFooter>
+                </DrawerContent>
+            </Drawer>
         </Dialog>
     );
 }

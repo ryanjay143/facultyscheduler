@@ -217,7 +217,7 @@ function Curriculum() {
                 setUpdatedSubjectData({ semesterName, subject: returnedSubject });
             } else { setRefreshSemestersKey(k => k + 1); }
             await fetchPrograms(false);
-        } catch (error: any) { toast.error('Failed to save subject.'); }
+        } catch (error: any) { toast.error("The subject code has already been taken"); }
     };
     
     const handleBulkSemesterSave = (data: { name: string; semester: Semester }) => {

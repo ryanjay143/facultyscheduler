@@ -4,9 +4,9 @@ import {
     List, 
     PlusCircle, 
     User, 
-    BookOpen,     // For Teaching Load
-    ArrowDownCircle, // For Deload
-    TrendingUp,   // For Overload
+    BookOpen,     
+    ArrowDownCircle, 
+    TrendingUp,   
     CheckCircle2, 
 } from "lucide-react";
 import type { Faculty } from "../../type";
@@ -58,15 +58,13 @@ export function FacultyCard({
             ? (f.profile_picture.startsWith('http') ? f.profile_picture : `${import.meta.env.VITE_URL}/${f.profile_picture}`)
             : null;
 
-        // --- STATUS LOGIC (Updated to use overload_units) ---
-        // If overload > 0, status is 'overloaded'
-        // Else if standard logic applies, use 'available'
+        // --- STATUS LOGIC ---
         const isOverloaded = f.overload_units > 0;
         const status = isOverloaded ? "overloaded" : "ok";
 
         const statusConfig = {
           overloaded: { label: "Overload", icon: TrendingUp, text: "text-red-700", bg: "bg-red-50", ring: "ring-1 ring-red-200", dot: "bg-red-500" },
-          ok: { label: "Regular", icon: CheckCircle2, text: "text-emerald-700", bg: "bg-emerald-50", ring: "ring-1 ring-emerald-200", dot: "bg-emerald-500" },
+          ok: { label: "Teaching", icon: CheckCircle2, text: "text-emerald-700", bg: "bg-emerald-50", ring: "ring-1 ring-emerald-200", dot: "bg-emerald-500" },
         };
         const currentStatus = statusConfig[status];
         const StatusIcon = currentStatus.icon;
@@ -126,84 +124,55 @@ export function FacultyCard({
               </div>
             </div>
 
-            {/* --- NEW STATS SECTION (Teaching Load, Deload, Overload) --- */}
+            {/* --- STATS SECTION --- */}
             <div className="mt-6 grid grid-cols-3 gap-3">
                 
-                {/* 1. Teaching Load (Regular) */}
-                <div className="flex flex-col justify-between p-3 rounded-xl bg-blue-50/50 border border-blue-100">
-                    <div className="flex items-center gap-1.5 text-blue-600 mb-2">
-                        <BookOpen size={13} />
-                        <span className="text-[10px] font-bold uppercase tracking-wide">Regular</span>
+                {/* 1. Teaching Load (Renamed from Regular) */}
+                <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-center">
+                    <div className="flex items-center gap-1.5 text-blue-600 mb-1">
+                        <BookOpen size={14} />
+                        {/* CHANGED HERE: Regular -> Teaching */}
+                        <span className="text-[10px] font-bold uppercase tracking-wide">Teaching</span>
                     </div>
-                    
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-end">
-                            <span className="text-xl font-bold text-blue-900 leading-none">
-                                {f.t_load_units || 0}
-                            </span>
-                            <span className="text-[10px] font-medium text-blue-600/70 mb-0.5">
-                                / 24 Units
-                            </span>
-                        </div>
-                        {/* Progress Bar */}
-                        <div className="h-2 w-full bg-blue-200/50 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
-                                style={{ width: `${Math.min(100, ((f.t_load_units || 0) / 24) * 100)}%` }}
-                            />
-                        </div>
+                    <div className="mt-1">
+                        <span className="text-2xl font-bold text-blue-900 leading-none">
+                            {f.t_load_units || 0}
+                        </span>
+                        <span className="block text-[10px] font-medium text-blue-600/70 mt-0.5">
+                            Units
+                        </span>
                     </div>
                 </div>
 
                 {/* 2. Deload */}
-                <div className="flex flex-col justify-between p-3 rounded-xl bg-amber-50/50 border border-amber-100">
-                    <div className="flex items-center gap-1.5 text-amber-600 mb-2">
-                        <ArrowDownCircle size={13} />
+                <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-50/50 border border-amber-100 text-center">
+                    <div className="flex items-center gap-1.5 text-amber-600 mb-1">
+                        <ArrowDownCircle size={14} />
                         <span className="text-[10px] font-bold uppercase tracking-wide">Deload</span>
                     </div>
-
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-end">
-                            <span className="text-xl font-bold text-amber-900 leading-none">
-                                {f.deload_units || 0}
-                            </span>
-                            <span className="text-[10px] font-medium text-amber-600/70 mb-0.5">
-                                Units
-                            </span>
-                        </div>
-                        {/* Progress Bar (Assumed max 12 for visual scale) */}
-                        <div className="h-2 w-full bg-amber-200/50 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full bg-amber-500 rounded-full transition-all duration-500 ease-out"
-                                style={{ width: `${Math.min(100, ((f.deload_units || 0) / 12) * 100)}%` }}
-                            />
-                        </div>
+                    <div className="mt-1">
+                        <span className="text-2xl font-bold text-amber-900 leading-none">
+                            {f.deload_units || 0}
+                        </span>
+                        <span className="block text-[10px] font-medium text-amber-600/70 mt-0.5">
+                            Units
+                        </span>
                     </div>
                 </div>
 
                 {/* 3. Overload */}
-                <div className="flex flex-col justify-between p-3 rounded-xl bg-red-50/50 border border-red-100">
-                    <div className="flex items-center gap-1.5 text-red-600 mb-2">
-                        <TrendingUp size={13} />
+                <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-red-50/50 border border-red-100 text-center">
+                    <div className="flex items-center gap-1.5 text-red-600 mb-1">
+                        <TrendingUp size={14} />
                         <span className="text-[10px] font-bold uppercase tracking-wide">Overload</span>
                     </div>
-
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-end">
-                            <span className="text-xl font-bold text-red-900 leading-none">
-                                {f.overload_units || 0}
-                            </span>
-                            <span className="text-[10px] font-medium text-red-600/70 mb-0.5">
-                                Units
-                            </span>
-                        </div>
-                        {/* Progress Bar (Assumed max 9 for visual scale) */}
-                        <div className="h-2 w-full bg-red-200/50 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full bg-red-500 rounded-full transition-all duration-500 ease-out"
-                                style={{ width: `${Math.min(100, ((f.overload_units || 0) / 9) * 100)}%` }}
-                            />
-                        </div>
+                    <div className="mt-1">
+                        <span className="text-2xl font-bold text-red-900 leading-none">
+                            {f.overload_units || 0}
+                        </span>
+                        <span className="block text-[10px] font-medium text-red-600/70 mt-0.5">
+                            Units
+                        </span>
                     </div>
                 </div>
 
