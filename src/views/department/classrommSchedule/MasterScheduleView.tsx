@@ -1,4 +1,5 @@
-import type { ClassSchedule, Room, Curriculum } from '../../department/classrommSchedule/classroom-data';
+import type { ClassSchedule } from '../../department/classrommSchedule/classroom-data';
+import type { Curriculum, Room } from './ClassroomScheduleLayout';
 
 // (You would add helper functions for time parsing and positioning here)
 

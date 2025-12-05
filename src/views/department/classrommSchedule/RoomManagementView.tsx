@@ -1,13 +1,14 @@
 import { CheckCircle, XCircle } from 'lucide-react';
-import type { Room, ClassSchedule } from '../../department/classrommSchedule/classroom-data';
+import type {  ClassSchedule } from '../../department/classrommSchedule/classroom-data';
+import type { Room } from './ClassroomScheduleLayout';
 
 const RoomManagementView = ({ rooms, schedules }: { rooms: Room[], schedules: ClassSchedule[] }) => {
-  const roomsInUse = new Set(schedules.map(s => s.roomId));
+  const roomsInUse = new Set(schedules.map(s => s.room_id));
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {rooms.map(room => {
-        const isInUse = roomsInUse.has(room.id);
+        const isInUse = roomsInUse.has(Number(room.id));
         return (
           <div key={room.id} className={`p-4 border rounded-lg ${isInUse ? 'bg-red-50' : 'bg-green-50'}`}>
             <div className="flex items-center justify-between">

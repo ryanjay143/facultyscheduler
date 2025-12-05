@@ -2,28 +2,75 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, X, Sparkles, AlertTriangle } from 'lucide-react'; // FIX: Removed unused CheckCircle2
+import { Search, X, Sparkles, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { FacultyWithAssignments, Subject } from './FacultyLoading';
+
+// --- Placeholder for null profile pictures ---
+const PLACEHOLDER_AVATAR = "https://i.pravatar.cc/150?img=68";
+
+// -------------------------------------------------------------------
+// --- TYPE DEFINITIONS (Matching the component's needs) ---
+// -------------------------------------------------------------------
+
+// Faculty data structure from your API
+interface FacultyApiData {
+    id: number;
+    name: string;
+    profile_picture: string | null;
+    expertise: string[];
+    t_load_units: number; 
+    regular_limit?: number; 
+    assignedSubjects?: { id: number; total_units: number }[]; // Minimal required fields for load calculation
+    availability?: { days: string[]; timeSlots: string[]; };
+}
+
+// Subject data structure from your API
+interface SubjectApiData {
+    id: number;
+    subject_code: string;
+    des_title: string;
+    total_units: number;
+}
+
+// Component-specific Faculty type (extending API data)
+interface FacultyWithAssignments extends FacultyApiData {
+    currentLoad: number; 
+    maxLoad: number;     
+    maxSubjects: number; 
+    assignedSubjects: { id: number; total_units: number }[]; 
+    availability: { days: string[]; timeSlots: string[]; }; 
+}
+
+// Component-specific Subject type (extending API data)
+interface ComponentSubject extends SubjectApiData {
+    assignedTo: number | null; 
+    expertise: string; 
+    days: string[]; 
+    schedule: string; 
+    units: number; 
+}
 
 
 // --- PROPS INTERFACES ---
 interface RedesignedMasterScheduleProps {
-  subjects: Subject[];
+  subjects: ComponentSubject[];
   faculty: FacultyWithAssignments[];
-  onAssignSubject: (subjectId: string, facultyId: string) => void;
+  onAssignSubject: (subjectId: number, facultyId: number) => void;
 }
 
 interface AssignmentDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  subject: Subject | null;
+  subject: ComponentSubject | null;
   facultyList: FacultyWithAssignments[];
-  onAssign: (facultyId: string) => void;
+  onAssign: (facultyId: number) => void;
 }
 
-// Schedule-related helpers
+// -------------------------------------------------------------------
+// --- UTILITY FUNCTIONS (UNCHANGED) ---
+// -------------------------------------------------------------------
+
 const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const timeToMinutes = (timeStr: string) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -42,24 +89,27 @@ const getSubjectPosition = (schedule: string) => {
     } catch { return { top: 0, height: '3rem' }; }
 };
 
+// -------------------------------------------------------------------
+// --- COMPONENTS (UPDATED IMAGE FALLBACK) ---
+// -------------------------------------------------------------------
 
-export function RedesignedMasterSchedule({ subjects, faculty, onAssignSubject }: RedesignedMasterScheduleProps) {
+export function MasterScheduleView({ subjects, faculty, onAssignSubject }: RedesignedMasterScheduleProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<ComponentSubject | null>(null);
 
   const filteredSubjects = useMemo(() => {
-    return subjects.filter((subject: Subject) => {
+    return subjects.filter((subject: ComponentSubject) => {
       const searchMatch = searchTerm === '' ||
-        subject.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        subject.title.toLowerCase().includes(searchTerm.toLowerCase());
+        subject.subject_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        subject.des_title.toLowerCase().includes(searchTerm.toLowerCase());
       const assignmentMatch = !showUnassignedOnly || subject.assignedTo === null;
       return searchMatch && assignmentMatch;
     });
   }, [subjects, searchTerm, showUnassignedOnly]);
 
-  const handleOpenDrawer = (subject: Subject) => {
+  const handleOpenDrawer = (subject: ComponentSubject) => {
     setSelectedSubject(subject);
     setIsDrawerOpen(true);
   };
@@ -69,8 +119,7 @@ export function RedesignedMasterSchedule({ subjects, faculty, onAssignSubject }:
     setSelectedSubject(null);
   };
 
-  const handleAssign = (facultyId: string) => {
-    // FIX: Check if selectedSubject is not null before using its id
+  const handleAssign = (facultyId: number) => {
     if (!selectedSubject) return;
     onAssignSubject(selectedSubject.id, facultyId);
     handleCloseDrawer();
@@ -104,7 +153,7 @@ export function RedesignedMasterSchedule({ subjects, faculty, onAssignSubject }:
             <div key={day} className="relative border-l">
               <h3 className="text-center font-bold p-2 sticky top-0 bg-card/80 backdrop-blur-sm z-10">{day}</h3>
               <div className="h-[48rem] relative">
-                {filteredSubjects.filter((s: Subject) => s.days.includes(day)).map((subject: Subject) => {
+                {filteredSubjects.filter((s: ComponentSubject) => s.days.includes(day)).map((subject: ComponentSubject) => {
                   const facultyMember = subject.assignedTo ? faculty.find((f: FacultyWithAssignments) => f.id === subject.assignedTo) : null;
                   const position = getSubjectPosition(subject.schedule);
                   return (
@@ -118,10 +167,12 @@ export function RedesignedMasterSchedule({ subjects, faculty, onAssignSubject }:
                       style={{ top: position.top, height: position.height }}
                       onClick={() => !facultyMember && handleOpenDrawer(subject)}
                     >
-                      <p className="font-bold truncate">{subject.code} - {subject.title}</p>
+                      {/* Use subject_code and des_title */}
+                      <p className="font-bold truncate">{subject.subject_code} - {subject.des_title}</p> 
                       {facultyMember ? (
                         <div className="flex items-center gap-1.5 mt-1">
-                          <img src={facultyMember.imageUrl} className="w-4 h-4 rounded-full" alt={facultyMember.name} />
+                          {/* FIX: Use profile_picture with PLACEHOLDER_AVATAR fallback */}
+                          <img src={facultyMember.profile_picture || PLACEHOLDER_AVATAR} className="w-4 h-4 rounded-full" alt={facultyMember.name} />
                           <span className="font-semibold">{facultyMember.name}</span>
                         </div>
                       ) : <span className="text-muted-foreground font-medium">Click to Assign</span>}
@@ -145,13 +196,20 @@ export function RedesignedMasterSchedule({ subjects, faculty, onAssignSubject }:
 }
 
 function AssignmentDrawer({ isOpen, onClose, subject, facultyList, onAssign }: AssignmentDrawerProps) {
+  // Use ComponentSubject
   if (!subject) return null;
 
   const getFacultySuitability = (faculty: FacultyWithAssignments) => {
+    // Use t_load_units and regular_limit/maxLoad
+    const currentLoad = faculty.t_load_units;
+    const maxLoad = faculty.regular_limit || faculty.maxLoad || 18; 
+    const maxSubjects = faculty.maxSubjects || 5; 
+    
+    // Logic update: use subject.total_units
     const hasExpertise = faculty.expertise.includes(subject.expertise);
     const isAvailable = subject.days.every((day: string) => faculty.availability.days.includes(day));
-    const isOverloaded = faculty.currentLoad + subject.units > faculty.maxLoad;
-    const isSubjectLimitReached = faculty.assignedSubjects.length >= faculty.maxSubjects;
+    const isOverloaded = currentLoad + subject.total_units > maxLoad; 
+    const isSubjectLimitReached = (faculty.assignedSubjects?.length || 0) >= maxSubjects;
     
     const canAssign = hasExpertise && isAvailable && !isOverloaded && !isSubjectLimitReached;
     let reason = '';
@@ -168,6 +226,7 @@ function AssignmentDrawer({ isOpen, onClose, subject, facultyList, onAssign }: A
     return [...facultyList].sort((a, b) => {
       const suitA = getFacultySuitability(a);
       const suitB = getFacultySuitability(b);
+      // Sort logic
       if (suitA.canAssign && !suitB.canAssign) return -1;
       if (!suitA.canAssign && suitB.canAssign) return 1;
       if (suitA.isGoodMatch && !suitB.isGoodMatch) return -1;
@@ -192,7 +251,8 @@ function AssignmentDrawer({ isOpen, onClose, subject, facultyList, onAssign }: A
             <div className="p-4 border-b flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold">Assign Subject</h2>
-                <p className="text-sm text-primary font-semibold">{subject.code} - {subject.title}</p>
+                {/* Use subject_code and des_title */}
+                <p className="text-sm text-primary font-semibold">{subject.subject_code} - {subject.des_title}</p>
               </div>
               <Button variant="ghost" size="icon" onClick={onClose}><X size={20} /></Button>
             </div>
@@ -201,7 +261,8 @@ function AssignmentDrawer({ isOpen, onClose, subject, facultyList, onAssign }: A
                 const { canAssign, reason, isGoodMatch } = getFacultySuitability(faculty);
                 return (
                   <div key={faculty.id} className={`p-3 border rounded-lg flex items-center gap-4 ${!canAssign && 'opacity-50'}`}>
-                    <img src={faculty.imageUrl} alt={faculty.name} className="w-12 h-12 rounded-full" />
+                    {/* FIX: Use profile_picture with PLACEHOLDER_AVATAR fallback */}
+                    <img src={faculty.profile_picture || PLACEHOLDER_AVATAR} alt={faculty.name} className="w-12 h-12 rounded-full" />
                     <div className="flex-1">
                       <p className="font-bold">{faculty.name}</p>
                       <div className="text-xs text-muted-foreground">

@@ -1,80 +1,89 @@
-// src/data/classroom-data.ts
-
-export interface Subject {
-  id: string;
-  code: string;
-  title: string;
-  units: number;
+export interface Semester {
+  id: number;
+  program_id: number;
+  year_level: string;
+  semester_level: string;
+  status: number;
+  start_date: string;
+  end_date: string;
 }
 
-export interface Curriculum {
-  [course: string]: {
-    [yearLevel: string]: Subject[];
-  };
+export interface Subject {
+  id: number;
+  semester_id: number;
+  subject_code: string;
+  des_title: string;
+  total_units: number;
+  lec_units: number;
+  lab_units: number;
+  total_hrs: number;
+  total_lec_hrs: number;
+  total_lab_hrs: number;
+  pre_requisite: string;
+  semester: Semester;
+  units: number; 
+}
+
+// Helper types for Faculty Assigned Subjects (used in Dialogs)
+export interface Schedule {
+    day: string;
+    time: string;
+    
+}
+
+export interface AssignedSubject {
+    id: number;
+    subject_code: string;
+    des_title: string;
+    schedule: Schedule;
+}
+
+export interface Faculty {
+    id: number;
+    name: string;
+    department: string;
+    profile_picture: string | null; // Changed to allow nulls
+    expertise: string[];
+    
+    // --- LOAD UNITS (Current Status) ---
+    t_load_units: number;  // Current Regular Teaching Load
+    deload_units: number;  // Current Deloading Units
+    overload_units: number;// Current Overload Units
+    
+    // --- LOAD LIMITS (Max Capacities) ---
+    // These are required for the progress bars
+    regular_limit?: number; 
+    deload_limit?: number;
+    overload_limit?: number;
+    
+    // Optional/Legacy fields
+    currentLoad?: number; 
+    maxLoad?: number;
+    maxSubjects?: number;
+    
+    // Used for the frontend UI logic (Assign/View Modal)
+    assignedSubjects?: AssignedSubject[]; 
+    availability?: any; 
+
+    
 }
 
 export interface ClassSchedule {
-  id: number;
-  subjectId: string; // Links to Subject
-  course: string;
-  yearLevel: string;
-  dayPair: 'MTh' | 'TF' | 'WS' | 'MWF' | 'TTH' | 'Sat';
-  time: string; // e.g., "08:30-10:00"
-  instructor: string;
-  roomId: string | null; // Null if unassigned
+    id: number;
+    faculty_id: number;
+    subject_id: number;
+    room_id: number;
+    type: 'LEC' | 'LAB';
+    day: string;
+    start_time: string; // "08:00:00"
+    end_time: string;   // "10:00:00"
+    subject: {
+        id: number;
+        subject_code: string;
+        des_title: string;
+    };
+    room: {
+        id: number;
+        roomNumber: string; 
+    };
 }
-
-export interface Room {
-  id: string;
-  capacity: number;
-  type: 'Classroom' | 'Lab' | 'Lecture Hall';
-}
-
-// --- DUMMY DATA ---
-
-export const courses = ["BS in Computer Science", "BS in Information Technology", "BA in English"];
-export const yearLevels = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
-export const dayPairings = [
-    { value: 'MTh', label: 'Monday / Thursday' },
-    { value: 'TF', label: 'Tuesday / Friday' },
-    { value: 'WS', label: 'Wednesday / Saturday' },
-    { value: 'MWF', label: 'Monday / Wednesday / Friday' },
-    { value: 'TTH', label: 'Tuesday / Thursday' },
-    { value: 'Sat', label: 'Saturday' },
-];
-
-export const curriculum: Curriculum = {
-  "BS in Computer Science": {
-    "1st Year": [
-      { id: 'cs101', code: 'CS 101', title: 'Intro to Computing', units: 3 },
-      { id: 'math110', code: 'MATH 110', title: 'College Algebra', units: 3 },
-      { id: 'eng101', code: 'ENG 101', title: 'English Composition', units: 3 },
-    ],
-    "2nd Year": [
-      { id: 'cs205', code: 'CS 205', title: 'Algorithms & Data Structures', units: 3 },
-      { id: 'cs210', code: 'CS 210', title: 'Object-Oriented Programming', units: 3 },
-      { id: 'phy101', code: 'PHY 101', title: 'General Physics', units: 4 },
-    ],
-  },
-  "BS in Information Technology": {
-    "1st Year": [
-      { id: 'it101', code: 'IT 101', title: 'Foundations of IT', units: 3 },
-      { id: 'net101', code: 'NET 101', title: 'Networking Essentials', units: 3 },
-    ],
-  },
-};
-
-export const initialRooms: Room[] = [
-  { id: 'A-101', capacity: 50, type: 'Classroom' },
-  { id: 'A-102', capacity: 60, type: 'Classroom' },
-  { id: 'B-203', capacity: 40, type: 'Lab' },
-  { id: 'C-301', capacity: 45, type: 'Classroom' },
-  { id: 'E-210', capacity: 70, type: 'Lecture Hall' },
-];
-
-// Some classes are already scheduled, some are not.
-export const initialClassSchedules: ClassSchedule[] = [
-    { id: 1, subjectId: 'cs101', course: 'BS in Computer Science', yearLevel: '1st Year', dayPair: 'MWF', time: '08:30-09:30', instructor: 'Dr. Santos', roomId: 'A-101' },
-    { id: 2, subjectId: 'it101', course: 'BS in Information Technology', yearLevel: '1st Year', dayPair: 'TTH', time: '10:00-11:30', instructor: 'Prof. Cruz', roomId: 'B-203' },
-    { id: 3, subjectId: 'cs205', course: 'BS in Computer Science', yearLevel: '2nd Year', dayPair: 'MTh', time: '13:00-14:30', instructor: 'Dr. Reyes', roomId: null },
-];

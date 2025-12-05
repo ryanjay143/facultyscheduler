@@ -4,11 +4,48 @@ import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, AlertTriangle, CalendarOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { FacultyWithAssignments, Subject } from './FacultyLoading';
+
+// --- PLACEHOLDER ---
+const PLACEHOLDER_AVATAR = "https://i.pravatar.cc/150?img=40";
 
 
-// --- TYPE DEFINITIONS ---
+// -------------------------------------------------------------------
+// --- TYPE DEFINITIONS (Based on assumed API/Component needs) ---
+// -------------------------------------------------------------------
+
 type Day = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
+
+// Component's Subject type (extended for component logic)
+export interface Subject {
+    id: string; // Component uses string ID
+    assignedTo: string | null; // Faculty ID string or null
+    schedule: string; // e.g., "Mon 08:30-10:00"
+    days: Day[]; // e.g., ['Mon', 'Wed', 'Fri']
+    expertise: string; // Subject's required expertise
+    units: number; // Subject's unit load
+
+    // Fields derived from API (used for display in this component)
+    subject_code: string; // API field
+    des_title: string; // API field
+}
+
+// Component's Faculty type (extended for component logic)
+export interface FacultyWithAssignments {
+    id: string; // Component uses string ID
+    name: string;
+    profile_picture: string | null; // FIX: Use the correct field name
+    expertise: string[];
+    currentLoad: number;
+    maxLoad: number;
+    maxSubjects: number;
+    assignedSubjects: any[]; // Minimal type needed for length check
+    availability: {
+        days: string[]; // e.g., ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+    };
+}
+
+
+// --- PROPS INTERFACES ---
 
 interface TimelineScheduleProps {
   subjects: Subject[];
@@ -24,7 +61,8 @@ interface AssignmentDrawerProps {
   onAssign: (facultyId: string) => void;
 }
 
-// --- HELPERS ---
+
+// --- HELPERS (UNCHANGED) ---
 const daysOfWeek: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 const timeToMinutes = (timeStr: string) => {
@@ -122,11 +160,13 @@ export function TimelineScheduleView({ subjects, faculty, onAssignSubject }: Tim
                       style={{ top: position.top, height: position.height }}
                       onClick={() => handleOpenDrawer(subject)}
                     >
-                      <p className="font-bold truncate">{subject.code}</p>
-                      <p className={facultyMember ? 'text-white/80' : 'text-muted-foreground'}>{subject.title}</p>
+                      {/* FIX: Use API fields */}
+                      <p className="font-bold truncate">{subject.subject_code}</p>
+                      <p className={facultyMember ? 'text-white/80' : 'text-muted-foreground'}>{subject.des_title}</p>
                       {facultyMember && (
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/20">
-                          <img src={facultyMember.imageUrl} className="w-6 h-6 rounded-full border-2 border-white/50" alt={facultyMember.name} />
+                          {/* FIX: Use profile_picture with fallback */}
+                          <img src={facultyMember.profile_picture || PLACEHOLDER_AVATAR} className="w-6 h-6 rounded-full border-2 border-white/50" alt={facultyMember.name} />
                           <span className="font-semibold">{facultyMember.name}</span>
                         </div>
                       )}
@@ -164,11 +204,15 @@ function AssignmentDrawer({ isOpen, onClose, subject, facultyList, onAssign }: A
   };
   const sortedFaculty = useMemo(() => {
     if (!facultyList) return [];
-    return [...facultyList].sort((a, b) => {
+    // FIX: Using facultyList directly in dependency array is safer than assuming it's stable
+    return [...facultyList].sort((a, b) => { 
       const suitA = getFacultySuitability(a);
       const suitB = getFacultySuitability(b);
+      // Sort logic
       if (suitA.canAssign && !suitB.canAssign) return -1;
       if (!suitA.canAssign && suitB.canAssign) return 1;
+      if (suitA.isGoodMatch && !suitB.isGoodMatch) return -1; // Prioritize good matches
+      if (!suitA.isGoodMatch && suitB.isGoodMatch) return 1;
       return 0;
     });
   }, [facultyList, subject]);
@@ -182,13 +226,17 @@ function AssignmentDrawer({ isOpen, onClose, subject, facultyList, onAssign }: A
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             className="fixed top-0 right-0 h-full w-full max-w-md bg-card border-l z-50 flex flex-col"
           >
-            <div className="p-4 border-b flex items-center justify-between"><h2 className="text-lg font-bold">Assign Subject</h2><Button variant="ghost" size="icon" onClick={onClose}><X size={20} /></Button></div>
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-bold">Assign Subject: {subject.subject_code}</h2>
+              <Button variant="ghost" size="icon" onClick={onClose}><X size={20} /></Button>
+            </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {sortedFaculty.map(faculty => {
                 const { canAssign, reason, isGoodMatch } = getFacultySuitability(faculty);
                 return (
                   <div key={faculty.id} className={`p-3 border rounded-lg flex items-center gap-4 transition-opacity ${!canAssign && 'opacity-50'}`}>
-                    <img src={faculty.imageUrl} alt={faculty.name} className="w-12 h-12 rounded-full" />
+                    {/* FIX: Use profile_picture with fallback */}
+                    <img src={faculty.profile_picture || PLACEHOLDER_AVATAR} alt={faculty.name} className="w-12 h-12 rounded-full" />
                     <div className="flex-1">
                       <p className="font-bold">{faculty.name}</p>
                       <div className="text-xs">
