@@ -92,12 +92,15 @@ function DeanSidebar({ isOpen, setIsOpen, isCollapsed }: SidebarProps) {
         </button>
         <div className="flex flex-col h-full overflow-hidden">
           <div className="p-4 border-b border-white/10 shrink-0">
-            <Link to="/facultyscheduler/dean/dashboard" className="flex items-center gap-3">
+            <Link to="/facultyscheduler/dean/user-dashboard" className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-fuchsia-600 to-violet-600 rounded-lg flex items-center justify-center text-white shadow-lg shrink-0">
                 <BarChart3 size={20} />
               </div>
               <AnimatePresence>
-                {!hideText && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: {delay: 0.1} }} exit={{ opacity: 0 }}><h5 className="font-bold text-md text-white whitespace-nowrap">Program Head Portal</h5></motion.div>}
+                {!hideText && 
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: {delay: 0.1} }} exit={{ opacity: 0 }}>
+                    <h6 className="font-bold text-sm text-md text-white whitespace-nowrap">Department Scheduler</h6>
+                  </motion.div>}
               </AnimatePresence>
             </Link>
           </div>

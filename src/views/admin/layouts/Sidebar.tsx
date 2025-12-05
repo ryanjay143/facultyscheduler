@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Building2, Calendar, FileText, LayoutDashboardIcon, LogOut, Users, X } from "lucide-react";
+import { BookOpen, Building2, FileText, LayoutDashboardIcon, LogOut, Users, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ function Sidebar({ isOpen, setIsOpen, isCollapsed }: SidebarProps) {
     { href: "/facultyscheduler/admin/user-dashboard", label: "Dashboard", icon: <LayoutDashboardIcon size={20} /> },
     { href: "/facultyscheduler/admin/curriculum-management", label: "Curriculum", icon: <BookOpen size={20} /> },
     { href: "/facultyscheduler/admin/faculty", label: "Faculty", icon: <Users size={20} /> },
-    { href: "/facultyscheduler/admin/faculty-loading", label: "Faculty Loading", icon: <Calendar size={20} /> },
+    // { href: "/facultyscheduler/admin/faculty-loading", label: "Faculty Loading", icon: <Calendar size={20} /> },
     { href: "/facultyscheduler/admin/room", label: "Classroom", icon: <Building2 size={20} /> },
     { href: "/facultyscheduler/admin/reports", label: "Reports", icon: <FileText size={20} /> },
   ];

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; 
-import { User, BookOpen } from "lucide-react";
+import { User, BookOpen, Clock } from "lucide-react"; // <--- ADDED Clock icon
 import type { Faculty } from "../type"; 
 import { FacultyLoadedSchedule } from "./FacultyLoadedSchedule";
 
@@ -31,8 +31,10 @@ export function ViewAssignedSubjectsDialog({ isOpen, onClose, faculty }: ViewAss
 
   const getProfileSrc = (pic: string | null | undefined) => {
      if (!pic) return '';
-     if (pic.startsWith('http') || pic.startsWith('data:')) return pic;
-     return `${import.meta.env.VITE_URL}/${pic}`; 
+     // Added a check for null/undefined if Faculty type allows it
+     const picture = pic ?? ''; 
+     if (picture.startsWith('http') || picture.startsWith('data:')) return picture;
+     return `${import.meta.env.VITE_URL}/${picture}`; 
   };
 
   // Called when child component finishes fetching
@@ -71,10 +73,18 @@ export function ViewAssignedSubjectsDialog({ isOpen, onClose, faculty }: ViewAss
                         <User className="h-3.5 w-3.5 text-blue-500" />
                         Faculty Member
                     </span>
+                    
+                    {/* REDESIGNED LABEL: Pinalitan ang BookOpen at inilagay ang "Faculty Load" */}
+                    <span className="flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-md border border-primary/20 shadow-sm text-primary">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span className="font-semibold text-foreground">View Faculty Load</span> 
+                        {/* Optional: Pwede ring ilagay ang count dito (e.g., Load: {totalSubjects}) */}
+                    </span>
+                    
                     <span className="flex items-center gap-1.5 bg-background px-2.5 py-1 rounded-md border shadow-sm">
                         <BookOpen className="h-3.5 w-3.5 text-amber-500" />
-                        {/* Display the Total Count (Lec + Lab included) */}
-                        <span className="font-semibold text-foreground">{totalSubjects}</span> Total Subjects Assigned
+                        {/* Ipinapakita pa rin ang Total Subject Count */}
+                        <span className="font-semibold text-foreground">{totalSubjects}</span> Total Subject Sections
                     </span>
                 </div>
              </div>

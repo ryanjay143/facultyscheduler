@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { X, AlertCircle } from "lucide-react";
 import type { Faculty } from "../table/FacultyTable";
+
 import { toast } from "sonner";
 import axios from "../../../../plugin/axios";
 
@@ -35,21 +36,49 @@ const expertiseColorPalette = [
     { bg: "bg-blue-100", text: "text-blue-800" }, { bg: "bg-emerald-100", text: "text-emerald-800" },
     { bg: "bg-amber-100", text: "text-amber-800" }, { bg: "bg-rose-100", text: "text-rose-800" },
     { bg: "bg-indigo-100", text: "text-indigo-800" }, { bg: "bg-cyan-100", text: "text-cyan-800" },
-    { bg: "bg-pink-100", text: "text-pink-800" },
 ];
-const getStringHash = (str: string) => { let hash = 0; for (let i = 0; i < str.length; i++) { hash = (hash << 5) - hash + str.charCodeAt(i); hash |= 0; } return Math.abs(hash); };
+
+function getStringHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
 
 export function FacultyFormModal({ isOpen, onClose, onSave, initialData, expertiseOptions }: FacultyFormModalProps) {
-  const [formData, setFormData] = useState<Omit<Faculty, "id" | "role">>({
-    name: "", email: "", designation: "", department: "", expertise: [],
-    status: "Active", avatar: "", deload_units: 0, teaching_load_units: 0, overload_units: 0,
+  type FacultyFormData = Omit<Faculty, "id" | "role"> & {
+    avatar?: string;
+    deload_units?: number;
+    teaching_load_units?: number;
+    overload_units?: number;
+  };
+
+  const [formData, setFormData] = useState<FacultyFormData>({
+    name: "",
+    email: "",
+    designation: "",
+    department: "",
+    expertise: [],
+    status: "Active",
+    avatar: "",
+    profile_picture: "",
+    deload_units: 0,
+    teaching_load_units: 0,
+    overload_units: 0,
+    t_load_units: 0,
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false); // GI-ADD: State para sa image preview
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [availableExpertise, setAvailableExpertise] = useState<string[]>(expertiseOptions);
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // NEW STATE FOR EXPERTISE INPUT & FOCUS
+  const [newExpertiseInput, setNewExpertiseInput] = useState(""); 
+  const [isExpertiseInputFocused, setIsExpertiseInputFocused] = useState(false);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -73,17 +102,29 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
-      setImagePreview(initialData.avatar || null);
+      setImagePreview(initialData.profile_picture || null);
       setAvailableExpertise(expertiseOptions.filter(opt => !initialData.expertise.includes(opt)));
     } else {
       const defaultAvatar = `https://avatar.iran.liara.run/public/${Math.floor(Math.random() * 100)}`;
       setFormData({
-        name: "", designation: "", expertise: [], department: "", email: "", status: "Active",
-        avatar: defaultAvatar, deload_units: 0, teaching_load_units: 0, overload_units: 0,
+        name: "",
+        designation: "",
+        expertise: [],
+        department: "",
+        email: "",
+        status: "Active",
+        avatar: defaultAvatar,
+        profile_picture: "",
+        deload_units: 0,
+        teaching_load_units: 0,
+        overload_units: 0,
+        t_load_units: 0,
       });
       setImagePreview(defaultAvatar);
       setAvailableExpertise(expertiseOptions);
     }
+    setNewExpertiseInput(""); 
+    setIsExpertiseInputFocused(false);
   }, [initialData, isOpen, expertiseOptions]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,22 +149,40 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
     const file = e.target.files?.[0];
     if (file) { setImagePreview(URL.createObjectURL(file)); }
   };
+  
+  const handleNewExpertiseInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewExpertiseInput(e.target.value);
+  };
 
-  const handleAddExpertise = (newExpertise: string) => {
-    if (newExpertise && !formData.expertise.includes(newExpertise)) {
-      setFormData((prev) => ({ ...prev, expertise: [...prev.expertise, newExpertise].sort() }));
-      setAvailableExpertise((prev) => prev.filter((exp) => exp !== newExpertise));
+  const handleSelectExpertise = (expertise: string) => {
+    const expertiseToProcess = expertise.trim();
+    if (expertiseToProcess && !formData.expertise.includes(expertiseToProcess)) {
+      setFormData((prev) => ({ ...prev, expertise: [...prev.expertise, expertiseToProcess].sort() }));
+      
+      if(availableExpertise.includes(expertiseToProcess)) {
+          setAvailableExpertise((prev) => prev.filter((exp) => exp !== expertiseToProcess));
+      }
     }
+    setNewExpertiseInput(""); // Clear input after selection
   };
 
   const handleRemoveExpertise = (expertiseToRemove: string) => {
     setFormData((prev) => ({ ...prev, expertise: prev.expertise.filter((exp) => exp !== expertiseToRemove) }));
-    if (!availableExpertise.includes(expertiseToRemove)) {
+    if (expertiseOptions.includes(expertiseToRemove) && !availableExpertise.includes(expertiseToRemove)) {
       setAvailableExpertise((prev) => [...prev, expertiseToRemove].sort());
     }
   };
 
+  // Filter logic for suggestions (now without the .slice(0, 5) limit)
+  const filteredExpertise = availableExpertise
+      .filter(exp => exp.toLowerCase().includes(newExpertiseInput.toLowerCase()))
+      .sort();
+
+  // Determine if the suggestion dropdown should be visible
+  const showSuggestions = isExpertiseInputFocused && (newExpertiseInput.length > 0 || availableExpertise.length > 0);
+
   const handleSubmit = async (e: React.FormEvent) => {
+    // ... (unchanged handleSubmit function for brevity)
     e.preventDefault();
     setIsLoading(true);
 
@@ -170,10 +229,10 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
             designation: savedApiData.designation || '',
             department: savedApiData.department || '',
             status: savedApiData.status === 0 ? "Active" : "Inactive",
-            avatar: savedApiData.profile_picture ? `${import.meta.env.VITE_URL}/${savedApiData.profile_picture}` : `https://avatar.iran.liara.run/public/boy?username=${(savedApiData.user?.name || '').replace(/\s/g, '')}`,
+            profile_picture: savedApiData.profile_picture ? `${import.meta.env.VITE_URL}/${savedApiData.profile_picture}` : `https://avatar.iran.liara.run/public/boy?username=${(savedApiData.user?.name || '').replace(/\s/g, '')}`,
             expertise: savedApiData.expertises?.map((exp: any) => exp.list_of_expertise) || [],
             deload_units: savedApiData.deload_units || 0,
-            teaching_load_units: savedApiData.t_load_units || 0,
+            t_load_units: savedApiData.t_load_units || 0,
             overload_units: savedApiData.overload_units || 0,
         };
         onSave(resultFaculty);
@@ -206,7 +265,6 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
               <div className="space-y-2">
                   <Label>Profile Picture</Label>
                   <div className="flex items-center gap-5">
-                    {/* GI-UPDATE: Ang hulagway gihimo nang clickable */}
                     <button type="button" onClick={() => imagePreview && setIsPreviewModalOpen(true)} className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary rounded-full disabled:cursor-not-allowed" disabled={!imagePreview} title="Click to preview image">
                       <img src={imagePreview || 'https://via.placeholder.com/80'} alt="Profile Preview" className="w-20 h-20 rounded-full object-cover border-2 border-border cursor-pointer hover:opacity-80 transition-opacity"/>
                     </button>
@@ -257,37 +315,83 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
                   <div className="space-y-2"><Label htmlFor="overload_units">Overload Units</Label><Input id="overload_units" name="overload_units" type="number" value={formData.overload_units || ''} onChange={handleChange} placeholder="0" /></div>
               </div>
               
+              {/* UPDATED EXPERTISE FIELD (Token/Tag Input with Autocomplete/Suggestions) */}
               <div className="space-y-2">
-                  <Label htmlFor="expertise">Expertise</Label>
-                  <div className="flex flex-col p-2 w-full rounded-md border border-input bg-background text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                    <Select onValueChange={handleAddExpertise} value="">
-                        <SelectTrigger className="border-t h-auto p-2 focus:ring-0 focus:ring-offset-0 justify-start text-primary hover:text-primary/90 font-medium">
-                        <SelectValue placeholder="Click to add from the list..." /> 
-                        </SelectTrigger>
-                        <SelectContent>
-                        {availableExpertise.length > 0 ? (
-                            availableExpertise.sort().map((d) => (<SelectItem key={d} value={d}>{d}</SelectItem>))
-                        ) : (
-                            <div className="p-4 text-center text-sm text-muted-foreground">All expertise selected.</div>
-                        )}
-                        </SelectContent>
-                    </Select>
-                    <div className="flex flex-wrap gap-1.5 p-2 min-h-[2.5rem] items-center">
-                        {formData.expertise.map((exp) => {
-                            const colorIndex = getStringHash(exp) % expertiseColorPalette.length;
-                            const color = expertiseColorPalette[colorIndex];
-                            return (
-                            <Badge key={exp} className={`font-normal hover:${color.bg} ${color.bg} hover:${color.text} ${color.text}`}>
-                                {exp}
-                                <button type="button" onClick={() => handleRemoveExpertise(exp)} className="ml-1.5 rounded-full hover:bg-black/10 p-0.5" aria-label={`Remove ${exp}`}>
-                                <X size={14} />
-                                </button>
-                            </Badge>
-                            );
-                        })}
-                    </div>
+                  <Label htmlFor="expertise-input">Expertise</Label>
+                  <div className="relative">
+                      {/* Token Input Area (Badges + Input) */}
+                      <div className="flex flex-wrap items-center w-full rounded-md border border-input bg-background text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 min-h-10 p-1.5">
+                          {/* Existing Badges Display */}
+                          {formData.expertise.map((exp) => {
+                              const colorIndex = getStringHash(exp) % expertiseColorPalette.length;
+                              const color = expertiseColorPalette[colorIndex];
+                              return (
+                                  <Badge key={exp} className={`font-normal hover:${color.bg} ${color.bg} hover:${color.text} ${color.text} mr-1.5 mb-1.5`}>
+                                      {exp}
+                                      <button type="button" onClick={() => handleRemoveExpertise(exp)} className="ml-1.5 rounded-full hover:bg-black/10 p-0.5" aria-label={`Remove ${exp}`}>
+                                          <X size={14} />
+                                      </button>
+                                  </Badge>
+                              );
+                          })}
+                          
+                          {/* Input field for typing/searching */}
+                          <Input
+                              id="expertise-input"
+                              value={newExpertiseInput}
+                              onChange={handleNewExpertiseInputChange}
+                              onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && newExpertiseInput.trim() !== '') {
+                                      e.preventDefault();
+                                      handleSelectExpertise(newExpertiseInput);
+                                  }
+                              }}
+                              onFocus={() => setIsExpertiseInputFocused(true)}
+                              onBlur={() => {
+                                  // Delay onBlur so that click on suggestion can register
+                                  setTimeout(() => setIsExpertiseInputFocused(false), 100);
+                              }}
+                              placeholder={formData.expertise.length === 0 ? "Type to add or select expertise..." : ""}
+                              className="border-none focus-visible:ring-0 focus-visible:ring-offset-0 h-8 p-0 flex-1 min-w-[50px] bg-transparent shadow-none"
+                              autoComplete="off"
+                          />
+                      </div>
+
+                      {/* Suggestions Dropdown */}
+                      {showSuggestions && (
+                          <div className="absolute z-10 w-full bg-popover border border-input rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
+                              
+                              {/* Option to add new expertise (only if typing and it's not a suggestion) */}
+                              {!formData.expertise.map(e => e.toLowerCase()).includes(newExpertiseInput.trim().toLowerCase()) && 
+                               !availableExpertise.map(e => e.toLowerCase()).includes(newExpertiseInput.trim().toLowerCase()) &&
+                               newExpertiseInput.trim() !== '' && (
+                                  <div
+                                      className="px-4 py-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 text-center border-b font-medium"
+                                      onClick={() => handleSelectExpertise(newExpertiseInput)}
+                                      onMouseDown={(e) => e.preventDefault()} 
+                                  >
+                                      Add New Expertise: **{newExpertiseInput.trim()}**
+                                  </div>
+                              )}
+
+                              {/* Filtered/Available Expertise List */}
+                              {filteredExpertise.length > 0 ? filteredExpertise.map((exp) => (
+                                  <div
+                                      key={exp}
+                                      className="px-4 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                                      onClick={() => handleSelectExpertise(exp)}
+                                      onMouseDown={(e) => e.preventDefault()} // Prevent blur from closing the list before the click registers
+                                  >
+                                      {exp}
+                                  </div>
+                              )) : newExpertiseInput.trim() === '' && (
+                                <div className="p-4 text-center text-sm text-muted-foreground">All expertise selected.</div>
+                              )}
+                          </div>
+                      )}
                   </div>
               </div>
+              
               <DialogFooter className="mt-8 pt-4 border-t border-border">
                 <DialogClose asChild><Button type="button" variant="outline" disabled={isLoading}>Cancel</Button></DialogClose>
                 <Button type="submit" disabled={isLoading}>{isLoading ? 'Saving...' : (initialData ? 'Save Changes' : 'Save Faculty')}</Button>
@@ -296,7 +400,6 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
           </DialogContent>
       </Dialog>
       
-      {/* GI-ADD: Ang Modal para sa Image Preview */}
       <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
         <DialogContent className="sm:max-w-lg p-2 bg-transparent border-none shadow-none">
           <img src={imagePreview || ''} alt="Profile Preview Large" className="w-full h-auto rounded-lg object-contain max-h-[80vh]" />

@@ -28,7 +28,8 @@ import {
   Briefcase,
   Filter,
   RotateCcw,
-  CalendarDays,
+  CalendarDays, // Para sa View Availability (ScheduleModal)
+  List,         // Para sa View Assigned Subjects (ViewAssignedSubjectsDialog)
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AddFacultyButton } from "../modal/AddFacultyButton";
@@ -37,7 +38,14 @@ import { SkeletonFacultyCard } from "./../SkeletonFacultyCard";
 import axios from "../../../../plugin/axios";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
-import { ScheduleModal } from "../modal/ScheduleModal";
+import { ViewAssignedSubjectsDialog } from "../../faculty-loading/components/ViewAssignedSubjectsDialog";
+import { ScheduleModal } from "../modal/ScheduleModal"; // <--- I-ASSUME NA ITO ANG IYONG ORIGINAL MODAL
+
+// Apat na buttons na ang magiging target
+// 1. List: View Assigned Subjects (ViewAssignedSubjectsDialog)
+// 2. CalendarDays: View/Set Availability (ScheduleModal)
+// 3. Edit: Edit Faculty (FacultyFormModal)
+// 4. Trash2/RotateCcw: Deactivate/Activate
 
 export interface Faculty {
   id: number;
@@ -47,9 +55,9 @@ export interface Faculty {
   department: string;
   email: string;
   status: "Active" | "Inactive";
-  avatar?: string;
+  profile_picture: string | null;
   deload_units: number;
-  teaching_load_units: number;
+  t_load_units: number;
   overload_units: number;
   role?: number;
 }
@@ -83,8 +91,16 @@ function FacultyTable() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null);
   const [departmentFilterOptions, setDepartmentFilterOptions] = useState<string[]>([]);
+  
+  // State 1: Para sa View Assigned Subjects (LIST ICON)
+  const [isViewAssignedModalOpen, setIsViewAssignedModalOpen] = useState(false);
+  const [facultyForViewModal, setFacultyForViewModal] = useState<Faculty | null>(null);
+
+  // State 2: Para sa View/Set Availability (CALENDAR ICON)
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [selectedFacultyForSchedule, setSelectedFacultyForSchedule] = useState<Faculty | null>(null);
+  const [facultyForScheduleModal, setFacultyForScheduleModal] = useState<Faculty | null>(null);
+
+
   const [highlightedFacultyId, setHighlightedFacultyId] = useState<number | null>(null);
   const navigate = useNavigate();
 
@@ -106,9 +122,11 @@ function FacultyTable() {
         const transform = (f: any): Faculty => ({
             id: f.id, name: f.user?.name || 'N/A', email: f.user?.email || 'N/A', role: f.user?.role,
             designation: f.designation || '', department: f.department || '', status: f.status === 0 ? "Active" : "Inactive",
-            avatar: f.profile_picture ? `${import.meta.env.VITE_URL}/${f.profile_picture}` : `https://avatar.iran.liara.run/public/boy?username=${(f.user?.name || '').replace(/\s/g, '')}`,
+            profile_picture: f.profile_picture ? `${import.meta.env.VITE_URL}/${f.profile_picture}` : null, 
             expertise: f.expertises?.map((exp: any) => exp.list_of_expertise) || [],
-            deload_units: f.deload_units || 0, teaching_load_units: f.t_load_units || 0, overload_units: f.overload_units || 0,
+            deload_units: f.deload_units || 0, 
+            t_load_units: f.t_load_units || 0, 
+            overload_units: f.overload_units || 0,
         });
         
         const allTransformed = [...activeList.map(transform), ...inactiveList.map(transform)];
@@ -198,15 +216,31 @@ function FacultyTable() {
 
   const handleAdd = () => { setEditingFaculty(null); setIsModalOpen(true); };
   
-  // GI-AYO: Gigamit ang 'facultyMember' imbes nga 'member'
   const handleEdit = (facultyMember: Faculty) => { 
     setEditingFaculty(facultyMember); 
     setIsModalOpen(true); 
   };
 
-  const handleSetSchedule = (facultyMember: Faculty) => {
-    setSelectedFacultyForSchedule(facultyMember);
+  // HANDLERS FOR VIEWING ASSIGNED SUBJECTS (List Icon)
+  const handleOpenAssignedViewModal = (facultyMember: Faculty) => {
+    setFacultyForViewModal(facultyMember);
+    setIsViewAssignedModalOpen(true);
+  };
+  
+  const handleCloseAssignedViewModal = () => {
+    setIsViewAssignedModalOpen(false);
+    setFacultyForViewModal(null);
+  };
+
+  // HANDLERS FOR VIEWING/SETTING AVAILABILITY (CalendarDays Icon)
+  const handleOpenAvailabilityModal = (facultyMember: Faculty) => {
+    setFacultyForScheduleModal(facultyMember);
     setIsScheduleModalOpen(true);
+  };
+  
+  const handleCloseAvailabilityModal = () => {
+    setIsScheduleModalOpen(false);
+    setFacultyForScheduleModal(null);
   };
   
   const filteredData = useMemo(() => {
@@ -285,7 +319,7 @@ function FacultyTable() {
                 <TableHead className="text-center">Deload</TableHead>
                 <TableHead className="text-center">Overload</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right w-[170px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -298,7 +332,11 @@ function FacultyTable() {
                   <TableRow key={f.id} className={`${highlightedFacultyId === f.id ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}`}>
                     <TableCell>
                       <div className="flex items-center gap-4">
-                        <img src={f.avatar} alt={f.name} className="w-11 h-11 rounded-full object-cover ring-2 ring-offset-2 ring-border" />
+                        <img 
+                          src={f.profile_picture || `https://avatar.iran.liara.run/public/boy?username=${(f.name || '').replace(/\s/g, '')}`} 
+                          alt={f.name} 
+                          className="w-11 h-11 rounded-full object-cover ring-2 ring-offset-2 ring-border" 
+                        />
                         <div>
                           <p className="font-semibold text-foreground whitespace-nowrap">{f.name}</p>
                           <p className="text-sm text-muted-foreground whitespace-nowrap">{f.designation}</p>
@@ -315,7 +353,7 @@ function FacultyTable() {
                         })}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center font-medium">{f.teaching_load_units}</TableCell>
+                    <TableCell className="text-center font-medium">{f.t_load_units}</TableCell>
                     <TableCell className="text-center text-muted-foreground">{f.deload_units}</TableCell>
                     <TableCell className="text-center text-destructive">{f.overload_units}</TableCell>
                     <TableCell>
@@ -323,15 +361,31 @@ function FacultyTable() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end items-center gap-1">
+                         
+                          {/* 1. VIEW ASSIGNED SUBJECTS (LIST ICON) */}
                          <Button 
                             variant="ghost" 
                             size="icon" 
-                            title="Set Faculty Schedule" 
-                            onClick={() => handleSetSchedule(f)} 
+                            title="View faculty load" 
+                            onClick={() => handleOpenAssignedViewModal(f)} 
                             className="h-8 w-8 text-muted-foreground hover:text-primary">
-                            <CalendarDays className="h-4 w-4 text-purple-500" />
+                            <List className="h-4 w-4 text-purple-500" /> 
                         </Button>
+                          
+                          {/* 2. VIEW AVAILABILITY / SCHEDULE (CALENDAR ICON) */}
+                         <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Set Availability" 
+                            onClick={() => handleOpenAvailabilityModal(f)} 
+                            className="h-8 w-8 text-muted-foreground hover:text-primary">
+                            <CalendarDays className="h-4 w-4 text-green-500" /> 
+                        </Button>
+                          
+                          {/* 3. EDIT FACULTY (EDIT ICON) */}
                         <Button variant="ghost" size="icon" title="Edit Faculty" onClick={() => handleEdit(f)} className="h-8 w-8 text-muted-foreground hover:text-primary"><Edit className="h-4 w-4 text-blue-500" /></Button>
+                        
+                          {/* 4. DEACTIVATE/ACTIVATE (TRASH2/ROTATECCW ICON) */}
                         {f.status === 'Active' ? (
                             <Button variant="ghost" size="icon" title="Deactivate Faculty" onClick={() => handleDeactivate(f.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4 text-red-500" /></Button>
                         ) : (
@@ -358,6 +412,7 @@ function FacultyTable() {
         </div>
       </div>
 
+      {/* MODAL FOR ADD/EDIT FACULTY */}
       <FacultyFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -366,10 +421,18 @@ function FacultyTable() {
         expertiseOptions={expertiseOptions}
       />
 
+      {/* 1. MODAL FOR VIEW ASSIGNED SUBJECTS (LIST ICON) */}
+      <ViewAssignedSubjectsDialog
+        isOpen={isViewAssignedModalOpen}
+        onClose={handleCloseAssignedViewModal}
+        faculty={facultyForViewModal}
+      />
+      
+      {/* 2. MODAL FOR VIEW/SET AVAILABILITY (CALENDAR ICON) */}
       <ScheduleModal
         isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
-        faculty={selectedFacultyForSchedule}
+        onClose={handleCloseAvailabilityModal}
+        faculty={facultyForScheduleModal}
       />
     </>
   );

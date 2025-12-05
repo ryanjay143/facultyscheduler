@@ -1,19 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Calendar, PenSquare, Building, AlertTriangle } from 'lucide-react';
+import axios from '../../../plugin/axios';
+import type { Room as AdminRoom, FacultyLoadEntry } from '../../admin/room/classroom';
 
 // Import the new data and components
 import { initialClassSchedules, initialRooms, curriculum, courses, yearLevels, dayPairings } from '../../department/classrommSchedule/classroom-data';
 import type { ClassSchedule, Room } from '../classrommSchedule/classroom-data';
 import ClassCreationView from './ClassCreationView';
 import RoomManagementView from './RoomManagementView';
-import MasterScheduleView from './MasterScheduleView';
+// MasterScheduleView is removed as requested in the previous context.
 import StatCard from '../utils/StatCard';
 
 
 function ClassroomScheduleLayout() {
-  const [activeTab, setActiveTab] = useState<'Schedule' | 'Creation' | 'Rooms'>('Schedule');
+  // Changed default tab from 'Schedule' to 'Creation' since 'Master Schedule' view is removed.
+  const [activeTab, setActiveTab] = useState<'Creation' | 'Rooms'>('Creation');
   const [schedules, setSchedules] = useState<ClassSchedule[]>(initialClassSchedules);
+  // Renamed _setRooms to setRooms for better practice
   const [rooms, _setRooms] = useState<Room[]>(initialRooms);
+
+  // Admin data fetched from API for availability and scheduling
+  const [adminRooms, setAdminRooms] = useState<AdminRoom[]>([]);
+  const [facultyLoading, setFacultyLoading] = useState<FacultyLoadEntry[]>([]);
 
   const unassignedClasses = schedules.filter((c) => c.roomId === null);
   const roomsInUseCount = new Set(schedules.map(s => s.roomId).filter(Boolean)).size;
@@ -29,6 +37,45 @@ function ClassroomScheduleLayout() {
     ]);
   };
 
+  const fetchAdminRooms = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      const res = await axios.get('/rooms', { headers: { Authorization: `Bearer ${token}` } });
+      setAdminRooms(res.data.rooms || []);
+    } catch (err) {
+      console.error('Failed to fetch admin rooms', err);
+    }
+  }, []);
+
+  const fetchAdminSubjects = useCallback(async () => {
+    // Subjects are not required for current department modal; keep function for future use
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      await axios.get('/get-subjects', { headers: { Authorization: `Bearer ${token}` } });
+    } catch (err) {
+      console.error('Failed to fetch admin subjects', err);
+    }
+  }, []);
+
+  const fetchFacultyLoading = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      const r = await axios.get('/get-faculty-loading', { headers: { Authorization: `Bearer ${token}` } });
+      setFacultyLoading(r.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch faculty loading', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAdminRooms();
+    fetchAdminSubjects();
+    fetchFacultyLoading();
+  }, [fetchAdminRooms, fetchAdminSubjects, fetchFacultyLoading]);
+
   // Function to update an existing schedule (e.g., assign a room)
   const handleUpdateSchedule = (updatedSchedule: ClassSchedule) => {
     setSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
@@ -42,15 +89,27 @@ function ClassroomScheduleLayout() {
                   courses={courses}
                   yearLevels={yearLevels}
                   schedules={schedules}
-                  rooms={rooms}
+                  // Provide admin data to allow room/time lookup like admin implementation
+                  dayPairings={dayPairings}
+                  onCreateSchedule={handleCreateSchedule}
+                  onUpdateSchedule={handleUpdateSchedule}
+                  rooms={adminRooms}
+                  facultyLoadingData={facultyLoading}
+                />;
+      case 'Rooms':
+        return <RoomManagementView rooms={rooms} schedules={schedules} />;
+      // Removed the 'Schedule' case
+      default:
+        // Provide a default view if an unexpected tab is active (though types restrict this now)
+        return <ClassCreationView
+                  curriculum={curriculum}
+                  courses={courses}
+                  yearLevels={yearLevels}
+                  schedules={schedules}
                   dayPairings={dayPairings}
                   onCreateSchedule={handleCreateSchedule}
                   onUpdateSchedule={handleUpdateSchedule}
                 />;
-      case 'Rooms':
-        return <RoomManagementView rooms={rooms} schedules={schedules} />;
-      default: // 'Schedule'
-        return <MasterScheduleView schedules={schedules} rooms={rooms} curriculum={curriculum} />;
     }
   };
 
@@ -74,7 +133,7 @@ function ClassroomScheduleLayout() {
       <div className="bg-card border rounded-xl shadow-sm">
         <div className="p-3 border-b">
           <div className="inline-flex items-center gap-2 bg-muted p-1 rounded-lg">
-            <TabButton title="Master Schedule" icon={Calendar} isActive={activeTab === 'Schedule'} onClick={() => setActiveTab('Schedule')} />
+            {/* Removed Master Schedule Tab */}
             <TabButton title="Class Creation" icon={PenSquare} isActive={activeTab === 'Creation'} onClick={() => setActiveTab('Creation')} />
             <TabButton title="Room Management" icon={Building} isActive={activeTab === 'Rooms'} onClick={() => setActiveTab('Rooms')} />
           </div>

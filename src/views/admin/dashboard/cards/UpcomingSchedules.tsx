@@ -13,7 +13,6 @@ import {
     Filter,
     FlaskConical,
     Presentation,
-    Users 
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 // --- NEW IMPORTS FOR SHADCN SELECT ---
@@ -219,10 +218,10 @@ export const UpcomingSchedules: React.FC<{ schedules: ScheduleDetail[], isLoadin
                             </div>
 
                             {/* SECTION */}
-                            <div className="flex items-center">
+                            {/* <div className="flex items-center">
                                 <Users size={14} className="mr-2 flex-shrink-0 text-foreground/60" />
                                 <span>{item.section || "N/A"}</span>
-                            </div>
+                            </div> */}
 
                             {/* FACULTY */}
                             <div className="flex items-center">

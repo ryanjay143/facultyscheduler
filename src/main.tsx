@@ -26,7 +26,7 @@ const ClassroomSchedule = lazy(() =>
 
 
 const DepartmentFacultyLoading = lazy(() => 
-  wait(3000).then(() => import('./views/department/facultyLoading/FacultyLoading'))
+  wait(3000).then(() => import('./views/department/faculty-loading/FacultyLoading'))
 );
 
 

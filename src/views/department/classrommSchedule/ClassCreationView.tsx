@@ -1,14 +1,18 @@
 // src/components/classroom/ClassCreationView.tsx
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PenSquare, CheckCircle, X, Clock, User, CalendarDays } from 'lucide-react';
+import { PenSquare, CheckCircle, X, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
-// Import types and data. Corrected the path to be more standard.
-import type { Curriculum, ClassSchedule, Room, Subject } from '../../department/classrommSchedule/classroom-data';
+// Import types and data. Removed 'Room' type as it was only for MasterScheduleView.
+import type { Curriculum, ClassSchedule, Subject } from '../../department/classrommSchedule/classroom-data';
+import type { Room as AdminRoom, FacultyLoadEntry, Subject as AdminSubject } from '../../admin/room/classroom';
 
 // --- TYPE DEFINITIONS ---
 interface DayPairing {
@@ -21,11 +25,13 @@ interface ClassCreationProps {
   courses: string[];
   yearLevels: string[];
   schedules: ClassSchedule[];
-  rooms: Room[];
   dayPairings: DayPairing[];
   onCreateSchedule: (newSchedule: Omit<ClassSchedule, 'id'>) => void;
   // onUpdateSchedule is kept for future use (e.g., editing an existing schedule)
   onUpdateSchedule: (updatedSchedule: ClassSchedule) => void;
+  // Admin data to drive room/time availability
+  rooms?: AdminRoom[];
+  facultyLoadingData?: FacultyLoadEntry[];
 }
 
 interface ScheduleModalProps {
@@ -40,7 +46,7 @@ interface ScheduleModalProps {
 
 
 // --- MAIN COMPONENT ---
-const ClassCreationView: React.FC<ClassCreationProps> = ({ curriculum, courses, yearLevels, schedules, dayPairings, onCreateSchedule }) => {
+const ClassCreationView: React.FC<ClassCreationProps> = ({ curriculum, courses, yearLevels, schedules, dayPairings, onCreateSchedule, rooms = [], facultyLoadingData = [] }) => {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
 
@@ -122,6 +128,8 @@ const ClassCreationView: React.FC<ClassCreationProps> = ({ curriculum, courses, 
                 yearLevel={selectedYear}
                 dayPairings={dayPairings}
                 onCreateSchedule={onCreateSchedule}
+                rooms={rooms}
+                facultyLoadingData={facultyLoadingData}
             />
         )}
       </AnimatePresence>
@@ -131,74 +139,189 @@ const ClassCreationView: React.FC<ClassCreationProps> = ({ curriculum, courses, 
 
 
 // --- MODAL COMPONENT for scheduling a class ---
-const ScheduleClassModal: React.FC<ScheduleModalProps> = ({ onClose, subject, course, yearLevel, dayPairings, onCreateSchedule }) => {
-    const [dayPair, setDayPair] = useState('');
-    const [time, setTime] = useState('');
-    const [instructor, setInstructor] = useState('');
-    
-    const handleSubmit = () => {
-        if (!dayPair || !time || !instructor) {
-            // Add user feedback, e.g., a toast notification
-            alert("Please fill all fields.");
-            return;
-        }
-        
-        onCreateSchedule({
-            subjectId: subject.id,
-            course,
-            yearLevel,
-            dayPair: dayPair as ClassSchedule['dayPair'],
-            time,
-            instructor,
-            roomId: null, // Room is unassigned by default
-        });
-        onClose();
-    };
+interface ScheduleModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  subject: Subject;
+  course: string;
+  yearLevel: string;
+  dayPairings: DayPairing[];
+  onCreateSchedule: (newSchedule: Omit<ClassSchedule, 'id'>) => void;
+  // Admin data for availability
+  rooms?: AdminRoom[];
+  facultyLoadingData?: FacultyLoadEntry[];
+  subjectsData?: AdminSubject[];
+}
 
-    return (
-        <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-            className="bg-card rounded-xl shadow-xl w-full max-w-lg flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-4 border-b flex justify-between items-center">
-                <div>
-                    <h2 className="text-lg font-bold">Schedule Class</h2>
-                    <p className="text-sm text-primary font-semibold">{subject.code} - {subject.title}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={onClose}><X size={20}/></Button>
+const ScheduleClassModal: React.FC<ScheduleModalProps> = ({ onClose, subject, course, yearLevel, dayPairings, onCreateSchedule, facultyLoadingData = [] }) => {
+  const [dayPair, setDayPair] = useState('');
+  const [time, setTime] = useState('');
+  const [instructor, setInstructor] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+    const [section, setSection] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+
+  const handleSubmit = async () => {
+    if (!dayPair || !time || !instructor || !section) {
+      toast.error('Please fill all fields.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onCreateSchedule({
+        subjectId: subject.id,
+        course,
+        yearLevel,
+        dayPair: dayPair as ClassSchedule['dayPair'],
+        time,
+        instructor,
+        roomId: null, // Room is unassigned by default
+      });
+      toast.success('Class scheduled (local state updated).');
+      onClose();
+    } catch (err) {
+      toast.error('Failed to create schedule.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- Availability calculations using admin facultyLoadingData ---
+  const selectedSubjectLoads = React.useMemo(() => {
+    if (!subject || !facultyLoadingData) return [] as FacultyLoadEntry[];
+    return facultyLoadingData.filter(l => l.subject_id.toString() === subject.id.toString());
+  }, [subject, facultyLoadingData]);
+
+  const availableRooms = React.useMemo(() => {
+    const map = new Map<number, AdminRoom>();
+    selectedSubjectLoads.forEach(load => {
+      if (!map.has(load.room.id)) map.set(load.room.id, { id: load.room.id, roomNumber: load.room.roomNumber, type: load.room.type, capacity: 0, status: 0, created_at: '', updated_at: '' });
+    });
+    return Array.from(map.values());
+  }, [selectedSubjectLoads]);
+
+  const availableDays = React.useMemo(() => {
+    if (!selectedRoomId) return [] as string[];
+    const roomLoads = selectedSubjectLoads.filter(l => l.room.id.toString() === selectedRoomId);
+    return Array.from(new Set(roomLoads.map(l => l.day)));
+  }, [selectedSubjectLoads, selectedRoomId]);
+
+  const formatTime12Hour = (time: string) => {
+    if(!time) return "";
+    const clean = time.length > 5 ? time.substring(0,5) : time;
+    const [h, m] = clean.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const hh = h % 12 === 0 ? 12 : h % 12;
+    return `${hh}:${m < 10 ? '0'+m : m} ${ampm}`;
+  };
+
+  const availableTimeSlots = React.useMemo(() => {
+    if (!selectedRoomId || !dayPair) return [] as any[];
+    const relevant = selectedSubjectLoads.filter(l => l.room.id.toString() === selectedRoomId && l.day === dayPair);
+    return relevant.map(load => ({ value: `${load.start_time.substring(0,5)}|${load.end_time.substring(0,5)}|${load.type}`, display: `${formatTime12Hour(load.start_time)} - ${formatTime12Hour(load.end_time)} (${load.type})`, type: load.type }));
+  }, [selectedSubjectLoads, selectedRoomId, dayPair]);
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[640px]">
+        <DialogHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <DialogTitle className="text-lg font-bold">Schedule Class</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">{subject.code} — {subject.title}</p>
             </div>
-            <div className="p-6 space-y-4">
-                <div>
-                    <label className="text-sm font-medium flex items-center gap-2 mb-1"><CalendarDays size={14}/> Day Pairing</label>
-                    <Select value={dayPair} onValueChange={setDayPair}>
-                        <SelectTrigger><SelectValue placeholder="Select day pairing..." /></SelectTrigger>
-                        <SelectContent>
-                            {dayPairings.map(dp => <SelectItem key={dp.value} value={dp.value}>{dp.label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div>
-                    <label className="text-sm font-medium flex items-center gap-2 mb-1"><Clock size={14}/> Time</label>
-                    <Input value={time} onChange={(e) => setTime(e.target.value)} placeholder="e.g., 08:30-10:00" />
-                </div>
-                <div>
-                    <label className="text-sm font-medium flex items-center gap-2 mb-1"><User size={14}/> Instructor</label>
-                    <Input value={instructor} onChange={(e) => setInstructor(e.target.value)} placeholder="Enter instructor name..." />
-                </div>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon"><X /></Button>
+            </DialogClose>
+          </div>
+        </DialogHeader>
+
+                    <div className="grid gap-5 py-4">
+            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm">Year Level <span className="text-red-500">*</span></Label>
+              <Select value={String(yearLevel)} onValueChange={() => {}} disabled>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value={String(yearLevel)}>{String(yearLevel)}</SelectItem></SelectContent>
+              </Select>
             </div>
-            <div className="p-4 border-t flex justify-end gap-2">
-                <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                <Button onClick={handleSubmit}>Confirm Schedule</Button>
+            <div className="space-y-2">
+              <Label className="text-sm">Section <span className="text-red-500">*</span></Label>
+              <div className="flex gap-2">
+                <Input placeholder="Section name" value={section} onChange={(e) => setSection(e.target.value)} />
+                <Button size="icon" variant="outline" title="Create New Section"><Plus /></Button>
+              </div>
             </div>
-          </motion.div>
-        </motion.div>
-    )
+          </div>
+
+          <div className="border-t border-slate-100"></div>
+
+          <div className="space-y-2">
+            <Label className="text-sm">Subject <span className="text-red-500">*</span></Label>
+            <div className="p-3 rounded-md bg-slate-50 border border-slate-100">
+              <div className="font-semibold">{(subject as any).code ?? (subject as any).subject_code} — {(subject as any).title ?? (subject as any).des_title}</div>
+              <div className="text-xs text-muted-foreground mt-1">Units: {(subject as any).units ?? (subject as any).total_units ?? '--'}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm">Available Room <span className="text-red-500">*</span></Label>
+              <Select value={selectedRoomId} onValueChange={(v) => setSelectedRoomId(v)} disabled={availableRooms.length === 0}>
+                <SelectTrigger><SelectValue placeholder={availableRooms.length ? 'Select a room' : 'No rooms'} /></SelectTrigger>
+                <SelectContent>
+                  {availableRooms.map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.roomNumber} ({r.type})</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Day Pairing <span className="text-red-500">*</span></Label>
+              <Select value={dayPair} onValueChange={setDayPair}>
+                <SelectTrigger><SelectValue placeholder="Select day pairing..." /></SelectTrigger>
+                <SelectContent>
+                  {availableDays.length > 0 ? availableDays.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>) : dayPairings.map(dp => <SelectItem key={dp.value} value={dp.value}>{dp.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm">Day Pairing <span className="text-red-500">*</span></Label>
+              <Select value={dayPair} onValueChange={setDayPair}>
+                <SelectTrigger><SelectValue placeholder="Select day pairing..." /></SelectTrigger>
+                <SelectContent>
+                  {dayPairings.map(dp => <SelectItem key={dp.value} value={dp.value}>{dp.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Time Slot <span className="text-red-500">*</span></Label>
+              <Select value={time} onValueChange={setTime}>
+                <SelectTrigger><SelectValue placeholder="Select Time Slot" /></SelectTrigger>
+                <SelectContent>
+                  {availableTimeSlots.length > 0 ? availableTimeSlots.map((slot, idx) => (
+                    <SelectItem key={idx} value={slot.value}>{slot.display}</SelectItem>
+                  )) : <div className="p-2 text-xs text-muted-foreground">No available slots found for this subject/room/day.</div>}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-sm">Instructor <span className="text-red-500">*</span></Label>
+            <Input value={instructor} onChange={(e) => setInstructor(e.target.value)} placeholder="Enter instructor name..." />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Confirm Schedule'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default ClassCreationView;
