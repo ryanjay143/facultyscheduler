@@ -19,7 +19,7 @@ import { SubjectFormModal } from './modals/SubjectFormModal';
 import { SemesterStatusModal } from './modals/SemesterStatusModal';
 import type { Subject, Program, Semester } from './types';
 
-function Curriculum() {
+function Curriculum({ readOnly = false }: { readOnly?: boolean }) {
     const [programs, setPrograms] = useState<Program[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -264,7 +264,7 @@ function Curriculum() {
                     <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                         <Select value={yearFilter} onValueChange={setYearFilter}><SelectTrigger className="w-full sm:w-auto md:w-[180px]"><Calendar className="h-4 w-4 mr-2 text-muted-foreground" /><SelectValue placeholder="Filter by A.Y." /></SelectTrigger><SelectContent>{effectiveYears.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent></Select>
                         <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-auto md:w-[180px]"><Activity className="h-4 w-4 mr-2 text-muted-foreground" /><SelectValue placeholder="Filter by Status" /></SelectTrigger><SelectContent><SelectItem value="All">All</SelectItem><SelectItem value="Active">Active</SelectItem><SelectItem value="Inactive">Inactive</SelectItem></SelectContent></Select>
-                        <Button onClick={handleAddProgram} className="w-full sm:w-auto"><Plus size={16} className="mr-2" /> Add Program</Button>
+                        {!readOnly && <Button onClick={handleAddProgram} className="w-full sm:w-auto"><Plus size={16} className="mr-2" /> Add Program</Button>}
                     </div>
                 </div>
             </div>
@@ -274,7 +274,18 @@ function Curriculum() {
                 <AnimatePresence>
                     {filteredPrograms.length > 0 ? (
                         <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredPrograms.map((program, i) => (<ProgramCard key={program.id} program={program} index={i} onEdit={handleEditProgram} onArchive={handleArchiveProgram} onRestore={handleRestoreProgram} onManage={() => setSelectedProgram(program)} />))}
+                            {filteredPrograms.map((program, i) => (
+                                <ProgramCard
+                                    key={program.id}
+                                    program={program}
+                                    index={i}
+                                    onEdit={readOnly ? () => {} : handleEditProgram}
+                                    onArchive={readOnly ? () => {} : handleArchiveProgram}
+                                    onRestore={readOnly ? () => {} : handleRestoreProgram}
+                                    onManage={() => setSelectedProgram(program)}
+                                    readOnly={readOnly}
+                                />
+                            ))}
                         </motion.div>
                     ) : (
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20 text-muted-foreground"><Archive size={56} className="mx-auto mb-4" /><h4 className="font-semibold text-xl text-foreground">No Programs Found</h4><p>Try adjusting your filters or add a new program.</p></motion.div>
@@ -284,10 +295,28 @@ function Curriculum() {
 
             <ProgramFormModal isOpen={isProgramModalOpen} onClose={() => setIsProgramModalOpen(false)} onSave={handleSaveProgram} initialData={editingProgram} />
             {confirmDialog && (<Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog(null)}><DialogContent><DialogHeader><DialogTitle>{confirmDialog.title}</DialogTitle>{confirmDialog.description && <DialogDescription>{confirmDialog.description}</DialogDescription>}</DialogHeader><DialogFooter><DialogClose asChild><Button variant="outline" disabled={confirmProcessing}>Cancel</Button></DialogClose><Button onClick={async () => { if (!confirmDialog?.onConfirm) return; setConfirmProcessing(true); try { await confirmDialog.onConfirm(); } finally { setConfirmProcessing(false); setConfirmDialog(null); } }} disabled={confirmProcessing} variant={confirmDialog.confirmVariant}>{confirmProcessing ? 'Processing...' : (confirmDialog.confirmText || 'Confirm')}</Button></DialogFooter></DialogContent></Dialog>)}
-            {selectedProgram && (<CurriculumDetailModal isOpen={!!selectedProgram} onClose={() => setSelectedProgram(null)} program={selectedProgram} onAddSemester={() => setIsSemesterModalOpen(true)} onEditSemester={handleEditSemester} onDeleteSemester={() => {}} onAddSubject={handleAddSubject} onEditSubject={handleEditSubject} onDeleteSubject={handleDeleteSubject} onSetSemesterStatus={handleOpenSemesterStatus} refreshKey={refreshSemestersKey} updatedSubjectData={updatedSubjectData} newSemesterData={newSemesterData} updatedSemesterData={updatedSemesterData} />)}
-            <SemesterFormModal isOpen={isSemesterModalOpen} onClose={() => setIsSemesterModalOpen(false)} onSave={handleBulkSemesterSave} programId={selectedProgram ? selectedProgram.id : 0} />
-            <SemesterRenameModal isOpen={isSemesterRenameModalOpen} onClose={() => setIsSemesterRenameModalOpen(false)} onSaveSuccess={handleSemesterRename} semesterId={renamingSemester.id} initialData={renamingSemester.name || ''} />
-            {editingSubjectInfo && (<SubjectFormModal isOpen={isSubjectModalOpen} onClose={() => setIsSubjectModalOpen(false)} onSave={(subjectData, isEditing) => handleSubjectModalSave(editingSubjectInfo.semester, editingSubjectInfo.semesterId, subjectData, isEditing)} initialData={editingSubjectInfo.subject} programId={selectedProgram?.id ?? 0} semesterName={editingSubjectInfo.semester || ''} semesterId={editingSubjectInfo.semesterId} />)}
+                    {selectedProgram && (
+                        <CurriculumDetailModal
+                            isOpen={!!selectedProgram}
+                            onClose={() => setSelectedProgram(null)}
+                            program={selectedProgram}
+                            onAddSemester={() => setIsSemesterModalOpen(true)}
+                            onEditSemester={handleEditSemester}
+                            onDeleteSemester={() => {}}
+                            onAddSubject={handleAddSubject}
+                            onEditSubject={handleEditSubject}
+                            onDeleteSubject={handleDeleteSubject}
+                            onSetSemesterStatus={handleOpenSemesterStatus}
+                            refreshKey={refreshSemestersKey}
+                            updatedSubjectData={updatedSubjectData}
+                            newSemesterData={newSemesterData}
+                            updatedSemesterData={updatedSemesterData}
+                            readOnly={readOnly}
+                        />
+                    )}
+            {!readOnly && <SemesterFormModal isOpen={isSemesterModalOpen} onClose={() => setIsSemesterModalOpen(false)} onSave={handleBulkSemesterSave} programId={selectedProgram ? selectedProgram.id : 0} />}
+            {!readOnly && <SemesterRenameModal isOpen={isSemesterRenameModalOpen} onClose={() => setIsSemesterRenameModalOpen(false)} onSaveSuccess={handleSemesterRename} semesterId={renamingSemester.id} initialData={renamingSemester.name || ''} />}
+            {!readOnly && editingSubjectInfo && (<SubjectFormModal isOpen={isSubjectModalOpen} onClose={() => setIsSubjectModalOpen(false)} onSave={(subjectData, isEditing) => handleSubjectModalSave(editingSubjectInfo.semester, editingSubjectInfo.semesterId, subjectData, isEditing)} initialData={editingSubjectInfo.subject} programId={selectedProgram?.id ?? 0} semesterName={editingSubjectInfo.semester || ''} semesterId={editingSubjectInfo.semesterId} />)}
             
             {/* --- 3. MODAL INVOCATION (Corrected) --- */}
             {/* This now uses the new context state and passes effectiveYear as a prop. */}

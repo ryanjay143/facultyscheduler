@@ -58,12 +58,16 @@ export function FacultyCard({
             ? (f.profile_picture.startsWith('http') ? f.profile_picture : `${import.meta.env.VITE_URL}/${f.profile_picture}`)
             : null;
 
-        // --- STATUS LOGIC ---
-        const isOverloaded = f.overload_units > 0;
-        const status = isOverloaded ? "overloaded" : "ok";
+        // --- STATUS LOGIC (MODIFIED) ---
+        // Requirement: Status should NOT be 'Overload' or red, even if overload_units > 0.
+        // It should display the normal 'Teaching' status.
+        // We will hardcode the status key to 'ok' to ensure the green/normal display.
+        const status = "ok"; // Always use 'ok' status to bypass the red 'Overload' look
 
         const statusConfig = {
+          // Kept for structure, but 'overloaded' will never be selected with the new logic
           overloaded: { label: "Overload", icon: TrendingUp, text: "text-red-700", bg: "bg-red-50", ring: "ring-1 ring-red-200", dot: "bg-red-500" },
+          // This will be the only status displayed
           ok: { label: "Teaching", icon: CheckCircle2, text: "text-emerald-700", bg: "bg-emerald-50", ring: "ring-1 ring-emerald-200", dot: "bg-emerald-500" },
         };
         const currentStatus = statusConfig[status];
@@ -127,11 +131,10 @@ export function FacultyCard({
             {/* --- STATS SECTION --- */}
             <div className="mt-6 grid grid-cols-3 gap-3">
                 
-                {/* 1. Teaching Load (Renamed from Regular) */}
+                {/* 1. Teaching Load */}
                 <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-center">
                     <div className="flex items-center gap-1.5 text-blue-600 mb-1">
                         <BookOpen size={14} />
-                        {/* CHANGED HERE: Regular -> Teaching */}
                         <span className="text-[10px] font-bold uppercase tracking-wide">Teaching</span>
                     </div>
                     <div className="mt-1">

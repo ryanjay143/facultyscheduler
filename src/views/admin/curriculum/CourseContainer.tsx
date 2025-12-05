@@ -1,9 +1,9 @@
 import Curriculum from "./Curriculum";
 
-function CourseContainer() {
+function CourseContainer({ readOnly = false }: { readOnly?: boolean }) {
   return (
     <main>
-      <Curriculum />
+      <Curriculum readOnly={readOnly} />
     </main>
   );
 }

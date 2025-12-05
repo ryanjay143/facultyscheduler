@@ -1,10 +1,15 @@
 import { motion } from "framer-motion";
 import { BarChart3 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { facultyLoadData } from "../data";
+import type { ApiFacultyLoad } from "../dashboard";
 
-export const FacultyLoadChart = () => {
-    const MAX_LOAD = 20; // Assume max load is 20 hours
+
+interface FacultyLoadChartProps {
+    facultyLoadData: ApiFacultyLoad[];
+}
+
+export const FacultyLoadChart = ({ facultyLoadData }: FacultyLoadChartProps) => {
+    const MAX_LOAD = 20; // Assume max load is 20 hours (kept local as it's a fixed business rule)
 
     return (
         <div className="bg-card p-6 rounded-xl border shadow-sm">
@@ -21,6 +26,7 @@ export const FacultyLoadChart = () => {
                                 <span className="font-semibold text-foreground">{faculty.name}</span>
                                 <span className="font-mono text-muted-foreground">{faculty.load}h / {MAX_LOAD}h</span>
                             </div>
+                            {/* Assuming Progress is your Shadcn-UI component */}
                             <Progress value={loadPercentage} />
                         </motion.div>
                     );

@@ -1,54 +1,129 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "../../../plugin/axios";
 import { Button } from "@/components/ui/button";
-import { Printer, Download, FileText, Calendar, BarChart3, Users, BookOpen, ClipboardList, AlertTriangle } from "lucide-react";
-// Tanggalin ang import na ito: import { FacultyLoadingReport } from "./reports/FacultyLoadingReport"; 
+import { 
+  Printer, Download, FileText, Calendar, BarChart3, 
+  Users, BookOpen, ClipboardList, Loader2 
+} from "lucide-react";
 
-// I-import ang mga inilipat na report components mula sa kanilang tamang path
+// Import the actual report components from their respective paths
 import { FacultyLoadingReport } from "./reports/FacultyLoadingReport"; 
-import { FacultySchedulesView } from "./reports/FacultySchedulesView"; // FIXED: I-import ang totoong component
-import { FacultyWorkloadsView } from "./reports/FacultyWorkloadsView"; // FIXED: I-import ang totoong component
+import { FacultySchedulesView } from "./reports/FacultySchedulesView"; 
+import { FacultyWorkloadsView } from "./reports/FacultyWorkloadsView"; 
 
-// --- MOCK DATA ---
-export const facultyData = [
-  { id: 1, name: "Dr. Evelyn Reed", department: "Computer Science" },
-  { id: 2, name: "Dr. Samuel Grant", department: "Data Science" },
-  { id: 3, name: "Prof. Alisha Chen", department: "Networking" },
-];
 
-export const assignedSubjects = [
-  { id: 1, code: "CS101", name: "Introduction to Programming", units: 3, assignedTo: 1, schedule: { day: "Monday", time: "09:00-11:00" } },
-  { id: 2, code: "CS205", name: "Data Structures", units: 3, assignedTo: 1, schedule: { day: "Wednesday", time: "10:00-12:00" } },
-  { id: 3, code: "DS301", name: "Machine Learning", units: 4, assignedTo: 2, schedule: { day: "Tuesday", time: "13:00-15:00" } },
-  { id: 4, code: "DB402", name: "Advanced Databases", units: 4, assignedTo: 2, schedule: { day: "Thursday", time: "09:00-11:00" } },
-  { id: 5, code: "NT201", name: "Computer Networks", units: 3, assignedTo: 3, schedule: { day: "Friday", time: "11:00-13:00" } },
-];
-
-// FIXED: Ang mga mock components na ito ay hindi na kailangan dahil ini-import na natin ang totoong files.
-// Kung sakaling wala pang laman ang FacultyWorkloadsView, gamitin ang placeholder na ito:
-// const FacultyWorkloadsView = () => <div className="p-10 text-center text-muted-foreground border rounded-lg">Faculty Workloads View - (Content Placeholder)</div>;
-
+// --- KPI DATA STRUCTURE ---
+interface KpiData {
+    totalFaculty: number;
+    assignedSubjects: number;
+    totalUnitsLoaded: number;
+}
 
 // --- MAIN REPORTS PAGE COMPONENT ---
 function ReportsPage() {
   const [activeTab, setActiveTab] = useState<"loading" | "schedules" | "workloads">("loading");
+  const [kpiData, setKpiData] = useState<KpiData>({
+    totalFaculty: 0,
+    assignedSubjects: 0,
+    totalUnitsLoaded: 0,
+  });
+  const [loadingKpis, setLoadingKpis] = useState(true);
+  const [kpiError, setKpiError] = useState<string | null>(null);
 
-  // KPIs (Pareho pa rin)
-  const totalFaculty = facultyData.length;
-  const totalSubjects = assignedSubjects.length;
-  const totalUnits = assignedSubjects.reduce((sum, s) => sum + s.units, 0);
-  const heavyLoadCount = useMemo(() => {
-    const map = new Map<number, number>();
-    assignedSubjects.forEach((s) => map.set(s.assignedTo, (map.get(s.assignedTo) || 0) + s.units));
-    return Array.from(map.values()).filter((u) => u > 6).length;
+  // --- API Fetch for KPIs ---
+  useEffect(() => {
+    const fetchKpis = async () => {
+      try {
+        setLoadingKpis(true);
+        setKpiError(null);
+        
+        const accessToken = localStorage.getItem('accessToken');
+
+        if (!accessToken) {
+            setKpiError("Authentication token not found. Please log in.");
+            setLoadingKpis(false);
+            return;
+        }
+
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        };
+
+        const response = await axios.get<{ success: boolean; data: KpiData }>(
+            'reports/kpis', 
+            config
+        );
+        
+        if (response.data.success) {
+          setKpiData(response.data.data);
+        } else {
+            setKpiError("Failed to load KPI data from the server.");
+        }
+      } catch (error) {
+        console.error("Error fetching KPI data:", error);
+        setKpiError("Could not connect to the API or fetch KPI data.");
+      } finally {
+        setLoadingKpis(false);
+      }
+    };
+
+    fetchKpis();
   }, []);
 
-  const kpiData = [
-      { label: "Total Faculty", value: totalFaculty, icon: Users },
-      { label: "Assigned Subjects", value: totalSubjects, icon: BookOpen },
-      { label: "Total Units Loaded", value: totalUnits, icon: ClipboardList },
-      { label: "Faculty w/ Heavy Load", value: heavyLoadCount, icon: AlertTriangle, warning: heavyLoadCount > 0 },
+  // Map the fetched data to the format used for rendering
+  const displayedKpiData = [
+      { label: "Total Faculty", value: kpiData.totalFaculty, icon: Users },
+      { label: "Assigned Subjects", value: kpiData.assignedSubjects, icon: BookOpen },
+      { label: "Total Units Loaded", value: kpiData.totalUnitsLoaded, icon: ClipboardList },
   ];
+
+  // --- Render logic for loading and error states for KPIs ---
+
+  const renderKpiCards = () => {
+    if (loadingKpis) {
+      return (
+        <div className="flex justify-center items-center h-20 border rounded-xl bg-card">
+          <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+          <span className="text-muted-foreground">Loading Metrics...</span>
+        </div>
+      );
+    }
+
+    if (kpiError) {
+      return (
+        <div className="bg-red-50 border border-red-300 text-red-700 p-4 rounded-xl">
+          <p className="font-semibold">KPI Load Error</p>
+          <p className="text-sm">{kpiError}</p>
+        </div>
+      );
+    }
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedKpiData.map((kpi, i) => (
+                <motion.div 
+                    key={kpi.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="bg-card p-5 rounded-xl border shadow-sm flex items-center gap-5 border-border"
+                >
+                    <div className="p-3 rounded-lg bg-primary/10 text-primary">
+                        <kpi.icon size={24} />
+                    </div>
+                    <div>
+                        <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
+                        <div className="text-sm text-muted-foreground">{kpi.label}</div>
+                    </div>
+                </motion.div>
+            ))}
+        </div>
+    );
+  };
+
 
   return (
     <>
@@ -63,28 +138,12 @@ function ReportsPage() {
         </div>
       </header>
       
-      {/* KPI Cards (Pareho pa rin) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {kpiData.map((kpi, i) => (
-            <motion.div 
-                key={kpi.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className={`bg-card p-5 rounded-xl border shadow-sm flex items-center gap-5 ${kpi.warning ? 'border-destructive/50 bg-destructive/5' : 'border-border'}`}
-            >
-                <div className={`p-3 rounded-lg ${kpi.warning ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
-                    <kpi.icon size={24} />
-                </div>
-                <div>
-                    <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
-                    <div className="text-sm text-muted-foreground">{kpi.label}</div>
-                </div>
-            </motion.div>
-        ))}
+      {/* KPI Cards */}
+      <div className="mb-8">
+        {renderKpiCards()}
       </div>
 
-      {/* Tabs (Pareho pa rin) */}
+      {/* Tabs */}
       <div className="border-b border-border mb-6">
         <div className="inline-flex items-center gap-1 bg-muted p-1 rounded-lg">
           <TabButton id="loading" activeTab={activeTab} setActiveTab={setActiveTab} icon={<FileText size={16} />}>Loading</TabButton>
@@ -102,7 +161,6 @@ function ReportsPage() {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
         >
-          {/* Ito ang magdi-display ng totoong component */}
           {activeTab === "loading" && <FacultyLoadingReport />} 
           {activeTab === "schedules" && <FacultySchedulesView />} 
           {activeTab === "workloads" && <FacultyWorkloadsView />}
@@ -112,7 +170,7 @@ function ReportsPage() {
   );
 }
 
-// --- HELPER COMPONENT PARA SA TABS ---
+// --- HELPER COMPONENT FOR TABS ---
 type TabId = "loading" | "schedules" | "workloads";
 const TabButton = ({ id, activeTab, setActiveTab, icon, children }: { id: TabId; activeTab: TabId; setActiveTab: (id: TabId) => void; icon: React.ReactNode; children: React.ReactNode; }) => {
   return (
@@ -127,6 +185,3 @@ const TabButton = ({ id, activeTab, setActiveTab, icon, children }: { id: TabId;
 };
 
 export default ReportsPage;
-
-// Tandaan: Para gumana ito, kailangan mong siguraduhin na ang lahat ng tatlong (3) report components ay 
-// tama ang import/export at nakalagay sa tamang paths.

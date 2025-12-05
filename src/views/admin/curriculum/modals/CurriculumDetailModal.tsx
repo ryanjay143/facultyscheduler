@@ -28,6 +28,7 @@ interface CurriculumDetailModalProps {
     updatedSubjectData?: { semesterName: string; subject: Subject } | null;
     newSemesterData?: { name: string; semester: Semester } | null;
     updatedSemesterData?: { name: string; semester: Partial<Semester>; newName?: string } | null;
+    readOnly?: boolean;
 }
 
 const sortSemesterKeys = (a: string, b: string): number => {
@@ -46,7 +47,7 @@ const sortSemesterKeys = (a: string, b: string): number => {
 export function CurriculumDetailModal({
     isOpen, onClose, program, onAddSemester, onEditSemester,
     onAddSubject, onEditSubject, onDeleteSubject, onSetSemesterStatus,
-    refreshKey, updatedSubjectData, newSemesterData, updatedSemesterData
+    refreshKey, updatedSubjectData, newSemesterData, updatedSemesterData, readOnly = false
 }: CurriculumDetailModalProps): JSX.Element {
     const [semesters, setSemesters] = useState<{ [key: string]: Semester }>({});
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -78,7 +79,7 @@ export function CurriculumDetailModal({
                             hoursTotal: sub.total_hrs, hoursLec: sub.total_lec_hrs, hoursLab: sub.total_lab_hrs,
                             prerequisite: sub.pre_requisite || 'None'
                         })),
-                        isActive: apiSem.status === 1,
+                        isActive: apiSem.status === 0,
                         startDate: apiSem.start_date, endDate: apiSem.end_date
                     };
                 });
@@ -148,10 +149,12 @@ export function CurriculumDetailModal({
                             <div key={semesterName} className={`group/semester border rounded-xl overflow-hidden shadow-sm transition-opacity ${!semesterData.isActive ? 'opacity-70 bg-muted/20' : 'bg-card'}`}>
                                 <div className="flex justify-between items-center p-4 bg-muted/30 border-b">
                                     <div className="flex items-center gap-3"><h4 className="text-lg font-semibold text-foreground">{semesterName}</h4><Badge variant={semesterData.isActive ? 'default' : 'destructive'}>{semesterData.isActive ? 'Active' : 'Inactive'}</Badge></div>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover/semester:opacity-100 transition-opacity">
-                                        <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(semesterName, semesterData, program.effectiveYear)}><SlidersHorizontal size={16}/></Button>
-                                        <Button variant="ghost" size="icon" title="Rename Semester" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSemester(semesterData.id, semesterName)}><Edit size={16}/></Button>
-                                    </div>
+                                    {!readOnly && (
+                                        <div className="flex items-center gap-1 opacity-0 group-hover/semester:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" title="Set Status & Dates" className="h-8 w-8 text-muted-foreground" onClick={() => onSetSemesterStatus(semesterName, semesterData, program.effectiveYear)}><SlidersHorizontal size={16}/></Button>
+                                            <Button variant="ghost" size="icon" title="Rename Semester" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSemester(semesterData.id, semesterName)}><Edit size={16}/></Button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="overflow-x-auto">
                                     <Table className="min-w-[1200px]">
@@ -197,8 +200,10 @@ export function CurriculumDetailModal({
                                                         <TableCell className="w-[150px] text-center">{subject.prerequisite}</TableCell>
                                                         <TableCell className="text-center">
                                                             <div className="flex justify-end items-center gap-1">
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSubject(semesterName, subject)}><Edit size={16} /></Button>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDeleteSubject(semesterName, subject.id)}><Trash2 size={16} /></Button>
+                                                                {!readOnly && <>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 hover:text-green-500" onClick={() => onEditSubject(semesterName, subject)}><Edit size={16} /></Button>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDeleteSubject(semesterName, subject.id)}><Trash2 size={16} /></Button>
+                                                                </>}
                                                             </div>
                                                         </TableCell>
                                                     </TableRow>
@@ -219,7 +224,7 @@ export function CurriculumDetailModal({
                                         </TableFooter>
                                     </Table>
                                 </div>
-                                <div className="p-2 border-t"><Button onClick={() => onAddSubject(semesterName, semesterData.id)} variant="link"><Plus size={16} className="mr-1"/> Add Subject</Button></div>
+                                {!readOnly && <div className="p-2 border-t"><Button onClick={() => onAddSubject(semesterName, semesterData.id)} variant="link"><Plus size={16} className="mr-1"/> Add Subject</Button></div>}
                             </div>
                         ))
                     )}

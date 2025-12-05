@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, LogOut, X, BarChart3, Users, Calendar } from "lucide-react"; 
+import { Home, LogOut, X, BarChart3, Users, Calendar, BookOpen } from "lucide-react"; 
 import { motion, AnimatePresence } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -27,8 +27,9 @@ function DeanSidebar({ isOpen, setIsOpen, isCollapsed }: SidebarProps) {
   // FIX: Gi-update ang navLinks para sa Dean
   const navLinks = [
     { href: "/facultyscheduler/dean/user-dashboard", label: "Dashboard", icon: <Home size={20} /> },
+    { href: "/facultyscheduler/dean/curriculum", label: "Curriculum", icon: <BookOpen size={20} /> },
     { href: "/facultyscheduler/dean/faculty-loading", label: "Faculty Loading", icon: <Users size={20} /> },
-    { href: "/facultyscheduler/dean/class-management", label: "Class Management", icon: <Calendar size={20} /> },
+    { href: "/facultyscheduler/dean/class-schedules", label: "Class Schedules", icon: <Calendar size={20} /> },
   ];
 
   const isRouteActive = (pathname: string, href: string) => {

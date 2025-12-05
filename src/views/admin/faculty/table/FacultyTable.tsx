@@ -1,5 +1,3 @@
-// src/components/table/FacultyTable.tsx
-
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -33,13 +31,13 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AddFacultyButton } from "../modal/AddFacultyButton";
-import { FacultyFormModal } from "../modal/FacultyFormModal";
 import { SkeletonFacultyCard } from "./../SkeletonFacultyCard";
 import axios from "../../../../plugin/axios";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
 import { ViewAssignedSubjectsDialog } from "../../faculty-loading/components/ViewAssignedSubjectsDialog";
 import { ScheduleModal } from "../modal/ScheduleModal"; // <--- I-ASSUME NA ITO ANG IYONG ORIGINAL MODAL
+import { FacultyFormModal } from "../modal/FacultyFormModal";
 
 // Apat na buttons na ang magiging target
 // 1. List: View Assigned Subjects (ViewAssignedSubjectsDialog)

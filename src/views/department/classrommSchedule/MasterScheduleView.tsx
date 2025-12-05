@@ -1,7 +1,6 @@
-import type { ClassSchedule } from '../../department/classrommSchedule/classroom-data';
-import type { Curriculum, Room } from './ClassroomScheduleLayout';
-
-// (You would add helper functions for time parsing and positioning here)
+import type { ClassSchedule } from "../faculty-loading/FacultyView";
+import type { Curriculum } from "./ClassCreationView";
+import type { Room } from "./classroom-data";
 
 const MasterScheduleView = ({ rooms }: { schedules: ClassSchedule[], rooms: Room[], curriculum: Curriculum }) => {
   // Logic to build the grid display

@@ -1,18 +1,22 @@
+// src/components/dashboard/ClassBreakdown.tsx
+
 import { motion } from "framer-motion";
 import { CalendarX2, User, MapPin, Clock } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { dayMap, type DayKey, type ScheduleClass } from "./data";
+import { dayMap, type ApiScheduleClass, type DayKey } from "./dashboard";
+
 
 interface ClassBreakdownProps {
   selectedDay: DayKey;
-  classes: ScheduleClass[];
+  // Now uses the API structure type
+  classes: ApiScheduleClass[]; 
   onClear: () => void;
 }
 
 export const ClassBreakdown = ({ selectedDay, classes, onClear }: ClassBreakdownProps) => {
+  // Uses classes prop instead of allClasses import
   const classesForDay = classes.filter((c) => c.day === selectedDay);
   const fullDayName = dayMap[selectedDay] || "Selected Day";
 

@@ -12,7 +12,7 @@ import { jsPDF } from 'jspdf';
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import type { FacultyLoadEntry, Room, ScheduleEntry, SectionEntry, Subject } from './classroom'; // CORRECTED PATH
+import type { FacultyLoadEntry, Room, ScheduleEntry, SectionEntry, Subject } from './classroom'; 
 
 
 // --- PROPS ---
@@ -33,6 +33,7 @@ interface Props {
       type: 'LEC' | 'LAB' | string;
     }) => Promise<boolean>; 
     onFilterApply: (year: number, section: string) => Promise<{ success: boolean; data: ScheduleEntry[]; message?: string }>; 
+    isInitialLoading?: boolean;
 }
 
 // --- CONSTANTS ---
@@ -107,7 +108,8 @@ const getYearLabel = (year: number) => {
 const ClassSchedule: React.FC<Props> = ({ 
     scheduleData, subjectsData, facultyLoadingData, savedSections, 
     onAddSchedule, 
-    onFilterApply
+    onFilterApply,
+    isInitialLoading = false
 }) => {
     // APPLIED Filter States (control the grid)
     const [viewYearLevel, setViewYearLevel] = useState<number | null>(null);
@@ -138,6 +140,35 @@ const ClassSchedule: React.FC<Props> = ({
 
 
     // --- LOGIC ---
+
+    // --- NEW MEMOIZED SUBJECT/FACULTY MAP FOR DROPDOWN DISPLAY ---
+    const subjectFacultyMap = useMemo(() => {
+        const map = new Map<number, string[]>();
+        facultyLoadingData.forEach(load => {
+            const subjectId = load.subject_id;
+            const facultyName = load.faculty.user?.name;
+            if (facultyName) {
+                if (!map.has(subjectId)) {
+                    map.set(subjectId, []);
+                }
+                map.get(subjectId)!.push(facultyName);
+            }
+        });
+        
+        const formattedMap = new Map<number, { displayName: string; facultyNames: string[] }>();
+        subjectsData.forEach(sub => {
+            const facultyNames = Array.from(new Set(map.get(sub.id) || [])); // Deduplicate names
+            formattedMap.set(sub.id, {
+                displayName: `${sub.subject_code} - ${sub.des_title}`,
+                facultyNames: facultyNames
+            });
+        });
+        return formattedMap;
+    }, [facultyLoadingData, subjectsData]);
+
+    const getSubjectDisplayInfo = (subjectId: number) => subjectFacultyMap.get(subjectId);
+    // --- END NEW MEMOIZED MAP ---
+
     const getSectionsForYear = (year: number) => {
         if (!year) return [];
         
@@ -162,6 +193,7 @@ const ClassSchedule: React.FC<Props> = ({
     const validSubjects = useMemo(() => {
         const y = parseInt(modalYearLevel);
         if (!y) return [];
+        // Only consider subjects that are part of the faculty loading (have an assigned time slot/room/faculty)
         const loadedSubjectIds = new Set(facultyLoadingData.map(load => load.subject_id));
         return subjectsData.filter(s => s.yearLevel === y && loadedSubjectIds.has(s.id)); 
     }, [modalYearLevel, subjectsData, facultyLoadingData]);
@@ -308,7 +340,7 @@ const ClassSchedule: React.FC<Props> = ({
             if (isOverlap) {
                 if (existing.faculty_loading.room.id === selectedRoomId) { 
                     const conflictRoom = existing.faculty_loading.room.roomNumber;
-                    toast.error(`Room Conflict: ${conflictRoom} is occupied by Section ${existing.section}.`);
+                    toast.error(`Room Conflict: ${conflictRoom} is occupied by Section ${existing.section} at this time.`);
                     conflictFound = true;
                     break;
                 }
@@ -350,28 +382,7 @@ const ClassSchedule: React.FC<Props> = ({
             setIsSubmitting(false);
         }
     };
-
-    /**
-     * FIX: Collects all unique faculty names associated with the subject in facultyLoadingData
-     * and displays them to provide better context in the dropdown.
-     */
-    const getSubjectDisplayName = (sub: Subject) => {
-        // 1. Find ALL loads for this subject
-        const loads = facultyLoadingData.filter(l => l.subject_id === sub.id);
-        
-        // 2. Extract unique faculty names
-        const facultyNames = Array.from(new Set(
-            loads
-                .map(l => l.faculty.user?.name)
-                .filter(Boolean) as string[] // Filter out null/undefined/empty strings
-        ));
-        
-        // 3. Format the faculty string
-        const facultyString = facultyNames.length > 0 ? ` (${facultyNames.join(', ')})` : ' (Faculty Unassigned)';
-
-        return `${sub.code} - ${sub.name}${facultyString}`; 
-    };
-
+    
     // --- Details Modal Handlers and Lookup ---
     const handleViewDetails = (schedule: ScheduleEntry) => {
         setViewingSchedule(schedule);
@@ -407,7 +418,7 @@ const ClassSchedule: React.FC<Props> = ({
         };
     };
     
-    // --- PDF Download Handler (No changes) ---
+    // --- PDF Download Handler ---
     const handleDownloadPDF = async () => {
         if (!viewYearLevel || !viewSection) {
             toast.error("Please apply a filter before downloading the schedule.");
@@ -455,9 +466,9 @@ const ClassSchedule: React.FC<Props> = ({
             clone.style.boxSizing = 'border-box';
 
             const headerEl = document.createElement('div');
-            headerEl.className = 'flex items-center gap-2 text-slate-800 px-1';
+            headerEl.className = 'flex items-center gap-2 text-slate-800 px-1 mb-4';
             const badgeEl = document.createElement('div');
-            badgeEl.className = 'text-sm py-1 px-3 bg-white border-slate-300 font-medium rounded-md shadow-sm';
+            badgeEl.className = 'text-sm py-1 px-3 bg-white border-slate-300 font-medium rounded-md shadow-sm border';
             badgeEl.textContent = getYearLabel(viewYearLevel);
             const sep = document.createElement('div');
             sep.className = 'text-slate-400';
@@ -507,7 +518,7 @@ const ClassSchedule: React.FC<Props> = ({
 
         } catch (error) {
             console.error("PDF Generation Error:", error);
-            toast.error("Failed to generate PDF. See console for details (install html2canvas and jspdf, then rebuild).");
+            toast.error("Failed to generate PDF. Make sure you have html2canvas and jspdf installed.");
         } finally {
             try {
                 if (container && container.parentNode) container.parentNode.removeChild(container);
@@ -519,21 +530,38 @@ const ClassSchedule: React.FC<Props> = ({
     // --- END PDF Download Handler ---
 
 
-    // --- RENDER GRID (No changes to the rendering logic) ---
+    // --- RENDER GRID ---
     const renderTable = () => {
         if (viewYearLevel === null || viewSection === null) {
-            return (
-                <div className="flex flex-col items-center justify-center h-[500px] border border-dashed border-slate-200 rounded-xl bg-slate-50/50 mt-4">
-                    <div className="bg-white p-6 rounded-full shadow-sm mb-4">
-                        <Calendar className="w-10 h-10 text-slate-300" />
+                if (isInitialLoading) {
+                    return (
+                        <div className="flex flex-col items-center justify-center h-[500px] border border-dashed border-slate-200 rounded-xl bg-slate-50/50 mt-4">
+                            <div className="bg-white p-6 rounded-full shadow-sm mb-4">
+                                <Calendar className="w-10 h-10 text-slate-300 animate-pulse" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-slate-800">Loading Schedule</h3>
+                            <p className="text-slate-500 text-center max-w-sm mt-2">
+                                Loading initial scheduling data — please wait.
+                            </p>
+                            <div className="mt-4">
+                                <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex flex-col items-center justify-center h-[500px] border border-dashed border-slate-200 rounded-xl bg-slate-50/50 mt-4">
+                        <div className="bg-white p-6 rounded-full shadow-sm mb-4">
+                            <Calendar className="w-10 h-10 text-slate-300" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-slate-800">No Schedule Selected</h3>
+                        <p className="text-slate-500 text-center max-w-sm mt-2">
+                            Select a Year Level and Section above and click 'Apply Filter' to view the class schedule, or create a new one.
+                        </p>
                     </div>
-                    <h3 className="text-xl font-semibold text-slate-800">No Schedule Selected</h3>
-                    <p className="text-slate-500 text-center max-w-sm mt-2">
-                        Select a Year Level and Section above and click 'Apply Filter' to view the class schedule, or create a new one.
-                    </p>
-                </div>
-            );
-        }
+                );
+            }
 
         const sectionSchedules = scheduleData.filter(sch =>
             sch.year_level === viewYearLevel && sch.section === viewSection
@@ -775,7 +803,29 @@ const ClassSchedule: React.FC<Props> = ({
                                 <SelectTrigger><SelectValue placeholder={!modalYearLevel ? "Select Year First" : "Select Subject"} /></SelectTrigger>
                                 <SelectContent>
                                     {validSubjects.length > 0 ? (
-                                        validSubjects.map(sub => <SelectItem key={sub.id} value={sub.id.toString()}>{getSubjectDisplayName(sub)}</SelectItem>)
+                                        validSubjects.map(sub => {
+                                            const displayInfo = getSubjectDisplayInfo(sub.id);
+                                            // Fallback if no loads found for some reason (shouldn't happen with the filter)
+                                            if (!displayInfo) return null; 
+                                            
+                                            return (
+                                                <SelectItem key={sub.id} value={sub.id.toString()}>
+                                                    <div className="flex flex-col items-start w-full pr-8"> {/* Added padding for better text wrapping in SelectItem */}
+                                                        {/* Subject */}
+                                                        <span className="font-semibold text-sm leading-tight">{displayInfo.displayName}</span>
+                                                        {/* Faculty */}
+                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                            <User className="w-3 h-3 text-slate-400 flex-shrink-0" /> 
+                                                            <span className="truncate">
+                                                                {displayInfo.facultyNames.length > 0 
+                                                                    ? displayInfo.facultyNames.join(', ') 
+                                                                    : 'Faculty Unassigned'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </SelectItem>
+                                            )
+                                        })
                                     ) : (
                                         <div className="p-2 text-xs text-muted-foreground text-center">{modalYearLevel ? "No subjects assigned in faculty loading" : "Select a year level first"}</div>
                                     )}
@@ -842,7 +892,7 @@ const ClassSchedule: React.FC<Props> = ({
                                         {details.subjectCode} - {details.subjectTitle}
                                     </h2>
                                     <Badge variant="secondary" className="mt-2 bg-blue-100 text-blue-800 font-medium hover:bg-blue-200">
-                                        Section: {details.section}
+                                        Section: {viewingSchedule.year_level} Year - {details.section}
                                     </Badge>
                                 </div>
 

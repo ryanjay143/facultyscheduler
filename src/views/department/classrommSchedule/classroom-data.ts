@@ -1,89 +1,97 @@
-export interface Semester {
+// src/components/classroom/classroom.ts
+
+// --- CORE ENTITIES ---
+
+export interface FacultyUser {
+    id: number;
+    name?: string; 
+}
+
+export interface Faculty {
+    id: number;
+    user_id: number;
+    designation: string;
+    department: string;
+}
+
+export interface Room {
   id: number;
-  program_id: number;
-  year_level: string;
-  semester_level: string;
+  roomNumber: string;
+  type: "Lecture" | "Laboratory" | string;
+  capacity: number | null;
   status: number;
-  start_date: string;
-  end_date: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Subject {
   id: number;
   semester_id: number;
-  subject_code: string;
-  des_title: string;
+  subject_code: string; 
+  des_title: string; 
   total_units: number;
   lec_units: number;
   lab_units: number;
-  total_hrs: number;
-  total_lec_hrs: number;
-  total_lab_hrs: number;
-  pre_requisite: string;
-  semester: Semester;
-  units: number; 
+  code: string; 
+  name: string; 
+  yearLevel: number; 
 }
 
-// Helper types for Faculty Assigned Subjects (used in Dialogs)
-export interface Schedule {
-    day: string;
-    time: string;
-    
-}
 
-export interface AssignedSubject {
-    id: number;
-    subject_code: string;
-    des_title: string;
-    schedule: Schedule;
-}
+// --- SCHEDULE & LOADING TYPES ---
 
-export interface Faculty {
-    id: number;
-    name: string;
-    department: string;
-    profile_picture: string | null; // Changed to allow nulls
-    expertise: string[];
-    
-    // --- LOAD UNITS (Current Status) ---
-    t_load_units: number;  // Current Regular Teaching Load
-    deload_units: number;  // Current Deloading Units
-    overload_units: number;// Current Overload Units
-    
-    // --- LOAD LIMITS (Max Capacities) ---
-    // These are required for the progress bars
-    regular_limit?: number; 
-    deload_limit?: number;
-    overload_limit?: number;
-    
-    // Optional/Legacy fields
-    currentLoad?: number; 
-    maxLoad?: number;
-    maxSubjects?: number;
-    
-    // Used for the frontend UI logic (Assign/View Modal)
-    assignedSubjects?: AssignedSubject[]; 
-    availability?: any; 
-
-    
-}
-
-export interface ClassSchedule {
+// 2. Faculty Loading Type (The nested object inside ScheduleEntry)
+export interface FacultyLoading {
     id: number;
     faculty_id: number;
     subject_id: number;
     room_id: number;
-    type: 'LEC' | 'LAB';
-    day: string;
-    start_time: string; // "08:00:00"
-    end_time: string;   // "10:00:00"
-    subject: {
+    type: 'LEC' | 'LAB' | string;
+    day: string; 
+    start_time: string; 
+    end_time: string; 
+    
+    faculty: Faculty & { user?: { id: number, name?: string } }; 
+    subject: { 
         id: number;
         subject_code: string;
         des_title: string;
-    };
-    room: {
+    }; 
+    room: { 
         id: number;
-        roomNumber: string; 
-    };
+        roomNumber: string;
+        type: string;
+    }; 
 }
+
+// 3. Main Schedule Entry Type (Ang array item galing sa API)
+export interface ScheduleEntry {
+  id: number; 
+  faculty_loading_id: number;
+  year_level: number;
+  section: string;
+  created_at: string;
+  updated_at: string;
+  
+  faculty_loading: FacultyLoading; 
+}
+
+// Type for Faculty Loading array items (Used by RoomContainer and ClassSchedule)
+export type FacultyLoadEntry = FacultyLoading; 
+
+// Type for Persisted Sections
+export interface SectionEntry {
+    yearLevel: number;
+    section: string;
+}
+
+// Type for RoomFormModal data
+export type RoomFormData = Omit<Room, "id" | "status" | "created_at" | "updated_at">;
+
+// Type for Availability Slot in ManageAvailabilityModal
+export type AvailabilitySlot = {
+    id: number;
+    day: string;
+    start_time: string;
+    end_time: string;
+};

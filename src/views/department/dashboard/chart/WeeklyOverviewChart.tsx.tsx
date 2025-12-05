@@ -1,27 +1,40 @@
+// src/components/dashboard/WeeklyOverviewChart.tsx
+
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { DayKey, ScheduleClass } from "../data";
-import { allClasses } from "../data";
+
+// Assuming these types are now available/imported from a common location like "../dashboard" or "@/types/dashboard"
+import type { ApiScheduleClass, DayKey, ApiWeeklyOverview } from "../dashboard"; // Adjusted import path
 
 interface ChartProps {
+  // Fix 1: The component now receives the pre-calculated data and explicitly uses selectedDay
+  weeklyOverviewData: ApiWeeklyOverview;
+  // Fix 2: allClasses is still needed for a comprehensive dashboard logic, but not directly used for bar heights here. 
+  // It's kept here as the parent passes it, though it's technically unused in this component.
+  allClasses: ApiScheduleClass[]; 
   selectedDay: DayKey | null;
   onDaySelect: (day: DayKey) => void;
 }
 
-export const WeeklyOverviewChart = ({ selectedDay, onDaySelect }: ChartProps) => {
+// Fix 3: Added selectedDay to the destructuring
+export const WeeklyOverviewChart = ({ weeklyOverviewData, selectedDay, onDaySelect }: ChartProps) => {
     const [hoveredDay, setHoveredDay] = useState<DayKey | null>(null);
 
-    const weeklyOverviewData = useMemo(() => {
-        const counts: { [key in DayKey]: number } = { MON: 0, TUE: 0, WED: 0, THU: 0, FRI: 0, SAT: 0 };
-        allClasses.forEach((c: ScheduleClass) => {
-            if (counts[c.day] !== undefined) counts[c.day]++;
-        });
-        return counts;
-    }, []);
+    // Using the data from the prop directly
+    const dayEntries = useMemo(() => {
+        // Convert the object structure to an array of [DayKey, count] pairs for mapping
+        return Object.entries(weeklyOverviewData) as [DayKey, number][];
+    }, [weeklyOverviewData]);
 
-    const dayEntries = Object.entries(weeklyOverviewData) as [DayKey, number][];
-    const maxClassesInDay = Math.max(...Object.values(weeklyOverviewData), 1);
-    const busiestDay = dayEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+    const maxClassesInDay = useMemo(() => {
+        // Calculate max classes from the prop data
+        return Math.max(...Object.values(weeklyOverviewData), 1);
+    }, [weeklyOverviewData]);
+    
+    const busiestDay = useMemo(() => {
+        // Find the day with the highest count
+        return dayEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+    }, [dayEntries]);
 
     return (
         <div className="bg-card p-6 rounded-xl border shadow-sm">

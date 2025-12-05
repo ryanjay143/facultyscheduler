@@ -20,7 +20,7 @@ const FacultyNotification = lazy(() =>
   wait(3000).then(() => import('./views/faculty/notification/FacultyNotification'))
 );
 
-const ClassroomSchedule = lazy(() => 
+const ClassroomScheduleLayout = lazy(() => 
   wait(3000).then(() => import('./views/department/classrommSchedule/ClassroomScheduleLayout'))
 );
 
@@ -202,10 +202,17 @@ const routes = [
           </Suspense>
       },
       {
-        path: 'class-management',
+        path: 'class-schedules',
         element: 
           <Suspense fallback={<Loader />}>
-            <ClassroomSchedule />
+            <ClassroomScheduleLayout />
+          </Suspense>
+      },
+      {
+        path: 'curriculum',
+        element:
+          <Suspense fallback={<Loader />}>
+            <CourseContainer readOnly={true} />
           </Suspense>
       },
       

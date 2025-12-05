@@ -26,8 +26,12 @@ interface Subject {
   id: number;
   subject_code: string;
   des_title: string;
+  total_units: number;
   lec_units: number;
   lab_units: number;
+  total_hrs: number;
+  total_lec_hrs: number; // Used for LEC Paying Hours
+  total_lab_hrs: number; // Used for LAB Paying Hours
 }
 
 interface Room {
@@ -56,7 +60,7 @@ interface BackendResponse {
 
 interface SubjectItem {
     loadCode: string; 
-    payingHours: number;
+    payingHours: number; // This is now total_lec_hrs or total_lab_hrs
     day: string;
     time: string;
     room: string;
@@ -67,9 +71,9 @@ interface SubjectItem {
 interface GroupedFacultyLoad {
   facultyId: number;
   name: string;
-  loadString: string; 
-  calculatedLoad: number;
-  preps: number; // FIXED: Naka-number na lang
+  loadString: string; // Total calculated paying hours (string for display)
+  calculatedLoad: number; // t_load_units
+  preps: number; 
   overload: number;
   subjects: SubjectItem[];
 }
@@ -89,6 +93,7 @@ const formatTime = (timeString: string): string => {
 const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLoad[] => {
   const facultyMap = new Map<number, BackendLoading[]>();
 
+  // 1. Group by Faculty
   backendData.forEach(loading => {
     if (!facultyMap.has(loading.faculty_id)) {
       facultyMap.set(loading.faculty_id, []);
@@ -103,24 +108,23 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
     const facultyId = faculty.id;
     const facultyName = faculty.user.name;
 
-    // FIXED: Calculate Preps (Count of unique subject descriptions/remarks)
+    // Calculate Preps (Count of unique subject descriptions/remarks)
     const uniqueSubjectTitles = new Set<string>();
     loadings.forEach(loading => uniqueSubjectTitles.add(loading.subject.des_title));
-    
-    // Ginamit ang count ng unique remarks
     const calculatedPreps = uniqueSubjectTitles.size; 
 
+    // 2. Map loadings to raw SubjectItem list
     const rawSubjectList = loadings.map(loading => {
-        const payingHours = loading.type === 'LEC' 
-                            ? loading.subject.lec_units 
-                            : (loading.type === 'LAB' ? loading.subject.lab_units : 0);
+        
+        // FIX: Paying hours based on contact hours (total_lec_hrs or total_lab_hrs)
+      const subj: any = loading.subject as any;
+      const payingHours = (subj.total_hrs ?? ((subj.total_lec_hrs ?? subj.lec_units ?? 0) + (subj.total_lab_hrs ?? subj.lab_units ?? 0)) ) as number;
         
         const startTime = formatTime(loading.start_time);
         const endTime = formatTime(loading.end_time);
         const remarksTitle = loading.subject.des_title;
         
         const subjectItem: SubjectItem = {
-            // FIXED: loadCode for Load column
             loadCode: `${loading.subject.subject_code} ${loading.type}`,
             payingHours: payingHours,
             day: loading.day,
@@ -137,10 +141,12 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
     for (let i = 0; i < rawSubjectList.length; i++) {
         const currentItem = rawSubjectList[i];
         
+        // Check if a new Remark block starts
         if (i === 0 || rawSubjectList[i].remarks !== rawSubjectList[i-1].remarks) {
             const currentRemark = currentItem.remarks;
             let remarkRowspan = 1;
             
+            // Count subsequent rows with the same remark
             for (let j = i + 1; j < rawSubjectList.length; j++) {
                 if (rawSubjectList[j].remarks === currentRemark) {
                     remarkRowspan++;
@@ -148,15 +154,18 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
                     break;
                 }
             }
-            currentItem.remarkRowSpan = remarkRowspan;
+            currentItem.remarkRowSpan = remarkRowspan; // Set the rowspan for the first row of the block
         }
         subjectList.push(currentItem);
     }
 
-    const calculatedLoad = faculty.t_load_units; 
-    const overload = faculty.overload_units;
-    // FIXED: loadString is the total paying hours, naka-string para sa display format
-    const loadString = rawSubjectList.reduce((sum, item) => sum + item.payingHours, 0).toString();
+    const calculatedLoad = faculty.t_load_units;
+    // total paying hours (sum of contact hours for this faculty)
+    const totalPayingHours = rawSubjectList.reduce((sum, item) => sum + item.payingHours, 0);
+    // overload is the amount by which total paying hours exceed the calculated load
+    const overload = Math.max(0, totalPayingHours - calculatedLoad);
+    // loadString is the sum of all 'payingHours' (contact hours) for the faculty
+    const loadString = totalPayingHours.toString();
 
     grouped.push({
         facultyId,
@@ -246,9 +255,10 @@ export function FacultyLoadingReport() {
   
   // List of unique faculty for the Select dropdown
   const facultyDropdownOptions = useMemo(() => {
-    const uniqueFaculties = new Set<{id: number, name: string}>();
-    allGroupedData.forEach(block => uniqueFaculties.add({id: block.facultyId, name: block.name}));
-    return Array.from(uniqueFaculties).map(f => ({ id: f.id, name: f.name }));
+    // Only unique faculties who actually have a load
+    const uniqueFaculties = new Map<number, string>();
+    allGroupedData.forEach(block => uniqueFaculties.set(block.facultyId, block.name));
+    return Array.from(uniqueFaculties.entries()).map(([id, name]) => ({ id, name }));
   }, [allGroupedData]);
 
 
@@ -287,9 +297,9 @@ export function FacultyLoadingReport() {
       </div>
 
       <div className="rounded-lg border overflow-x-auto">
-        <div className="min-w-[1200px]">
+        <div>
           <Table className="w-full">
-            <TableHeader className="sticky top-0 bg-muted/90 z-10 border-b">
+            <TableHeader>
               <TableRow>
                 <TableHead className="w-[100px] border-r">Name of Faculty</TableHead>
                 <TableHead className="w-[100px] border-r">Load</TableHead>
@@ -329,7 +339,7 @@ export function FacultyLoadingReport() {
                             </TableCell>
                           )}
                           
-                          {/* 2. Load (FIXED: Subject Code per row) */}
+                          {/* 2. Load (Subject Code per row) */}
                           <TableCell className="text-sm font-medium border-r uppercase">{subject.loadCode}</TableCell>
                           
                           {/* 3. Paying Hours, Day, Time, Room */}
@@ -357,11 +367,15 @@ export function FacultyLoadingReport() {
                             </TableCell>
                           )}
 
-                          {/* 6. Preps (RowSpan) */}
+                          {/* 6. Preps (RowSpan) - MODIFIED LOGIC HERE */}
                           {isFirstRow && (
                             <TableCell rowSpan={rowCount} className="text-center align-top">
-                              {/* Preps: count of unique remarks per faculty */}
-                              {`${facultyBlock.preps} preps`}
+                              {/* Only display Preps count if it is GREATER THAN 2 */}
+                              {facultyBlock.preps > 2 ? (
+                                  `${facultyBlock.preps} preps`
+                              ) : (
+                                  ''
+                              )}
                             </TableCell>
                           )}
                         </TableRow>

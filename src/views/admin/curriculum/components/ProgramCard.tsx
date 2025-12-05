@@ -12,25 +12,26 @@ const cardVariants: Variants = { hidden: { opacity: 0, y: 20 }, visible: (i: num
 interface ProgramCardProps {
     program: Program;
     index: number;
-    onEdit: (program: Program) => void;
-    onArchive: (programId: number) => void; 
-    onRestore: (programId: number) => void;
-    onManage: () => void;
+    onEdit?: (program: Program) => void;
+    onArchive?: (programId: number) => void; 
+    onRestore?: (programId: number) => void;
+    onManage?: () => void;
+    readOnly?: boolean;
 }
 
-export function ProgramCard({ program, index, onEdit, onArchive, onRestore, onManage }: ProgramCardProps) {
+export function ProgramCard({ program, index, onEdit, onArchive, onRestore, onManage, readOnly = false }: ProgramCardProps) {
     const totalSubjects = program.total_subjects;
     const totalUnits = program.total_units;
     
     const ActionButtons = () => (
         <>
-            <Button size="icon" variant="ghost" title="Edit Program" onClick={(e) => { e.stopPropagation(); onEdit(program); }} className="h-8 w-8 bg-black/20 hover:bg-green-500"><Edit size={16} /></Button>
+            <Button size="icon" variant="ghost" title="Edit Program" onClick={(e) => { e.stopPropagation(); onEdit && onEdit(program); }} className="h-8 w-8 bg-black/20 hover:bg-green-500"><Edit size={16} /></Button>
             {program.isActive ? (
                 <Button 
                     size="icon" 
                     variant="ghost" 
                     title="Archive Program" 
-                    onClick={(e) => { e.stopPropagation(); onArchive(program.id); }} 
+                    onClick={(e) => { e.stopPropagation(); onArchive && onArchive(program.id); }} 
                     className="h-8 w-8 bg-black/20 hover:bg-destructive/80"
                 >
                     <Trash2 size={16} />
@@ -40,7 +41,7 @@ export function ProgramCard({ program, index, onEdit, onArchive, onRestore, onMa
                     size="icon" 
                     variant="ghost" 
                     title="Restore Program" 
-                    onClick={(e) => { e.stopPropagation(); onRestore(program.id); }} 
+                    onClick={(e) => { e.stopPropagation(); onRestore && onRestore(program.id); }} 
                     className="h-8 w-8 bg-black/20 hover:bg-green-500"
                 >
                     <ArchiveRestore size={16} />
@@ -64,9 +65,9 @@ export function ProgramCard({ program, index, onEdit, onArchive, onRestore, onMa
                     </div>
                 )}
 
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!readOnly && <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <ActionButtons />
-                </div>
+                </div>}
             </div>
 
             <div className="p-5 flex-grow flex flex-col justify-between">
@@ -84,7 +85,7 @@ export function ProgramCard({ program, index, onEdit, onArchive, onRestore, onMa
                     </div>
                 </div>
                 <Button onClick={onManage} className="w-full mt-5" variant="secondary" disabled={!program.isActive}>
-                    Manage Curriculum
+                    {readOnly ? 'View Curriculum' : 'Manage Curriculum'}
                 </Button>
             </div>
         </motion.div>

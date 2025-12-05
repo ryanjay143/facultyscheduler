@@ -14,7 +14,7 @@ import type { Room } from '../../room/classroom';
 const timeToMinutes = (timeStr: string): number => {
     if (!timeStr) return 0;
     const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours * 60 + minutes;
+    return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
 };
 
 const minutesToTime = (minutes: number): string => {
@@ -30,39 +30,37 @@ const addMinutesToTime = (timeStr: string, add: number): string => {
     return minutesToTime(bounded);
 };
 
-const formatTime12 = (t?: string) => {
-    if (!t) return '';
-    const parts = t.split(':');
-    if (parts.length < 2) return t;
-    const h24 = parseInt(parts[0] || '0', 10);
-    const m = parseInt(parts[1] || '0', 10);
-    const ampm = h24 >= 12 ? 'PM' : 'AM';
-    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+// Days of week constant used by selects
+const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Format HH:MM (24h) into 12-hour format for user-friendly messages
+const formatTime12 = (timeStr: string) => {
+    if (!timeStr) return '--:--';
+    const [hh, mm] = timeStr.split(':').map(Number);
+    const period = (hh ?? 0) >= 12 ? 'PM' : 'AM';
+    const hour12 = (hh ?? 0) % 12 === 0 ? 12 : (hh ?? 0) % 12;
+    return `${hour12}:${String(mm ?? 0).padStart(2, '0')} ${period}`;
 };
 
-const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-// Check if two time ranges overlap (inclusive start, exclusive end)
+// Check if two time ranges overlap. times are strings 'HH:MM'
 const timesOverlap = (aStart: string, aEnd: string, bStart: string, bEnd: string) => {
-    if (!aStart || !aEnd || !bStart || !bEnd) return false;
-    const aS = timeToMinutes(aStart);
-    const aE = timeToMinutes(aEnd);
-    const bS = timeToMinutes(bStart);
-    const bE = timeToMinutes(bEnd);
-    return Math.max(aS, bS) < Math.min(aE, bE);
+    const as = timeToMinutes(aStart);
+    const ae = timeToMinutes(aEnd);
+    const bs = timeToMinutes(bStart);
+    const be = timeToMinutes(bEnd);
+    if (!as || !ae || !bs || !be) return false;
+    return as < be && ae > bs;
 };
 
+// Simple room type matching helper: allow case-insensitive contains check
 const matchesRoomType = (roomType: string | undefined, expectedType: string) => {
     if (!roomType) return false;
-    const rt = roomType.toString().toLowerCase();
-    const exp = expectedType.toString().toLowerCase();
-    if (exp.includes('lab')) return rt.includes('lab') || rt.includes('labor');
-    if (exp.includes('lec') || exp.includes('lecture')) return rt.includes('lec') || rt.includes('lecture');
-    return rt === exp;
+    try {
+        return roomType.toString().toLowerCase().includes(expectedType.toString().toLowerCase());
+    } catch (e) {
+        return false;
+    }
 };
-
-// --- TYPES ---
 interface SubjectWithTotalUnits extends Subject {
     total_units: number;
 }
@@ -77,9 +75,8 @@ interface AssignSubjectDialogProps {
 interface Schedule { [day: string]: { start: string; end: string }[]; }
 interface LoadingState { lec: boolean; lab: boolean; } 
 
-
 // ----------------------------------------------------------------------
-// 1. EXTRACTED COMPONENT: ScheduleInputGroup (No functional changes needed)
+// ScheduleInputGroup (small presentational helper)
 // ----------------------------------------------------------------------
 const ScheduleInputGroup = ({ 
     type, 
@@ -113,7 +110,7 @@ const ScheduleInputGroup = ({
                     <Label htmlFor={`${type}-day`}>Day of Class</Label>
                     <select id={`${type}-day`} value={schedules[type].day} onChange={(e) => onScheduleChange(type, 'day', e.target.value)} className="w-full mt-1 p-2 border rounded-md bg-background disabled:opacity-50">
                         <option value="" disabled>Select a day</option>
-                        {daysOfWeek.map(d => <option key={d} value={d} disabled={!facultySchedule[d]?.length}>{d} {!facultySchedule[d]?.length && '(Unavailable)'}</option>)}
+                        {daysOfWeek.map((d: string) => <option key={d} value={d} disabled={!facultySchedule[d]?.length}>{d} {!facultySchedule[d]?.length && '(Unavailable)'}</option>)}
                     </select>
                 </div>
             </div>
@@ -179,7 +176,7 @@ const ScheduleInputGroup = ({
 };
 
 // ----------------------------------------------------------------------
-// 2. EXTRACTED COMPONENT: RoomSelectionGroup (Updated for clarity and visual feedback)
+// 2. EXTRACTED COMPONENT: RoomSelectionGroup
 // ----------------------------------------------------------------------
 const RoomSelectionGroup = ({ 
     type, 
@@ -222,8 +219,8 @@ const RoomSelectionGroup = ({
         return new Set(validRooms.map((r: any) => r.id));
     }, [availableRooms, type, selDay, selStart, selEnd, expectedType]);
 
-    // Rooms to show (These are all rooms returned by the API for the current time slot)
-    const roomsToShow = availableRooms[type];
+    // Rooms to show (only rooms that match the expected type AND are available for the selected time slot)
+    const roomsToShow = (availableRooms[type] || []).filter((room: any) => matchesRoomType(room.type, expectedType) && availableRoomIds.has(room.id));
     const isScheduleComplete = !!selDay && !!selStart && !!selEnd;
 
     const formattedTimeSlot = isScheduleComplete ? `${formatTime12(selStart)} - ${formatTime12(selEnd)}` : '--:-- - --:--';
@@ -250,14 +247,11 @@ const RoomSelectionGroup = ({
 
                     return (
                         <div className="space-y-4">
-                            <p className="text-xs text-muted-foreground font-semibold">
-                                Showing {availableRoomIds.size} available {expectedType} rooms for {selDay}, {formattedTimeSlot}:
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2 -mr-2">
+                            <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-2 -mr-2">
                                 {roomsToShow.map((room: any) => {
                                     const isAvailable = availableRoomIds.has(room.id);
                                     
-                                    const label = isAvailable ? 'AVAILABLE' : 'BUSY'; 
+                                    const label = isAvailable ? 'MATCH SCHED' : 'BUSY'; 
                                     const labelClass = isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
                                     const cardClass = isAvailable 
                                         ? (selectedRooms[type] === room.id ? 'bg-primary/10 border-primary shadow-sm' : 'bg-background hover:border-primary/50')
@@ -284,9 +278,6 @@ const RoomSelectionGroup = ({
                                                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">{room.type}</span>
                                                 )}
                                             </div>
-                                            <p className={`text-[10px] mt-1 truncate ${isAvailable ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}`}>
-                                                Slot: {formattedTimeSlot} is {label}
-                                            </p>
                                         </button>
                                     );
                                 })}
@@ -328,6 +319,8 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     const [facultyAssignedSchedules, setFacultyAssignedSchedules] = useState<any[]>([]); // assigned class schedules (LEC/LAB)
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [activeScheduleType, setActiveScheduleType] = useState<'lec' | 'lab' | null>(null);
+    const [serverErrors, setServerErrors] = useState<{ general?: string; lec?: string; lab?: string }>({}); // Added server errors state
 
     // --- FIX: Wrapped in useCallback and used as a dependency ---
     const resetAllStates = useCallback(() => {
@@ -338,7 +331,9 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         setSelectedRooms({ lec: null, lab: null });
         setAvailableRooms({ lec: [], lab: [] });
         setTimeErrors({ lec: null, lab: null });
+        setActiveScheduleType(null);
         setIsSubmitting(false);
+        setServerErrors({}); // Ensure server errors are reset
     }, []);
     // --- END FIX ---
 
@@ -390,7 +385,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                         });
                         setAllSubjects(mapped);
                         setDisplayedSubjects(mapped);
-                    } catch (error) {
+                    } catch (e) { const error = e as any;
                         console.error('Failed to fetch subjects:', error);
                         setDisplayedSubjects([]);
                         setAllSubjects([]);
@@ -411,7 +406,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                         const loadRes = await axios.get(`/faculties/${faculty.id}/current-load`, { headers: { Authorization: `Bearer ${token}` } });
                         setCurrentAssignedUnits(loadRes.data.current_load_units ?? 0);
                         setAssignedSubjectIds(loadRes.data.assigned_subject_ids ?? loadRes.data.assigned_subjects ?? []);
-                    } catch (error) { 
+                    } catch (e) { const error = e as any;
                         console.error("Error fetching current load:", error);
                         setCurrentAssignedUnits(0); 
                         toast.error("Failed to fetch faculty's current load.");
@@ -427,7 +422,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                     try {
                         const response = await axios.get(`/faculties/${faculty.id}/availability`, { headers: { Authorization: `Bearer ${token}` } });
                         setFacultySchedule(response.data);
-                    } catch (error) { setFacultySchedule({}); }
+                    } catch (e) { setFacultySchedule({}); }
                     finally { setIsLoadingSchedule(false); }
                 };
                 // Fetch assigned schedules to perform client-side conflict detection
@@ -438,8 +433,8 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                         const resp = await axios.get(`faculty-loading/${faculty.id}/schedules`, { headers: { Authorization: `Bearer ${token}` } });
                         const data = resp.data?.data || resp.data || [];
                         setFacultyAssignedSchedules(Array.isArray(data) ? data : []);
-                    } catch (err) {
-                        console.error('Failed to fetch assigned schedules', err);
+                    } catch (e) { const error = e as any;
+                        console.error('Failed to fetch assigned schedules', error);
                         setFacultyAssignedSchedules([]);
                     }
                 };
@@ -451,14 +446,32 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     }, [isOpen, faculty, availableSubjects, resetAllStates]); 
 
     // --- Load Calculation (Memoized) ---
-    const { totalAllowedLoad, potentialTotalLoad, isLoadExceeded } = useMemo(() => {
+    // UPDATED LOGIC HERE to include isOverloadApplied
+    const { 
+        maxNormalLoad,
+        maxOverload,
+        totalAllowedLoad, 
+        potentialTotalLoad, 
+        isLoadExceeded,
+        isOverloadApplied
+    } = useMemo(() => {
         const maxNormalLoad = faculty.t_load_units ?? 0;
         const maxOverload = faculty.overload_units ?? 0;
         const totalAllowedLoad = maxNormalLoad + maxOverload;
         const newSubjectUnits = selectedSubject?.total_hrs ?? selectedSubject?.total_units ?? 0;
         const potentialTotalLoad = currentAssignedUnits + newSubjectUnits;
         const isLoadExceeded = totalAllowedLoad > 0 && potentialTotalLoad > totalAllowedLoad;
-        return { totalAllowedLoad, potentialTotalLoad, isLoadExceeded };
+        // isOverloadApplied is true if the potential load is above the normal load BUT NOT above the total allowed load
+        const isOverloadApplied = maxNormalLoad > 0 && potentialTotalLoad > maxNormalLoad && !isLoadExceeded;
+        
+        return { 
+            maxNormalLoad, 
+            maxOverload, 
+            totalAllowedLoad, 
+            potentialTotalLoad, 
+            isLoadExceeded,
+            isOverloadApplied
+        };
     }, [faculty, currentAssignedUnits, selectedSubject]);
 
     const newSubjectUnits = selectedSubject?.total_hrs ?? selectedSubject?.total_units ?? 0;
@@ -495,7 +508,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
             });
 
             setDisplayedSubjects(mapped as SubjectWithTotalUnits[]);
-        } catch (error) {
+        } catch (e) { const error = e as any;
             console.error('Subject search failed:', error);
             toast.error('Search failed');
             setDisplayedSubjects([]);
@@ -565,7 +578,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                 } catch (e) { return { ...room, availabilities: [] }; }
             }));
             setAvailableRooms(prev => ({...prev, [type]: roomsWithAvail}));
-        } catch (error) {
+        } catch (e) {
             toast.error(`Failed to fetch available ${type} rooms.`);
             setAvailableRooms(prev => ({...prev, [type]: []}));
         } finally {
@@ -576,23 +589,54 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     const isLecScheduleValid = useMemo(() => (selectedSubject?.total_lec_hrs ?? 0) > 0 ? (schedules.lec.day && schedules.lec.startTime && schedules.lec.endTime && !timeErrors.lec) : true, [schedules.lec, timeErrors.lec, selectedSubject]);
     const isLabScheduleValid = useMemo(() => (selectedSubject?.total_lab_hrs ?? 0) > 0 ? (schedules.lab.day && schedules.lab.startTime && schedules.lab.endTime && !timeErrors.lab) : true, [schedules.lab, timeErrors.lab, selectedSubject]);
 
-    useEffect(() => { if (isLecScheduleValid && (selectedSubject?.total_lec_hrs ?? 0) > 0) fetchAvailableRooms('lec'); }, [isLecScheduleValid, schedules.lec, selectedSubject, fetchAvailableRooms]);
-    useEffect(() => { if (isLabScheduleValid && (selectedSubject?.total_lab_hrs ?? 0) > 0) fetchAvailableRooms('lab'); }, [isLabScheduleValid, schedules.lab, selectedSubject, fetchAvailableRooms]);
-    useEffect(() => { if (!selectedSubject) setStep(1); }, [selectedSubject]);
+    useEffect(() => {
+        if (activeScheduleType === 'lec' && isLecScheduleValid && (selectedSubject?.total_lec_hrs ?? 0) > 0) {
+            fetchAvailableRooms('lec');
+        }
+    }, [activeScheduleType, isLecScheduleValid, schedules.lec, selectedSubject, fetchAvailableRooms]);
+
+    useEffect(() => {
+        if (activeScheduleType === 'lab' && isLabScheduleValid && (selectedSubject?.total_lab_hrs ?? 0) > 0) {
+            fetchAvailableRooms('lab');
+        }
+    }, [activeScheduleType, isLabScheduleValid, schedules.lab, selectedSubject, fetchAvailableRooms]);
+
+    useEffect(() => { if (!selectedSubject) { setStep(1); setActiveScheduleType(null); } }, [selectedSubject]);
 
     // WRAPPER Handlers 
     const handleScheduleChange = (type: 'lec' | 'lab', field: string, value: string) => {
         setSchedules(prev => ({ ...prev, [type]: { ...prev[type], [field]: value } }));
         setSelectedRooms(prev => ({...prev, [type]: null}));
+        setActiveScheduleType(type);
+        // Clear server errors when user edits schedule
+        setServerErrors(prev => ({ ...prev, general: undefined, [type]: undefined }));
     };
 
     const handleSelectRoom = (type: 'lec' | 'lab', roomId: number) => {
         setSelectedRooms(prev => ({...prev, [type]: roomId}));
+        // Clear server errors when selecting a room
+        setServerErrors(prev => ({ ...prev, general: undefined, [type]: undefined }));
     };
+
+    // Count unique total subjects (combine lecture+lab of same subject into one)
+    const uniqueTotalSubjectCount = useMemo(() => {
+        try {
+            const src = allSubjects && allSubjects.length ? allSubjects : displayedSubjects || [];
+            const ids = new Set<any>();
+            (src || []).forEach((s: any) => {
+                const id = s.id ?? s.subject_id ?? s.subjectId ?? null;
+                if (id != null) ids.add(id);
+            });
+            return ids.size;
+        } catch (e) {
+            return 0;
+        }
+    }, [allSubjects, displayedSubjects]);
 
     const handleAssignClick = async () => {
         if (!selectedSubject) return;
         
+        // This check correctly uses the combined totalAllowedLoad (TLoad + Overload)
         if (isLoadExceeded) {
              toast.error(`Assignment blocked: Potential load of ${potentialTotalLoad} exceeds maximum allowed load of ${totalAllowedLoad} units.`);
              return;
@@ -628,8 +672,8 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                     }
                 }
             }
-        } catch (err) {
-            console.error('Conflict check failed', err);
+        } catch (e) { const error = e as any;
+            console.error('Conflict check failed', error);
         }
         try {
             const token = localStorage.getItem('accessToken');
@@ -651,10 +695,39 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                 onAssign(faculty.id, selectedSubject.id, schedulesToAssign);
                 onClose();
             }
-        } catch (error: any) {
+        } catch (err) {
+            const error = err as any;
             console.error("Assignment Error:", error);
-            const errorMessage = error.response?.data?.message || "Failed to assign subject. Please check conflicts.";
+            
+            // --- UPDATED ERROR HANDLING TO READ STRUCTURED ERRORS ---
+            const backendErrors = error?.response?.data?.errors;
+            const errorMessage = error?.response?.data?.message || "Failed to assign subject. Please check conflicts.";
+            
+            const mappedErrors: { general?: string; lec?: string; lab?: string } = {};
+
+            if (backendErrors) {
+                // Prioritize the structured LEC/LAB errors if available
+                if (backendErrors.LEC) {
+                    mappedErrors.lec = backendErrors.LEC;
+                }
+                if (backendErrors.LAB) {
+                    mappedErrors.lab = backendErrors.LAB;
+                }
+                // Fallback to general message if structured errors object is there but no LEC/LAB keys
+                if (!mappedErrors.lec && !mappedErrors.lab) {
+                    mappedErrors.general = errorMessage; 
+                }
+            } else {
+                // Use the top-level message as the general error
+                mappedErrors.general = errorMessage;
+            }
+            
+            // Show toast with the main error message
             toast.error(errorMessage);
+            
+            // Set the state for component display
+            setServerErrors(mappedErrors);
+            // --- END UPDATED ERROR HANDLING ---
         } finally {
             setIsSubmitting(false);
         }
@@ -663,6 +736,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     const isLecRoomSelected = (selectedSubject?.total_lec_hrs ?? 0) > 0 ? !!selectedRooms.lec : true;
     const isLabRoomSelected = (selectedSubject?.total_lab_hrs ?? 0) > 0 ? !!selectedRooms.lab : true;
     
+    // Check against totalAllowedLoad (TLoad + Overload)
     const isButtonDisabled = !selectedSubject || !isLecScheduleValid || !isLabScheduleValid || !isLecRoomSelected || !isLabRoomSelected || isSubmitting || isLoadExceeded || isLoadingCurrentLoad;
     
     const hasAvailability = Object.values(facultySchedule).some(slots => slots.length > 0);
@@ -695,18 +769,19 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                 <Loader2 className="h-4 w-4 animate-spin" /> Fetching Load...
                             </div>
                         ) : (
-                            <div className="grid grid-cols-3 gap-2 text-xs">
-                                <p className="font-medium">Normal Load: <span className="text-foreground font-bold">{faculty.t_load_units ?? 0} units</span></p>
-                                <p className="font-medium">Max Overload: <span className="text-foreground font-bold">{faculty.overload_units ?? 0} units</span></p>
+                            <div className="grid grid-cols-4 gap-2 text-xs">
+                                <p className="font-medium">Teaching Load: <span className="text-foreground font-bold">{maxNormalLoad} units</span></p>
+                                <p className="font-medium">Overload Max: <span className="text-foreground font-bold">{maxOverload} units</span></p>
                                 <p className="font-medium">Total Max: <span className="text-foreground font-bold">{totalAllowedLoad} units</span></p>
+                                <p className="font-medium">Total Subjects: <span className="text-foreground font-bold">{uniqueTotalSubjectCount}</span></p>
                                 
-                                <p className="col-span-3 text-sm pt-2 border-t mt-2">
+                                    <p className="col-span-4 text-sm pt-2 border-t mt-2">
                                     <span className="font-semibold">Current Assigned:</span> 
                                     <span className="text-foreground font-bold ml-1">{currentAssignedUnits} units</span>
                                     {selectedSubject && (
                                         <>
                                             <span className="text-muted-foreground ml-2">(Current + {newSubjectUnits} units)</span>
-                                            <span className={`font-bold ml-2 ${isLoadExceeded ? 'text-destructive' : 'text-primary'}`}>
+                                            <span className={`font-bold ml-2 ${isLoadExceeded ? 'text-destructive' : (isOverloadApplied ? 'text-yellow-700' : 'text-primary')}`}>
                                                 → Potential Total: {potentialTotalLoad} units
                                             </span>
                                         </>
@@ -714,10 +789,20 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                 </p>
                             </div>
                         )}
+                        
+                        {/* WARNING MESSAGE WHEN OVERLOAD IS APPLIED BUT NOT EXCEEDED */}
+                        {!isLoadExceeded && isOverloadApplied && (
+                            <div className="mt-3 flex items-center gap-2 p-2 bg-yellow-100 border-yellow-300 rounded-lg text-yellow-800 text-sm">
+                                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                <p className="font-medium">Notice: This assignment will use **overload** units. Potential load is {potentialTotalLoad} (within max {totalAllowedLoad}).</p>
+                            </div>
+                        )}
+
+                        {/* ERROR MESSAGE WHEN TOTAL ALLOWED LOAD IS EXCEEDED */}
                         {isLoadExceeded && (
                             <div className="mt-3 flex items-center gap-2 p-2 bg-destructive/10 border-destructive/30 rounded-lg text-destructive text-sm">
                                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                                <p className="font-medium">Warning: This assignment will exceed the total allowed load of {totalAllowedLoad} units. Please select another faculty or subject.</p>
+                                <p className="font-medium">Warning: This assignment will exceed the total allowed load of {totalAllowedLoad} units. Assignment is **blocked**.</p>
                             </div>
                         )}
                     </div>
@@ -751,7 +836,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                     onClick={handleSearchClick}
                                     disabled={isSearchingSubject || !searchQuery.trim()}
                                 >
-                                    {isSearchingSubject ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+                                    {isSearchingSubject ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Search"}
                                 </Button>
                             </div>
                             <div className="flex-grow overflow-y-auto space-y-2 -mr-2 pr-2">
@@ -852,6 +937,13 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                 </div>
                                 {step >= 2 && (
                                     <div className="flex-grow overflow-y-auto -mr-2 pr-2">
+                                        {/* Display LEC error right above the Lecture Room Selection Group */}
+                                        {serverErrors.lec && (
+                                            <div className="mb-3 flex items-center gap-2 p-2 bg-destructive/10 border-destructive/30 rounded-lg text-destructive text-sm">
+                                                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                                <p className="font-medium">{serverErrors.lec}</p>
+                                            </div>
+                                        )}
                                         <RoomSelectionGroup 
                                             type="lec" 
                                             schedules={schedules} 
@@ -879,7 +971,14 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                 </div>
                                 {step >= 2 && (
                                     <div className="flex-grow overflow-y-auto -mr-2 pr-2">
-                                        <RoomSelectionGroup 
+                                            {/* Display LAB error right above the Laboratory Room Selection Group */}
+                                            {serverErrors.lab && (
+                                                <div className="mb-3 flex items-center gap-2 p-2 bg-destructive/10 border-destructive/30 rounded-lg text-destructive text-sm">
+                                                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                                    <p className="font-medium">{serverErrors.lab}</p>
+                                                </div>
+                                            )}
+                                            <RoomSelectionGroup 
                                             type="lab" 
                                             schedules={schedules} 
                                             availableRooms={availableRooms} 

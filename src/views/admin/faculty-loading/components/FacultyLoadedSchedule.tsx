@@ -8,7 +8,6 @@ import {
     MapPin, 
     Presentation, 
     FlaskConical
-    // Users icon removed
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,14 +15,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-// --- TYPES ---
 interface ClassSchedule {
     id: number;
     type: 'LEC' | 'LAB';
     day: string;
     start_time: string;
     end_time: string;
-    // section: string; // Removed Section
     subject: {
         subject_code: string;
         des_title: string;
@@ -38,7 +35,6 @@ interface FacultyLoadedScheduleProps {
     onDataLoaded?: (totalCount: number) => void;
 }
 
-// --- HELPER FUNCTIONS ---
 const formatTime = (timeStr: string) => {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':');
@@ -72,22 +68,32 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
     const currentDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
     useEffect(() => {
+        // 🔥 NEW: Reset values immediately when switching rows
+        setSchedules([]);
+        if (onDataLoaded) onDataLoaded(0);
+
+        if (!facultyId) return;
+
         const fetchSchedules = async () => {
-            if (!facultyId) return;
             setIsLoading(true);
             setError(false);
+
             try {
                 const token = localStorage.getItem('accessToken');
                 const response = await axios.get(`faculty-loading/${facultyId}/schedules`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                
+
                 if (response.data.success) {
                     const data = response.data.data;
                     setSchedules(data);
 
+                    // 🔥 Count UNIQUE subjects only
                     if (onDataLoaded) {
-                        onDataLoaded(data.length);
+                        const uniqueSubjects = new Set(
+                            data.map((item: ClassSchedule) => item.subject.subject_code)
+                        );
+                        onDataLoaded(uniqueSubjects.size);
                     }
                 }
             } catch (err) {
@@ -97,17 +103,17 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
                 setIsLoading(false);
             }
         };
+
         fetchSchedules();
-    }, [facultyId]); 
+    }, [facultyId]);
 
     const weeklySchedule = useMemo(() => {
         const map = new Map<string, ClassSchedule[]>();
         Object.keys(dayOrder).forEach(day => map.set(day, []));
 
         schedules.forEach(sched => {
-            const day = sched.day;
-            if (map.has(day)) {
-                map.get(day)!.push(sched);
+            if (map.has(sched.day)) {
+                map.get(sched.day)!.push(sched);
             }
         });
 
@@ -122,18 +128,27 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
     const defaultTab = daysList.includes(currentDayName) ? currentDayName : 'Monday';
 
     if (isLoading) {
-        return <div className="flex flex-col items-center justify-center h-64 gap-2 text-muted-foreground"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p>Loading schedule...</p></div>;
+        return (
+            <div className="flex flex-col items-center justify-center h-64 gap-2 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p>Loading schedule...</p>
+            </div>
+        );
     }
 
     if (error) {
-        return <div className="flex flex-col items-center justify-center h-64 text-destructive p-6 text-center"><AlertCircle className="h-10 w-10 mb-2" /><p className="font-medium">Failed to load schedule.</p></div>;
+        return (
+            <div className="flex flex-col items-center justify-center h-64 text-destructive p-6 text-center">
+                <AlertCircle className="h-10 w-10 mb-2" />
+                <p className="font-medium">Failed to load schedule.</p>
+            </div>
+        );
     }
 
     return (
         <div className="h-full flex flex-col bg-muted/10 rounded-lg overflow-hidden border">
             <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col h-full w-full">
                 
-                {/* --- DAYS NAVIGATION --- */}
                 <div className="bg-background border-b px-2 pt-2">
                     <TabsList className="w-full justify-start h-auto p-0 bg-transparent gap-2 overflow-x-auto no-scrollbar pb-2">
                         {daysList.map((day) => {
@@ -155,12 +170,11 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
                                         {count}
                                     </span>
                                 </TabsTrigger>
-                            )
+                            );
                         })}
                     </TabsList>
                 </div>
 
-                {/* --- SCHEDULE CONTENT --- */}
                 <div className="flex-1 bg-muted/5 relative">
                     {daysList.map((day) => {
                         const dailySchedules = weeklySchedule.get(day) || [];
@@ -200,7 +214,6 @@ export function FacultyLoadedSchedule({ facultyId, onDataLoaded }: FacultyLoaded
     );
 }
 
-// --- CARD COMPONENT ---
 function ScheduleCard({ sched }: { sched: ClassSchedule }) {
     const isLec = sched.type === 'LEC';
     const theme = isLec 
@@ -213,7 +226,7 @@ function ScheduleCard({ sched }: { sched: ClassSchedule }) {
     return (
         <Card className={`overflow-hidden shadow-sm hover:shadow-md transition-shadow border-l-[6px] ${theme.border}`}>
             <CardContent className="p-0 flex flex-col sm:flex-row">
-                {/* Time Column */}
+                
                 <div className={`p-4 flex flex-col justify-center items-center sm:w-36 border-b sm:border-b-0 sm:border-r ${theme.bg}`}>
                     <div className="text-center">
                         <span className="block text-lg font-bold text-foreground leading-none">{formatTime(sched.start_time)}</span>
@@ -227,7 +240,6 @@ function ScheduleCard({ sched }: { sched: ClassSchedule }) {
                     </div>
                 </div>
 
-                {/* Info Column */}
                 <div className="flex-1 p-4 flex flex-col justify-between">
                     <div>
                         <div className="flex justify-between items-start gap-2 mb-1">
@@ -242,10 +254,8 @@ function ScheduleCard({ sched }: { sched: ClassSchedule }) {
                         <p className="text-sm font-medium text-muted-foreground">{sched.subject.des_title}</p>
                     </div>
 
-                    {/* Footer Row: Room (Section Removed) */}
                     <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-x-6 gap-y-2">
                         
-                        {/* Room Info */}
                         <div className="flex items-center gap-2">
                             <div className="bg-muted p-1.5 rounded-md">
                                 <MapPin className="h-4 w-4 text-foreground/70" />

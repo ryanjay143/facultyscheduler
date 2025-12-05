@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; 
-import { User, BookOpen, Clock } from "lucide-react"; // <--- ADDED Clock icon
+import { User, BookOpen, Clock } from "lucide-react"; 
 import type { Faculty } from "../type"; 
 import { FacultyLoadedSchedule } from "./FacultyLoadedSchedule";
 
@@ -20,7 +20,7 @@ interface ViewAssignedSubjectsDialogProps {
 }
 
 export function ViewAssignedSubjectsDialog({ isOpen, onClose, faculty }: ViewAssignedSubjectsDialogProps) {
-  // Stores the total number of items (Lec + Lab)
+  
   const [totalSubjects, setTotalSubjects] = useState<number>(0);
 
   if (!faculty) return null;
@@ -31,15 +31,14 @@ export function ViewAssignedSubjectsDialog({ isOpen, onClose, faculty }: ViewAss
 
   const getProfileSrc = (pic: string | null | undefined) => {
      if (!pic) return '';
-     // Added a check for null/undefined if Faculty type allows it
      const picture = pic ?? ''; 
      if (picture.startsWith('http') || picture.startsWith('data:')) return picture;
      return `${import.meta.env.VITE_URL}/${picture}`; 
   };
 
-  // Called when child component finishes fetching
-  const handleDataLoaded = (count: number) => {
-    setTotalSubjects(count);
+  // Receives number of UNIQUE subjects from FacultyLoadedSchedule
+  const handleDataLoaded = (uniqueSubjectCount: number) => {
+    setTotalSubjects(uniqueSubjectCount);
   };
 
   return (
@@ -74,17 +73,16 @@ export function ViewAssignedSubjectsDialog({ isOpen, onClose, faculty }: ViewAss
                         Faculty Member
                     </span>
                     
-                    {/* REDESIGNED LABEL: Pinalitan ang BookOpen at inilagay ang "Faculty Load" */}
                     <span className="flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 rounded-md border border-primary/20 shadow-sm text-primary">
                         <Clock className="h-3.5 w-3.5" />
                         <span className="font-semibold text-foreground">View Faculty Load</span> 
-                        {/* Optional: Pwede ring ilagay ang count dito (e.g., Load: {totalSubjects}) */}
                     </span>
                     
+                    {/* UPDATED: Unique subjects only */}
                     <span className="flex items-center gap-1.5 bg-background px-2.5 py-1 rounded-md border shadow-sm">
                         <BookOpen className="h-3.5 w-3.5 text-amber-500" />
-                        {/* Ipinapakita pa rin ang Total Subject Count */}
-                        <span className="font-semibold text-foreground">{totalSubjects}</span> Total Subject Sections
+                        <span className="font-semibold text-foreground">{totalSubjects}</span> 
+                        Total Subject{totalSubjects !== 1 ? "s" : ""}
                     </span>
                 </div>
              </div>
@@ -95,7 +93,7 @@ export function ViewAssignedSubjectsDialog({ isOpen, onClose, faculty }: ViewAss
         <div className="flex-1 overflow-hidden bg-background">
            <FacultyLoadedSchedule 
                 facultyId={faculty.id} 
-                onDataLoaded={handleDataLoaded} 
+                onDataLoaded={handleDataLoaded}
            />
         </div>
 

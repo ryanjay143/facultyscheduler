@@ -18,7 +18,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X, AlertCircle } from "lucide-react";
+import { X } from "lucide-react";
 import type { Faculty } from "../table/FacultyTable";
 
 import { toast } from "sonner";
@@ -50,9 +50,10 @@ function getStringHash(str: string): number {
 export function FacultyFormModal({ isOpen, onClose, onSave, initialData, expertiseOptions }: FacultyFormModalProps) {
   type FacultyFormData = Omit<Faculty, "id" | "role"> & {
     avatar?: string;
-    deload_units?: number;
-    teaching_load_units?: number;
-    overload_units?: number;
+    deload_units: number | string; // Updated to allow string (for empty input state)
+    teaching_load_units: number | string; // Updated to allow string
+    overload_units: number | string; // Updated to allow string
+    t_load_units: number | string; // Updated to allow string
   };
 
   const [formData, setFormData] = useState<FacultyFormData>({
@@ -67,7 +68,7 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
     deload_units: 0,
     teaching_load_units: 0,
     overload_units: 0,
-    t_load_units: 0,
+    t_load_units: 0, // Keeping original `t_load_units` for compatibility
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -101,7 +102,15 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      // Coerce existing number fields back to number state, if they exist
+      const initialLoadData = {
+          deload_units: initialData.deload_units || 0,
+          teaching_load_units: initialData.t_load_units || 0, // Using t_load_units from Faculty interface for initial value
+          overload_units: initialData.overload_units || 0,
+          t_load_units: initialData.t_load_units || 0, // Ensure t_load_units is also set
+      };
+
+      setFormData({ ...initialData, ...initialLoadData });
       setImagePreview(initialData.profile_picture || null);
       setAvailableExpertise(expertiseOptions.filter(opt => !initialData.expertise.includes(opt)));
     } else {
@@ -127,19 +136,30 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
     setIsExpertiseInputFocused(false);
   }, [initialData, isOpen, expertiseOptions]);
 
+  // --- UPDATED handleChange ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     let finalValue: string | number = value;
+    
     if (['deload_units', 'teaching_load_units', 'overload_units'].includes(name)) {
         let numericValue = Number(value);
-        if (name === 'teaching_load_units' && numericValue > 24) {
-            toast.warning("Teaching load cannot exceed 24 units.");
-            numericValue = 24;
+        
+        // This logic allows the input field to be empty (finalValue='') for easier typing,
+        // but forces non-negative values when a number is present.
+        if (value === '') {
+             finalValue = '';
+        } else {
+             finalValue = numericValue < 0 ? 0 : numericValue;
         }
-        finalValue = numericValue < 0 ? 0 : (value === '' ? '' : numericValue);
     }
-    setFormData((prev) => ({ ...prev, [name]: finalValue }));
+    setFormData((prev) => ({ 
+        ...prev, 
+        [name]: finalValue,
+        // Also update t_load_units if teaching_load_units is changed, as they are used interchangeably
+        ...(name === 'teaching_load_units' ? { t_load_units: finalValue === '' ? 0 : Number(finalValue) } : {})
+    }));
   };
+  // --- END UPDATED handleChange ---
 
   const handleSelectChange = (name: "department" | "designation", value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -182,7 +202,6 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
   const showSuggestions = isExpertiseInputFocused && (newExpertiseInput.length > 0 || availableExpertise.length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    // ... (unchanged handleSubmit function for brevity)
     e.preventDefault();
     setIsLoading(true);
 
@@ -193,6 +212,12 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
         case "Faculty": roleValue = 2; break;
         default: toast.error("Invalid designation."); setIsLoading(false); return;
     }
+    
+    // Coerce string fields to number, treating empty string as 0
+    const deload = Number(formData.deload_units) || 0;
+    const teachingLoad = Number(formData.teaching_load_units) || 0;
+    const overload = Number(formData.overload_units) || 0;
+
 
     const dataToSend = new FormData();
     dataToSend.append('name', formData.name);
@@ -200,9 +225,9 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
     dataToSend.append('role', String(roleValue));
     dataToSend.append('designation', formData.designation);
     dataToSend.append('department', formData.department);
-    dataToSend.append('deload_units', String(formData.deload_units || 0));
-    dataToSend.append('t_load_units', String(formData.teaching_load_units || 0));
-    dataToSend.append('overload_units', String(formData.overload_units || 0));
+    dataToSend.append('deload_units', String(deload));
+    dataToSend.append('t_load_units', String(teachingLoad));
+    dataToSend.append('overload_units', String(overload));
     formData.expertise.forEach(exp => dataToSend.append('expertise[]', exp));
 
     const avatarInput = document.getElementById('avatar-file') as HTMLInputElement;
@@ -276,7 +301,23 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2"><Label htmlFor="name">Full Name</Label><Input id="name" name="name" value={formData.name} onChange={handleChange} required /></div>
-                  <div className="space-y-2"><Label htmlFor="email">Email Address</Label><Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required /></div>
+                  
+                  {/* FIX: Changed type to 'text' and added a pattern to explicitly allow 'ñ' */}
+                  <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input 
+                          id="email" 
+                          name="email" 
+                          type="text" // Changed from 'email' to 'text' to allow 'ñ'
+                          value={formData.email} 
+                          onChange={handleChange} 
+                          required 
+                          // Pattern for basic email structure, explicitly allowing 'ñ' and 'Ñ'
+                          pattern="[a-zA-Z0-9._%+-ñÑ]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                          title="Please enter a valid email address. The 'ñ' character is allowed."
+                      />
+                  </div>
+                  
                   <div className="space-y-2">
                       <Label htmlFor="designation">Designation</Label>
                       <Select value={formData.designation} onValueChange={(value) => handleSelectChange("designation", value)} required>
@@ -306,13 +347,18 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t pt-6">
-                  <div className="space-y-2"><Label htmlFor="deload_units">Deload Units</Label><Input id="deload_units" name="deload_units" type="number" value={formData.deload_units || ''} onChange={handleChange} placeholder="0" /></div>
+                  {/* UPDATED: Value set to String(value) to display 0 */}
+                  <div className="space-y-2"><Label htmlFor="deload_units">Deload Units</Label><Input id="deload_units" name="deload_units" type="number" value={String(formData.deload_units)} onChange={handleChange} placeholder="0" /></div>
+                  
                   <div className="space-y-2">
                       <Label htmlFor="teaching_load_units">Teaching Load</Label>
-                      <Input id="teaching_load_units" name="teaching_load_units" type="number" value={formData.teaching_load_units || ''} onChange={handleChange} placeholder="e.g. 18" />
-                      <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertCircle size={12} /> Max load is 24 units.</p>
+                      {/* UPDATED: Value set to String(value) to display 0 */}
+                      <Input id="teaching_load_units" name="teaching_load_units" type="number" value={String(formData.teaching_load_units)} onChange={handleChange} placeholder="e.g. 18" />
+                      {/* REMOVED: Max load warning text */}
                   </div>
-                  <div className="space-y-2"><Label htmlFor="overload_units">Overload Units</Label><Input id="overload_units" name="overload_units" type="number" value={formData.overload_units || ''} onChange={handleChange} placeholder="0" /></div>
+                  
+                  {/* UPDATED: Value set to String(value) to display 0 */}
+                  <div className="space-y-2"><Label htmlFor="overload_units">Overload Units</Label><Input id="overload_units" name="overload_units" type="number" value={String(formData.overload_units)} onChange={handleChange} placeholder="0" /></div>
               </div>
               
               {/* UPDATED EXPERTISE FIELD (Token/Tag Input with Autocomplete/Suggestions) */}

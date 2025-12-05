@@ -1,6 +1,7 @@
 import { CheckCircle, XCircle } from 'lucide-react';
-import type {  ClassSchedule } from '../../department/classrommSchedule/classroom-data';
-import type { Room } from './ClassroomScheduleLayout';
+import type { Room } from './classroom-data';
+import type { ClassSchedule } from '../faculty-loading/FacultyView';
+
 
 const RoomManagementView = ({ rooms, schedules }: { rooms: Room[], schedules: ClassSchedule[] }) => {
   const roomsInUse = new Set(schedules.map(s => s.room_id));
