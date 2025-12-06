@@ -116,10 +116,19 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
     // 2. Map loadings to raw SubjectItem list
     const rawSubjectList = loadings.map(loading => {
         
-        // FIX: Paying hours based on contact hours (total_lec_hrs or total_lab_hrs)
-      const subj: any = loading.subject as any;
-      const payingHours = (subj.total_hrs ?? ((subj.total_lec_hrs ?? subj.lec_units ?? 0) + (subj.total_lab_hrs ?? subj.lab_units ?? 0)) ) as number;
+        // **FIXED LOGIC for Paying hours:**
+        let payingHours: number = 0;
         
+        if (loading.type === 'LEC') {
+            // Use total_lec_hrs for LEC type, fallback to lec_units if null/undefined
+            payingHours = loading.subject.total_lec_hrs ?? loading.subject.lec_units ?? 0;
+        } else if (loading.type === 'LAB') {
+            // Use total_lab_hrs for LAB type, fallback to lab_units if null/undefined
+            payingHours = loading.subject.total_lab_hrs ?? loading.subject.lab_units ?? 0;
+        } 
+        // For any other type, payingHours remains 0.
+        // payingHours is calculated per specific load row based on its type.
+
         const startTime = formatTime(loading.start_time);
         const endTime = formatTime(loading.end_time);
         const remarksTitle = loading.subject.des_title;
