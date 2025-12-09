@@ -1,6 +1,6 @@
 // src/components/classroom/ClassSchedule.tsx
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,9 +13,23 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { FacultyLoadEntry, Room, ScheduleEntry, SectionEntry, Subject } from './classroom'; 
+import axios from '../../../plugin/axios'; 
 
 
-// --- PROPS ---
+// --- INTERFACE DEFINITIONS ---
+export interface Program {
+    id: number;
+    program_name: string; 
+    abbreviation: string; 
+}
+
+interface ProgramApiResponse {
+    programs: Program[];
+}
+// --- END INTERFACE DEFINITIONS ---
+
+
+// --- PROPS (FIXED: Re-added authToken) ---
 interface Props {
     scheduleData: ScheduleEntry[];
     subjectsData: Subject[];
@@ -31,9 +45,11 @@ interface Props {
       startTime: string;
       endTime: string;
       type: 'LEC' | 'LAB' | string;
+      programId: number; // Must be number
     }) => Promise<boolean>; 
-    onFilterApply: (year: number, section: string) => Promise<{ success: boolean; data: ScheduleEntry[]; message?: string }>; 
+    onFilterApply: (year: number, section: string, programId: number) => Promise<{ success: boolean; data: ScheduleEntry[]; message?: string }>; 
     isInitialLoading?: boolean;
+    authToken: string | null; 
 }
 
 // --- CONSTANTS ---
@@ -106,29 +122,45 @@ const getYearLabel = (year: number) => {
 
 // --- COMPONENT ---
 const ClassSchedule: React.FC<Props> = ({ 
-    scheduleData, subjectsData, facultyLoadingData, savedSections, 
+    scheduleData = [], 
+    subjectsData = [], 
+    facultyLoadingData = [], 
+    savedSections = [], 
     onAddSchedule, 
     onFilterApply,
-    isInitialLoading = false
+    isInitialLoading = false,
+    authToken 
 }) => {
+    
+    // --- STATE FOR FETCHED PROGRAM DATA ---
+    const [programsData, setProgramsData] = useState<Program[]>([]);
+    const [isProgramsLoading, setIsProgramsLoading] = useState(false);
+    // ----------------------------------------
+
     // APPLIED Filter States (control the grid)
     const [viewYearLevel, setViewYearLevel] = useState<number | null>(null);
     const [viewSection, setViewSection] = useState<string | null>(null);
+    const [viewProgramId, setViewProgramId] = useState<number | null>(null); 
     const [isFilterLoading, setIsFilterLoading] = useState(false); 
 
     // PENDING Filter States (control the toolbar selects)
     const [selectedYearLevel, setSelectedYearLevel] = useState<string>("");
     const [selectedSection, setSelectedSection] = useState<string>("");
+    const [selectedProgramId, setSelectedProgramId] = useState<string>(""); 
+
+    // Sections fetched from backend for the selected Program+Year (used to populate Section select)
+    const [serverSections, setServerSections] = useState<string[] | null>(null);
 
     // Modal Form States
     const [isClassModalOpen, setIsClassModalOpen] = useState(false);
     const [modalYearLevel, setModalYearLevel] = useState<string>("");
     const [modalSection, setModalSection] = useState<string>("");
+    const [modalProgramId, setModalProgramId] = useState<string>(""); 
     const [isCreatingSection, setIsCreatingSection] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [newClassData, setNewClassData] = useState({
-        subjectId: "", roomId: "", day: "", startTime: "", endTime: "", type: ""
+        subjectId: "", loadId: "", roomId: "", day: "", startTime: "", endTime: "", type: ""
     });
 
     // Details Modal States
@@ -138,11 +170,54 @@ const ClassSchedule: React.FC<Props> = ({
     // PDF Ref
     const scheduleGridRef = useRef<HTMLDivElement>(null);
 
+    // --- EFFECT FOR FETCHING PROGRAM DATA ---
+    useEffect(() => {
+        const fetchPrograms = async () => {
+            const token = localStorage.getItem('accessToken'); 
+            
+            const finalToken = token || authToken; 
+            
+            if (!finalToken) {
+                toast.error("Authentication token not found. Cannot load programs.");
+                return;
+            }
+
+            setIsProgramsLoading(true);
+            try {
+                // Use relative path 'api/program' if axios instance has base URL
+                const response = await axios.get<ProgramApiResponse>('program', {
+                    headers: {
+                        'Authorization': `Bearer ${finalToken}`,
+                        'Accept': 'applichn/json'
+                    }
+                });
+                setProgramsData(response.data.programs); 
+            } catch (error: any) {
+                console.error("Failed to fetch programs:", error);
+                const errorMessage = axios.isAxiosError(error) 
+                    ? error.response?.data?.message || error.message
+                    : "An unknown error occurred.";
+                toast.error(`Failed to load program list: ${errorMessage}`);
+                setProgramsData([]);
+            } finally {
+                setIsProgramsLoading(false);
+            }
+        };
+
+        fetchPrograms();
+    }, [authToken]); 
+
 
     // --- LOGIC ---
 
-    // --- NEW MEMOIZED SUBJECT/FACULTY MAP FOR DROPDOWN DISPLAY ---
-    const subjectFacultyMap = useMemo(() => {
+    // Memo for Program Code lookup (Uses abbreviation)
+    const programMap = useMemo(() => {
+        return new Map(programsData.map(p => [p.id, p.abbreviation]));
+    }, [programsData]);
+    const getProgramCode = (programId: number) => programMap.get(programId) || 'N/A';
+    
+    // --- MEMOIZED SUBJECT/FACULTY MAP AND HELPER FUNCTION ---
+    const { getSubjectDisplayInfo } = useMemo(() => {
         const map = new Map<number, string[]>();
         facultyLoadingData.forEach(load => {
             const subjectId = load.subject_id;
@@ -163,45 +238,102 @@ const ClassSchedule: React.FC<Props> = ({
                 facultyNames: facultyNames
             });
         });
-        return formattedMap;
-    }, [facultyLoadingData, subjectsData]);
 
-    const getSubjectDisplayInfo = (subjectId: number) => subjectFacultyMap.get(subjectId);
-    // --- END NEW MEMOIZED MAP ---
-
-    const getSectionsForYear = (year: number) => {
-        if (!year) return [];
+        const getSubjectDisplayInfo = (subjectId: number) => formattedMap.get(subjectId);
         
+        return { getSubjectDisplayInfo };
+    }, [facultyLoadingData, subjectsData]);
+    // --- END MEMOIZED SUBJECT/FACULTY MAP AND HELPER FUNCTION ---
+
+
+    const getSectionsForFilter = (year: number, programId: number) => {
+        if (!year || !programId) return [];
+
+        // Prefer server-provided sections if available
+        if (serverSections && serverSections.length > 0) {
+            return serverSections.slice().sort();
+        }
+
         const fromSchedules = scheduleData
-            .filter(sch => sch.year_level === year) 
+            .filter(sch => sch.year_level === year && sch.program_id === programId)
             .map(s => s.section);
-            
+
         const fromStorage = savedSections
             .filter(s => s.yearLevel === year)
             .map(s => s.section);
-            
+
         return [...new Set([...fromSchedules, ...fromStorage])].sort();
     };
 
     const viewSections = useMemo(() => {
         const y = selectedYearLevel ? parseInt(selectedYearLevel) : null;
-        return y ? getSectionsForYear(y) : [];
-    }, [selectedYearLevel, scheduleData, savedSections]);
+        const p = selectedProgramId ? parseInt(selectedProgramId) : null;
+        return y && p ? getSectionsForFilter(y, p) : [];
+    }, [selectedYearLevel, selectedProgramId, scheduleData, savedSections, serverSections]);
 
-    const modalSections = useMemo(() => modalYearLevel ? getSectionsForYear(parseInt(modalYearLevel)) : [], [modalYearLevel, scheduleData, savedSections]);
+    const modalSections = useMemo(() => {
+        const y = modalYearLevel ? parseInt(modalYearLevel) : null;
+        const p = modalProgramId ? parseInt(modalProgramId) : null;
+        return y && p ? getSectionsForFilter(y, p) : [];
+    }, [modalYearLevel, modalProgramId, scheduleData, savedSections, serverSections]);
 
+    // When user selects Program + Year in the toolbar, fetch available sections
+    // from the server (using onFilterApply) so the Section dropdown shows only
+    // sections present in the backend schedule data for that program/year.
+    useEffect(() => {
+        const y = selectedYearLevel ? parseInt(selectedYearLevel) : null;
+        const p = selectedProgramId ? parseInt(selectedProgramId) : null;
+        if (!y || !p) { setServerSections(null); return; }
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await onFilterApply(y, '', p);
+                if (cancelled) return;
+                if (res && res.success && Array.isArray(res.data)) {
+                    const secs = Array.from(new Set(res.data.map(s => s.section))).sort();
+                    setServerSections(secs);
+                } else {
+                    setServerSections([]);
+                }
+            } catch (e) {
+                if (!cancelled) setServerSections([]);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [selectedYearLevel, selectedProgramId, onFilterApply]);
+
+    // Show all subjects that appear in faculty loading. This ensures the
+    // Subject dropdown displays any subject that has been assigned in
+    // faculty loading regardless of selected section/program/year.
     const validSubjects = useMemo(() => {
-        const y = parseInt(modalYearLevel);
-        if (!y) return [];
-        // Only consider subjects that are part of the faculty loading (have an assigned time slot/room/faculty)
-        const loadedSubjectIds = new Set(facultyLoadingData.map(load => load.subject_id));
-        return subjectsData.filter(s => s.yearLevel === y && loadedSubjectIds.has(s.id)); 
-    }, [modalYearLevel, subjectsData, facultyLoadingData]);
+        const loadedSubjectIds = new Set<number>();
+        facultyLoadingData.forEach(load => {
+            // Some API shapes include `subject_id` and a nested `subject` object
+            if (typeof (load as any).subject_id === 'number') loadedSubjectIds.add((load as any).subject_id);
+            else if ((load as any).subject && typeof (load as any).subject.id === 'number') loadedSubjectIds.add((load as any).subject.id);
+        });
+        return subjectsData.filter(s => loadedSubjectIds.has(s.id));
+    }, [subjectsData, facultyLoadingData]);
 
     const selectedSubjectLoads = useMemo(() => {
         if (!newClassData.subjectId) return [];
-        return facultyLoadingData.filter(load => load.subject_id.toString() === newClassData.subjectId);
-    }, [newClassData.subjectId, facultyLoadingData]);
+
+        // If a specific loadId was selected, it may contain one or more comma-separated load ids
+        if (newClassData.loadId) {
+            const ids = newClassData.loadId.split(',').map(s => s.trim()).filter(Boolean);
+            if (ids.length > 0) {
+                return facultyLoadingData.filter(load => {
+                    const lid = load.id ? String(load.id) : '';
+                    return ids.includes(lid);
+                });
+            }
+        }
+
+        // Otherwise return all loads matching the chosen subject
+        return facultyLoadingData.filter(load => String(load.subject_id) === newClassData.subjectId || (load.subject && String(load.subject.id) === newClassData.subjectId));
+    }, [newClassData.subjectId, newClassData.loadId, facultyLoadingData]);
 
     const availableRooms = useMemo(() => {
         const uniqueRooms = new Map<number, Room>();
@@ -243,27 +375,29 @@ const ClassSchedule: React.FC<Props> = ({
     }, [selectedSubjectLoads, newClassData.roomId, newClassData.day]);
 
 
-    // -- Handlers (No changes in main handler logic) --
+    // -- Handlers --
     
-    const applyFilterFor = async (year: number | null, section: string | null) => {
-        if (year === null || section === null) {
-            toast.error("Please select both Year Level and Section.");
+    const applyFilterFor = async (year: number | null, section: string | null, programId: number | null) => {
+        if (year === null || section === null || programId === null) { 
+            toast.error("Please select Program, Year Level, and Section.");
             return { success: false };
         }
 
         setIsFilterLoading(true);
 
         try {
-            const result = await onFilterApply(year, section);
+            const result = await onFilterApply(year, section, programId); 
 
             if (result.success) {
                 setViewYearLevel(year);
                 setViewSection(section);
+                setViewProgramId(programId); 
 
                 if (result.data.length === 0 && result.message) {
                     toast.info(result.message);
                 } else if (result.data.length > 0) {
-                    toast.success(`Schedule loaded for ${getYearLabel(year)} - ${section}`);
+                    const programCode = getProgramCode(programId);
+                    toast.success(`Schedule loaded for ${programCode}, ${getYearLabel(year)} - ${section}`);
                 }
 
                 return { success: true, data: result.data };
@@ -271,12 +405,14 @@ const ClassSchedule: React.FC<Props> = ({
                 toast.error(result.message || "Failed to load schedule. Please try again.");
                 setViewYearLevel(null);
                 setViewSection(null);
+                setViewProgramId(null);
                 return { success: false };
             }
         } catch (error) {
             console.error("Error applying filter:", error);
             setViewYearLevel(null);
             setViewSection(null);
+            setViewProgramId(null);
             return { success: false };
         } finally {
             setIsFilterLoading(false);
@@ -286,14 +422,17 @@ const ClassSchedule: React.FC<Props> = ({
     const handleApplyFilter = async () => {
         const year = selectedYearLevel ? parseInt(selectedYearLevel) : null;
         const section = selectedSection.trim() || null;
-        await applyFilterFor(year, section);
+        const programId = selectedProgramId ? parseInt(selectedProgramId) : null; 
+        
+        await applyFilterFor(year, section, programId);
     };
 
     const handleOpenAddClass = () => {
         setModalYearLevel("");
         setModalSection("");
+        setModalProgramId(""); 
         setIsCreatingSection(false);
-        setNewClassData({ subjectId: "", roomId: "", day: "", startTime: "", endTime: "", type: "" }); 
+        setNewClassData({ subjectId: "", loadId: "", roomId: "", day: "", startTime: "", endTime: "", type: "" }); 
         setIsClassModalOpen(true);
     };
 
@@ -301,8 +440,25 @@ const ClassSchedule: React.FC<Props> = ({
         setSelectedYearLevel(v);
         setSelectedSection(""); 
     };
+    
+    const handleProgramSelectChange = (v: string) => {
+        setSelectedProgramId(v);
+        setSelectedSection(""); 
+    };
 
-    const handleSubjectChange = (val: string) => { setNewClassData({ subjectId: val, roomId: "", day: "", startTime: "", endTime: "", type: "" }); };
+    const handleSubjectChange = (val: string) => {
+        // Value may be encoded as "<subjectId>|<loadId>" when multiple faculty loads
+        if (!val) {
+            setNewClassData({ subjectId: "", loadId: "", roomId: "", day: "", startTime: "", endTime: "", type: "" });
+            return;
+        }
+
+        const parts = val.split('|');
+        const subjectId = parts[0] || "";
+        const loadId = parts[1] || "";
+
+        setNewClassData({ subjectId: subjectId, loadId: loadId, roomId: "", day: "", startTime: "", endTime: "", type: "" });
+    };
     const handleRoomChange = (val: string) => { setNewClassData(prev => ({ ...prev, roomId: val, day: "", startTime: "", endTime: "", type: "" })); };
     const handleDayChange = (val: string) => { setNewClassData(prev => ({ ...prev, day: val, startTime: "", endTime: "", type: "" })); };
 
@@ -317,13 +473,22 @@ const ClassSchedule: React.FC<Props> = ({
 
 
     const handleAddClassSubmit = async () => {
-        if (!modalYearLevel || !modalSection || !newClassData.subjectId || !newClassData.roomId || !newClassData.day || !newClassData.startTime || !newClassData.type) {
+        // --- FIX: Check raw modalProgramId string for emptiness ---
+        if (!modalYearLevel || !modalSection || !modalProgramId || !newClassData.subjectId || !newClassData.roomId || !newClassData.day || !newClassData.startTime || !newClassData.type) {
             toast.error("Please fill in all fields.");
             return;
         }
 
         const targetYear = parseInt(modalYearLevel);
         const targetSection = modalSection.trim();
+        const targetProgramId = parseInt(modalProgramId); 
+        
+        // --- SECONDARY FIX: Check if parseInt resulted in NaN ---
+        if (isNaN(targetProgramId)) {
+            toast.error("Invalid Program selection. Please choose a Program.");
+            return;
+        }
+        
         const selectedRoomId = parseInt(newClassData.roomId);
         const selectedSubjectId = parseInt(newClassData.subjectId);
         const startMinutes = timeToMinutes(newClassData.startTime);
@@ -332,22 +497,25 @@ const ClassSchedule: React.FC<Props> = ({
 
         let conflictFound = false;
         for (const existing of scheduleData) {
-            if (existing.faculty_loading.day !== newClassData.day) continue;
-            const exStart = timeToMinutes(existing.faculty_loading.start_time);
-            const exEnd = timeToMinutes(existing.faculty_loading.end_time);
-            const isOverlap = (startMinutes < exEnd && endMinutes > exStart);
             
-            if (isOverlap) {
-                if (existing.faculty_loading.room.id === selectedRoomId) { 
-                    const conflictRoom = existing.faculty_loading.room.roomNumber;
-                    toast.error(`Room Conflict: ${conflictRoom} is occupied by Section ${existing.section} at this time.`);
-                    conflictFound = true;
-                    break;
-                }
-                if (existing.year_level === targetYear && existing.section === targetSection) { 
-                    toast.error(`Section Conflict: ${targetSection} already has a class at this time.`);
-                    conflictFound = true;
-                    break;
+            if (existing.faculty_loading.day === newClassData.day) {
+                const exStart = timeToMinutes(existing.faculty_loading.start_time);
+                const exEnd = timeToMinutes(existing.faculty_loading.end_time);
+                const isOverlap = (startMinutes < exEnd && endMinutes > exStart);
+                
+                if (isOverlap) {
+                    if (existing.faculty_loading.room.id === selectedRoomId) { 
+                        const conflictRoom = existing.faculty_loading.room.roomNumber;
+                        toast.error(`Room Conflict: ${conflictRoom} is occupied by Section ${existing.section} at this time.`);
+                        conflictFound = true;
+                        break;
+                    }
+                    if (existing.year_level === targetYear && existing.section === targetSection) { 
+                        // NOTE: In a perfect world, this also checks program ID for section conflict
+                        toast.error(`Section Conflict: ${targetSection} already has a class at this time.`);
+                        conflictFound = true;
+                        break;
+                    }
                 }
             }
         }
@@ -363,18 +531,22 @@ const ClassSchedule: React.FC<Props> = ({
                 startTime: newClassData.startTime,
                 endTime: newClassData.endTime,
                 yearLevel: targetYear,
-                type: classType 
+                type: classType,
+                programId: targetProgramId // Guaranteed to be a number here
             });
 
             if (success) {
-                const appliedYear = selectedYearLevel ? parseInt(selectedYearLevel) : parseInt(modalYearLevel);
-                const appliedSection = selectedSection || modalSection;
+                const appliedYear = selectedYearLevel ? parseInt(selectedYearLevel) : targetYear;
+                const appliedSection = selectedSection || targetSection;
+                const appliedProgramId = selectedProgramId ? parseInt(selectedProgramId) : targetProgramId;
 
-                await applyFilterFor(appliedYear, appliedSection);
+                // Re-apply filter with programId
+                await applyFilterFor(appliedYear, appliedSection, appliedProgramId);
 
                 setModalYearLevel("");
                 setModalSection("");
-                setNewClassData({ subjectId: "", roomId: "", day: "", startTime: "", endTime: "", type: "" }); 
+                setModalProgramId("");
+                setNewClassData({ subjectId: "", loadId: "", roomId: "", day: "", startTime: "", endTime: "", type: "" }); 
 
                 setIsClassModalOpen(false);
             }
@@ -394,7 +566,6 @@ const ClassSchedule: React.FC<Props> = ({
         setViewingSchedule(null);
     };
 
-    // Helper to find full schedule details (Subject, Room, FacultyLoad)
     const getFullScheduleDetails = (schedule: ScheduleEntry | null) => {
         if (!schedule) return null;
 
@@ -418,9 +589,9 @@ const ClassSchedule: React.FC<Props> = ({
         };
     };
     
-    // --- PDF Download Handler ---
+    // --- PDF Download Handler (No change) ---
     const handleDownloadPDF = async () => {
-        if (!viewYearLevel || !viewSection) {
+        if (!viewYearLevel || !viewSection || !viewProgramId) {
             toast.error("Please apply a filter before downloading the schedule.");
             return;
         }
@@ -465,25 +636,44 @@ const ClassSchedule: React.FC<Props> = ({
             clone.style.width = '100%';
             clone.style.boxSizing = 'border-box';
 
+            // Custom Header for PDF
             const headerEl = document.createElement('div');
             headerEl.className = 'flex items-center gap-2 text-slate-800 px-1 mb-4';
-            const badgeEl = document.createElement('div');
-            badgeEl.className = 'text-sm py-1 px-3 bg-white border-slate-300 font-medium rounded-md shadow-sm border';
-            badgeEl.textContent = getYearLabel(viewYearLevel);
-            const sep = document.createElement('div');
-            sep.className = 'text-slate-400';
-            sep.textContent = '›';
+            
+            // Program Badge
+            const programCode = getProgramCode(viewProgramId);
+            const programBadge = document.createElement('div');
+            programBadge.className = 'text-sm py-1 px-3 bg-indigo-100 text-indigo-800 font-medium rounded-md shadow-sm';
+            programBadge.textContent = programCode;
+
+            const sep1 = document.createElement('div');
+            sep1.className = 'text-slate-400';
+            sep1.textContent = '›';
+
+            // Year Badge
+            const yearBadge = document.createElement('div');
+            yearBadge.className = 'text-sm py-1 px-3 bg-white border-slate-300 font-medium rounded-md shadow-sm border';
+            yearBadge.textContent = getYearLabel(viewYearLevel);
+            
+            const sep2 = document.createElement('div');
+            sep2.className = 'text-slate-400';
+            sep2.textContent = '›';
+
+            // Section Title
             const titleEl = document.createElement('h2');
             titleEl.className = 'text-2xl font-bold tracking-tight';
             titleEl.textContent = String(viewSection);
 
-            headerEl.appendChild(badgeEl);
-            headerEl.appendChild(sep);
+            headerEl.appendChild(programBadge);
+            headerEl.appendChild(sep1);
+            headerEl.appendChild(yearBadge);
+            headerEl.appendChild(sep2);
             headerEl.appendChild(titleEl);
 
             container.appendChild(headerEl);
             container.appendChild(clone);
             document.body.appendChild(container);
+
 
             const canvas = await html2canvas(container, {
                 scale: 2,
@@ -512,7 +702,8 @@ const ClassSchedule: React.FC<Props> = ({
 
             const sanitizedYear = getYearLabel(viewYearLevel).replace(/\s+/g, '_');
             const safeSection = String(viewSection).replace(/\s+/g, '_');
-            const fileName = `Class_Schedule_${sanitizedYear}_${safeSection}_${new Date().toISOString().substring(0, 10)}.pdf`;
+            const safeProgram = programCode.replace(/\s+/g, '_');
+            const fileName = `Class_Schedule_${safeProgram}_${sanitizedYear}_${safeSection}_${new Date().toISOString().substring(0, 10)}.pdf`;
             pdf.save(fileName);
             toast.success("PDF Downloaded successfully!");
 
@@ -532,7 +723,7 @@ const ClassSchedule: React.FC<Props> = ({
 
     // --- RENDER GRID ---
     const renderTable = () => {
-        if (viewYearLevel === null || viewSection === null) {
+        if (viewYearLevel === null || viewSection === null || viewProgramId === null) {
                 if (isInitialLoading) {
                     return (
                         <div className="flex flex-col items-center justify-center h-[500px] border border-dashed border-slate-200 rounded-xl bg-slate-50/50 mt-4">
@@ -557,7 +748,7 @@ const ClassSchedule: React.FC<Props> = ({
                         </div>
                         <h3 className="text-xl font-semibold text-slate-800">No Schedule Selected</h3>
                         <p className="text-slate-500 text-center max-w-sm mt-2">
-                            Select a Year Level and Section above and click 'Apply Filter' to view the class schedule, or create a new one.
+                            Select a Program, Year Level and Section above and click 'Apply Filter' to view the class schedule, or create a new one.
                         </p>
                     </div>
                 );
@@ -571,7 +762,7 @@ const ClassSchedule: React.FC<Props> = ({
             <div 
                 className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm mt-6 relative select-none"
             >
-                <div className="flex">
+                 <div className="flex">
                     {/* Time Gutter (Left Side) */}
                     <div className="w-20 flex-shrink-0 relative bg-slate-50/80 border-r border-slate-200" 
                          style={{ height: `${HEADER_HEIGHT_REM + (TOTAL_HOURS * HOUR_HEIGHT_REM)}rem` }}>
@@ -686,13 +877,34 @@ const ClassSchedule: React.FC<Props> = ({
             {/* TOOLBAR */}
             <Card className="border-none shadow-sm bg-slate-50/50">
                 <CardContent className="p-4 flex flex-col md:flex-row gap-6 items-end md:items-center justify-between">
-                    <div className="w-full md:w-auto flex items-end justify-start gap-4">
+                    <div className="w-full md:w-auto flex items-end justify-start gap-4 flex-wrap">
+                        
+                        {/* Filter Program (NEW) */}
+                        <div className="w-44 sm:w-48 space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                                <Filter className="w-3 h-3" /> Filter Program
+                            </Label>
+                            <Select onValueChange={handleProgramSelectChange} value={selectedProgramId} disabled={isProgramsLoading}>
+                                <SelectTrigger className="h-10 bg-white border-slate-200 focus:ring-slate-200 transition-shadow">
+                                    <SelectValue placeholder={isProgramsLoading ? "Loading Programs..." : "Select Program"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {programsData.map(program => (
+                                        <SelectItem key={program.id} value={program.id.toString()}>
+                                            {/* Display program_name (abbreviation) */}
+                                            {program.program_name} ({program.abbreviation})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         {/* Filter Year */}
                         <div className="w-44 sm:w-48 space-y-1.5">
                             <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                                <Filter className="w-3 h-3" /> Filter Year
+                                <Calendar className="w-3 h-3" /> Filter Year
                             </Label>
-                            <Select onValueChange={handleYearLevelSelectChange} value={selectedYearLevel}>
+                            <Select onValueChange={handleYearLevelSelectChange} value={selectedYearLevel} disabled={!selectedProgramId}>
                                 <SelectTrigger className="h-10 bg-white border-slate-200 focus:ring-slate-200 transition-shadow">
                                     <SelectValue placeholder="Select Year" />
                                 </SelectTrigger>
@@ -703,7 +915,7 @@ const ClassSchedule: React.FC<Props> = ({
                         {/* Filter Section */}
                         <div className="w-44 sm:w-48 space-y-1.5">
                             <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Filter Section</Label>
-                            <Select onValueChange={setSelectedSection} value={selectedSection} disabled={!selectedYearLevel}>
+                            <Select onValueChange={setSelectedSection} value={selectedSection} disabled={!selectedYearLevel || !selectedProgramId}>
                                 <SelectTrigger className="h-10 bg-white border-slate-200 focus:ring-slate-200 transition-shadow">
                                     <SelectValue placeholder="Select Section" />
                                 </SelectTrigger>
@@ -715,7 +927,7 @@ const ClassSchedule: React.FC<Props> = ({
                         <div className="flex items-end">
                             <Button
                                 onClick={handleApplyFilter}
-                                disabled={!selectedYearLevel || !selectedSection || isFilterLoading}
+                                disabled={!selectedYearLevel || !selectedSection || !selectedProgramId || isFilterLoading || isProgramsLoading}
                                 className="h-10 shadow-md transition-all px-4"
                                 title="Apply selected filters to the schedule grid"
                             >
@@ -729,7 +941,7 @@ const ClassSchedule: React.FC<Props> = ({
                         {/* Download PDF Button */}
                         <Button 
                             onClick={handleDownloadPDF} 
-                            disabled={!viewYearLevel || !viewSection}
+                            disabled={!viewYearLevel || !viewSection || !viewProgramId}
                             className="h-10 shadow-md transition-all" 
                             variant="outline"
                         >
@@ -737,7 +949,7 @@ const ClassSchedule: React.FC<Props> = ({
                         </Button>
 
                         {/* Add Class Schedule Button */}
-                        <Button onClick={handleOpenAddClass} className="shadow-md hover:shadow-lg transition-all">
+                        <Button onClick={handleOpenAddClass} className="shadow-md hover:shadow-lg transition-all" disabled={isProgramsLoading}>
                             <Plus className="mr-2 h-4 w-4" /> Add Class Schedule
                         </Button>
                     </div>
@@ -748,8 +960,12 @@ const ClassSchedule: React.FC<Props> = ({
             <div ref={scheduleGridRef} className="w-full">
                 
                 {/* HEADER - Included in PDF Wrapper */}
-                {viewYearLevel && viewSection && (
+                {viewYearLevel && viewSection && viewProgramId && (
                     <div className="flex items-center gap-2 text-slate-800 px-1">
+                        <Badge variant="secondary" className="text-sm py-1 px-3 bg-indigo-100 text-indigo-800 font-medium rounded-md shadow-sm">
+                            {getProgramCode(viewProgramId)}
+                        </Badge>
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
                         <Badge variant="outline" className="text-sm py-1 px-3 bg-white border-slate-300 font-medium rounded-md shadow-sm">
                             {getYearLabel(viewYearLevel)}
                         </Badge>
@@ -770,15 +986,32 @@ const ClassSchedule: React.FC<Props> = ({
                 <DialogContent className="sm:max-w-[550px]">
                     <DialogHeader><DialogTitle>Add Class Schedule</DialogTitle></DialogHeader>
                     <div className="grid gap-5 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-4">
+                            {/* Program Select (NEW) */}
+                            <div className="space-y-2 col-span-1">
+                                <Label>Program <span className="text-red-500">*</span></Label>
+                                <Select onValueChange={(v) => { setModalProgramId(v); setModalYearLevel(""); setModalSection(""); setIsCreatingSection(false); }} value={modalProgramId} disabled={isProgramsLoading}>
+                                    <SelectTrigger><SelectValue placeholder={isProgramsLoading ? "Loading..." : "Select Program"} /></SelectTrigger>
+                                    <SelectContent>
+                                        {programsData.map(program => (
+                                            <SelectItem key={program.id} value={program.id.toString()}>
+                                                 {/* Display program_name (abbreviation) */}
+                                                {program.program_name} ({program.abbreviation})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {/* Year Select */}
+                            <div className="space-y-2 col-span-1">
                                 <Label>Year Level <span className="text-red-500">*</span></Label>
-                                <Select onValueChange={(v) => { setModalYearLevel(v); setModalSection(""); setIsCreatingSection(false); }} value={modalYearLevel}>
+                                <Select onValueChange={(v) => { setModalYearLevel(v); setModalSection(""); setIsCreatingSection(false); }} value={modalYearLevel} disabled={!modalProgramId}>
                                     <SelectTrigger><SelectValue placeholder="Select Year" /></SelectTrigger>
                                     <SelectContent>{YEAR_LEVELS.map(year => <SelectItem key={year} value={year.toString()}>{getYearLabel(year)}</SelectItem>)}</SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
+                            {/* Section Input/Select */}
+                            <div className="space-y-2 col-span-1">
                                 <Label>Section <span className="text-red-500">*</span></Label>
                                 {isCreatingSection ? (
                                     <div className="flex gap-2">
@@ -787,11 +1020,11 @@ const ClassSchedule: React.FC<Props> = ({
                                     </div>
                                 ) : (
                                     <div className="flex gap-2">
-                                        <Select onValueChange={setModalSection} value={modalSection} disabled={!modalYearLevel}>
+                                        <Select onValueChange={setModalSection} value={modalSection} disabled={!modalYearLevel || !modalProgramId}>
                                             <SelectTrigger className="flex-1"><SelectValue placeholder="Select Section" /></SelectTrigger>
                                             <SelectContent>{modalSections.map(sec => <SelectItem key={sec} value={sec}>{sec}</SelectItem>)}</SelectContent>
                                         </Select>
-                                        <Button size="icon" variant="outline" onClick={() => { setIsCreatingSection(true); setModalSection(""); }} disabled={!modalYearLevel} title="Create New Section"><Plus className="h-4 w-4" /></Button>
+                                        <Button size="icon" variant="outline" onClick={() => { setIsCreatingSection(true); setModalSection(""); }} disabled={!modalYearLevel || !modalProgramId} title="Create New Section"><Plus className="h-4 w-4" /></Button>
                                     </div>
                                 )}
                             </div>
@@ -799,35 +1032,65 @@ const ClassSchedule: React.FC<Props> = ({
                         <div className="border-t border-slate-100"></div>
                         <div className="space-y-2">
                             <Label>Subject (from Faculty Loading) <span className="text-red-500">*</span></Label>
-                            <Select onValueChange={handleSubjectChange} value={newClassData.subjectId} disabled={!modalYearLevel}>
-                                <SelectTrigger><SelectValue placeholder={!modalYearLevel ? "Select Year First" : "Select Subject"} /></SelectTrigger>
+                            <Select onValueChange={handleSubjectChange} value={newClassData.loadId ? `${newClassData.subjectId}|${newClassData.loadId}` : newClassData.subjectId} disabled={validSubjects.length === 0}>
+                                <SelectTrigger><SelectValue placeholder={validSubjects.length === 0 ? "No subjects in faculty loading" : "Select Subject"} /></SelectTrigger>
                                 <SelectContent>
                                     {validSubjects.length > 0 ? (
-                                        validSubjects.map(sub => {
+                                        validSubjects.reduce<React.ReactNode[]>((acc, sub) => {
                                             const displayInfo = getSubjectDisplayInfo(sub.id);
-                                            // Fallback if no loads found for some reason (shouldn't happen with the filter)
-                                            if (!displayInfo) return null; 
-                                            
-                                            return (
-                                                <SelectItem key={sub.id} value={sub.id.toString()}>
-                                                    <div className="flex flex-col items-start w-full pr-8"> {/* Added padding for better text wrapping in SelectItem */}
-                                                        {/* Subject */}
-                                                        <span className="font-semibold text-sm leading-tight">{displayInfo.displayName}</span>
-                                                        {/* Faculty */}
-                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                                            <User className="w-3 h-3 text-slate-400 flex-shrink-0" /> 
-                                                            <span className="truncate">
-                                                                {displayInfo.facultyNames.length > 0 
-                                                                    ? displayInfo.facultyNames.join(', ') 
-                                                                    : 'Faculty Unassigned'}
-                                                            </span>
+                                            if (!displayInfo) return acc;
+
+                                            // Find all loads for this subject so we can show each faculty separately
+                                            const loads = facultyLoadingData.filter(l => (l.subject_id === sub.id) || (l.subject && l.subject.id === sub.id));
+
+                                            if (loads.length > 0) {
+                                                // Group loads by faculty name so duplicate faculty+subject entries merge
+                                                const groups = new Map<string, typeof loads>();
+                                                loads.forEach(l => {
+                                                    const fname = l.faculty?.user?.name || 'Faculty Unassigned';
+                                                    if (!groups.has(fname)) groups.set(fname, [] as any);
+                                                    groups.get(fname)!.push(l);
+                                                });
+
+                                                groups.forEach((groupLoads, facultyName) => {
+                                                    const groupIds = groupLoads.map(gl => gl.id ? String(gl.id) : `${gl.faculty?.id ?? ''}-${gl.room_id ?? ''}`).filter(Boolean);
+                                                    const value = `${sub.id}|${groupIds.join(',')}`;
+                                                    const labelSuffix = groupLoads.length > 1 ? ` (${groupLoads.length})` : '';
+                                                    acc.push(
+                                                        <SelectItem key={`s-${sub.id}-g-${facultyName}`} value={value}>
+                                                            <div className="flex flex-col items-start w-full pr-8"> 
+                                                                <span className="font-semibold text-sm leading-tight">{displayInfo.displayName}</span>
+                                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                                    <User className="w-3 h-3 text-slate-400 flex-shrink-0" /> 
+                                                                    <span className="truncate">{facultyName}{labelSuffix}</span>
+                                                                </div>
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                });
+                                            } else {
+                                                // No loads found for subject — show single option
+                                                acc.push(
+                                                    <SelectItem key={`s-${sub.id}`} value={`${sub.id}|`}>
+                                                        <div className="flex flex-col items-start w-full pr-8"> 
+                                                            <span className="font-semibold text-sm leading-tight">{displayInfo.displayName}</span>
+                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                                <User className="w-3 h-3 text-slate-400 flex-shrink-0" /> 
+                                                                <span className="truncate">{'Faculty Unassigned'}</span>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </SelectItem>
-                                            )
-                                        })
+                                                    </SelectItem>
+                                                );
+                                            }
+
+                                            return acc;
+                                        }, [])
                                     ) : (
-                                        <div className="p-2 text-xs text-muted-foreground text-center">{modalYearLevel ? "No subjects assigned in faculty loading" : "Select a year level first"}</div>
+                                        <div className="p-2 text-xs text-muted-foreground text-center">
+                                            {!modalProgramId ? "Select a program first" : 
+                                            !modalYearLevel ? "Select a year level first" : 
+                                            "No subjects assigned in faculty loading for this year"}
+                                        </div>
                                     )}
                                 </SelectContent>
                             </Select>
@@ -891,9 +1154,16 @@ const ClassSchedule: React.FC<Props> = ({
                                     <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
                                         {details.subjectCode} - {details.subjectTitle}
                                     </h2>
-                                    <Badge variant="secondary" className="mt-2 bg-blue-100 text-blue-800 font-medium hover:bg-blue-200">
-                                        Section: {viewingSchedule.year_level} Year - {details.section}
-                                    </Badge>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {viewProgramId && (
+                                            <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 font-medium hover:bg-indigo-200">
+                                                Program: {getProgramCode(viewProgramId)}
+                                            </Badge>
+                                        )}
+                                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium hover:bg-blue-200">
+                                            Section: {viewingSchedule.year_level} Year - {details.section}
+                                        </Badge>
+                                    </div>
                                 </div>
 
                                 {/* 2. List of Details */}

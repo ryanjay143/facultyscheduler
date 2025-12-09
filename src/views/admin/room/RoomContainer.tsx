@@ -91,7 +91,7 @@ function RoomContainer() {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) { return false; } 
-      const response = await axios.get('/get-faculty-loading', { headers: { 'Authorization': `Bearer ${token}` } });
+      const response = await axios.get('get-faculty-loading', { headers: { 'Authorization': `Bearer ${token}` } });
       
       if (response.data.success) {
         setFacultyLoading(response.data.data || []);
@@ -104,15 +104,28 @@ function RoomContainer() {
     }
   }, []);
 
-  const fetchSchedules = useCallback(async (year: number | null = null, section: string | null = null): Promise<{ success: boolean; data: ScheduleEntry[]; message?: string }> => {
+  // MODIFIED: Added programId to fetchSchedules
+  const fetchSchedules = useCallback(async (year: number | null = null, section: string | null = null, programId: number | null = null): Promise<{ success: boolean; data: ScheduleEntry[]; message?: string }> => {
     const token = localStorage.getItem('accessToken');
-    if (!token) { 
-        return { success: false, data: [], message: "Authentication required." }; 
-    } 
+    if (!token) {
+        return { success: false, data: [], message: "Authentication required." };
+    }
+
+    // If no programId is provided, do not call the filter endpoint because
+    // the backend requires `program_id`. Instead, return an empty successful
+    // response so the UI can remain functional until the user selects a program.
+    if (!programId) {
+        // If the caller provided year/section but not programId, return a helpful message
+        if (year || section) {
+            return { success: false, data: [], message: 'Program id is required for filtering schedules.' };
+        }
+        return { success: true, data: [], message: 'No program selected; schedule list is empty.' };
+    }
 
     const payload: Record<string, any> = {};
-    if (year) payload.year = year;
+    if (year) payload.year_level = year;
     if (section) payload.section = section;
+    payload.program_id = programId; // <--- include required field
 
     try {
         const response = await axios.post('/filter-schedule', payload, { 
@@ -141,8 +154,10 @@ function RoomContainer() {
     }
   }, []);
 
-  const handleFilterApply = useCallback(async (year: number, section: string) => {
-    const result = await fetchSchedules(year, section);
+  // MODIFIED: Added programId to handleFilterApply
+  const handleFilterApply = useCallback(async (year: number, section: string, programId: number) => {
+    // Pass programId to the fetch function
+    const result = await fetchSchedules(year, section, programId); 
     
     if (result.success) {
         setSchedules(result.data); 
@@ -161,7 +176,7 @@ function RoomContainer() {
             fetchRooms(), 
             fetchSubjects(), 
             fetchFacultyLoading(),
-            fetchSchedules() 
+            fetchSchedules() // Initial load runs without specific filters
         ]);
         
         if (scheduleResult.success) {
@@ -258,7 +273,7 @@ function RoomContainer() {
   };
 
 
-  // --- SCHEDULE HANDLER (Logic remains the same) ---
+  // --- SCHEDULE HANDLER (MODIFIED: Added programId) ---
   const handleAddScheduleEntry = async (newEntry: { 
       yearLevel: number; 
       section: string;
@@ -268,6 +283,7 @@ function RoomContainer() {
       startTime: string;
       endTime: string;
       type: 'LEC' | 'LAB' | string;
+      programId: number; // <--- NEW PARAMETER
   }): Promise<boolean> => {
     try {
         const token = localStorage.getItem('accessToken');
@@ -281,7 +297,8 @@ function RoomContainer() {
           end_time: newEntry.endTime,   
           section: newEntry.section,
           year_level: newEntry.yearLevel,
-          type: newEntry.type, 
+          type: newEntry.type,
+          program_id: newEntry.programId, // <--- NEW FIELD IN PAYLOAD
         };
 
         const response = await axios.post('/create-schedule', payload, {
@@ -292,6 +309,7 @@ function RoomContainer() {
              toast.success(response.data.message);
              
              // 1. Update Saved Sections (for Dropdown Persistence)
+             // NOTE: A more robust solution for savedSections might involve saving programId here too.
              const sectionExists = savedSections.some(
                 s => s.yearLevel === newEntry.yearLevel && s.section === newEntry.section
              );
@@ -305,7 +323,7 @@ function RoomContainer() {
              }
              
              // 2. Refresh Schedules to show the new entry (optional, depends on app design)
-             await handleFilterApply(newEntry.yearLevel, newEntry.section);
+             await handleFilterApply(newEntry.yearLevel, newEntry.section, newEntry.programId); // <--- Pass programId
 
              return true; // Success
         }
@@ -322,6 +340,8 @@ function RoomContainer() {
   };
 
   // --- RENDER ---
+  const token = localStorage.getItem('accessToken');
+  
   return (
     <>
       <main>
@@ -360,6 +380,7 @@ function RoomContainer() {
               savedSections={savedSections}
               onAddSchedule={handleAddScheduleEntry}
               onFilterApply={handleFilterApply}
+              authToken={token} // Pass the token read from localStorage
             />
           </TabsContent>
         </Tabs>

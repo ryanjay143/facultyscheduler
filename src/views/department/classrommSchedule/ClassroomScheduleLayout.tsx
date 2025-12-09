@@ -37,7 +37,7 @@ const fetchInitialData = async (): Promise<{
 }> => {
     const token = getToken();
     if (!token) {
-        toast.error("Authentication required for initial data load.");
+        toast.error("Authentication required for initial data load.", { duration: 10000 });
         throw new Error("Missing Auth Token");
     }
 
@@ -81,15 +81,26 @@ const fetchInitialData = async (): Promise<{
 /**
  * Fetches the schedule entries for a specific year and section (using the filter endpoint).
  */
-const fetchSchedules = async (year: number | null = null, section: string | null = null): Promise<{ success: boolean; data: ScheduleEntry[]; message?: string }> => {
+const fetchSchedules = async (year: number | null = null, section: string | null = null, programId: number | null = null): Promise<{ success: boolean; data: ScheduleEntry[]; message?: string }> => {
     const token = getToken();
     if (!token) { 
         return { success: false, data: [], message: "Authentication required." }; 
     } 
 
+    // If programId is not provided, avoid calling the backend filter endpoint
+    // because the API requires `program_id`. Return an empty successful result
+    // when there are no filters to apply so the UI can initialize without errors.
+    if (!programId) {
+        if (year || section) {
+            return { success: false, data: [], message: 'Program id is required for filtering schedules.' };
+        }
+        return { success: true, data: [], message: 'No program selected; schedule list is empty.' };
+    }
+
     const payload: Record<string, any> = {};
-    if (year) payload.year = year;
+    if (year) payload.year_level = year;
     if (section) payload.section = section;
+    payload.program_id = programId;
 
     try {
         const response = await axios.post('/filter-schedule', payload, { 
@@ -127,41 +138,44 @@ const postNewSchedule = async (entry: {
     startTime: string;
     endTime: string;
     type: 'LEC' | 'LAB' | string;
+    programId?: number;
 }): Promise<{ success: boolean; newEntry?: ScheduleEntry }> => {
     const token = getToken();
     if (!token) {
         throw new Error("Authentication required to save schedule.");
     }
 
-    const payload = {
-        subject_id: entry.subjectId, 
-        room_id: entry.roomId, 
-        day: entry.day, 
-        start_time: entry.startTime, 
-        end_time: entry.endTime,   
+    const payload: any = {
+        subject_id: entry.subjectId,
+        room_id: entry.roomId,
+        day: entry.day,
+        start_time: entry.startTime,
+        end_time: entry.endTime,
         section: entry.section,
         year_level: entry.yearLevel,
-        type: entry.type, 
+        type: entry.type,
     };
+
+    if (entry.programId) payload.program_id = entry.programId;
 
     try {
         const response = await axios.post('/create-schedule', payload, {
              headers: getAuthHeader()
         });
 
-        if (response.data.success) {
-             toast.success(response.data.message || "Schedule created successfully.");
+           if (response.data.success) {
+               toast.success(response.data.message || "Schedule created successfully.");
              return { success: true }; 
         }
         
-        toast.error(response.data.message || "Failed to save schedule.");
+           toast.error(response.data.message || "Failed to save schedule.", { duration: 10000 });
         return { success: false };
 
     } catch (error: any) {
         if (error.response && error.response.data) {
-            toast.error(error.response.data.message || "Server error occurred."); // Show backend conflict/error message
+            toast.error(error.response.data.message, { duration: 10000 }); // Show backend conflict/error message
         } else {
-            toast.error("An unexpected network error occurred while saving the schedule.");
+            toast.error("An unexpected network error occurred while saving the schedule.", { duration: 10000 });
         }
         throw new Error("Save operation failed.");
     }
@@ -205,9 +219,9 @@ function ClassroomScheduleLayout() {
              setScheduleData(initialScheduleResult.data);
         }
 
-      } catch (error: any) {
-        console.error("Failed to load initial scheduling data:", error);
-        toast.error(error.message || "Failed to load initial data. Please log in or check console.");
+            } catch (error: any) {
+                console.error("Failed to load initial scheduling data:", error);
+                toast.error(error.message || "Failed to load initial data. Please log in or check console.", { duration: 10000 });
       } finally {
         setIsLoadingInitialData(false);
       }
@@ -217,76 +231,77 @@ function ClassroomScheduleLayout() {
   }, []);
 
   // Helper to re-fetch the schedule for the current view
-  const refreshScheduleData = useCallback(async (year: number, section: string) => {
-      try {
-        const result = await fetchSchedules(year, section);
-        if (result.success) {
-            setScheduleData(result.data);
-        } else {
-            toast.error(result.message || "Failed to refresh schedule data.");
-        }
-      } catch (error: any) {
-        toast.error(error.message || "Failed to refresh schedule data.");
-      }
-  }, []);
+    const refreshScheduleData = useCallback(async (year: number, section: string, programId?: number) => {
+            try {
+                const result = await fetchSchedules(year, section, programId ?? null);
+                if (result.success) {
+                        setScheduleData(result.data);
+                } else {
+                    toast.error(result.message || "Failed to refresh schedule data.", { duration: 10000 });
+                }
+            } catch (error: any) {
+                toast.error(error.message || "Failed to refresh schedule data.", { duration: 10000 });
+            }
+    }, []);
 
 
   // 2. Handler for Filter (Passed to ClassSchedule as onFilterApply)
-  const handleFilterApply = useCallback(async (year: number, section: string) => {
-    const result = await fetchSchedules(year, section);
-    
-    if (result.success) {
-        setScheduleData(result.data); 
-    }
-    
-    return result;
-  }, []);
+    const handleFilterApply = useCallback(async (year: number, section: string, programId?: number) => {
+        const result = await fetchSchedules(year, section, programId ?? null);
+
+        if (result.success) {
+                setScheduleData(result.data);
+        }
+
+        return result;
+    }, []);
   
 
   // 3a. ACTUAL API Handler for Adding Schedule
-  const apiAddSchedule = useCallback(async (entry: { 
-    yearLevel: number; 
-    section: string;
-    subjectId: number; 
-    roomId: number; 
-    day: string;
-    startTime: string;
-    endTime: string;
-    type: 'LEC' | 'LAB' | string;
-  }) => {
-    try {
-      const result = await postNewSchedule(entry);
+    const apiAddSchedule = useCallback(async (entry: {
+        yearLevel: number;
+        section: string;
+        subjectId: number;
+        roomId: number;
+        day: string;
+        startTime: string;
+        endTime: string;
+        type: 'LEC' | 'LAB' | string;
+        programId?: number;
+    }) => {
+        try {
+            const result = await postNewSchedule(entry as any);
 
-      if (result.success) {
-        // 1. Update Saved Sections (for Dropdown Persistence)
-        const sectionExists = savedSections.some(
-            s => s.yearLevel === entry.yearLevel && s.section === entry.section
-        );
-        if (!sectionExists) {
-            const updatedSections = [...savedSections, { yearLevel: entry.yearLevel, section: entry.section }];
-            updatedSections.sort((a, b) => a.section.localeCompare(b.section));
+            if (result.success) {
+                // 1. Update Saved Sections (for Dropdown Persistence)
+                const sectionExists = savedSections.some(
+                        s => s.yearLevel === entry.yearLevel && s.section === entry.section
+                );
+                if (!sectionExists) {
+                        const updatedSections = [...savedSections, { yearLevel: entry.yearLevel, section: entry.section }];
+                        updatedSections.sort((a, b) => a.section.localeCompare(b.section));
             
-            setSavedSections(updatedSections);
-            localStorage.setItem('saved_class_sections', JSON.stringify(updatedSections));
-        }
+                        setSavedSections(updatedSections);
+                        localStorage.setItem('saved_class_sections', JSON.stringify(updatedSections));
+                }
 
-        // 2. Re-fetch the schedule to update the grid.
-        await refreshScheduleData(entry.yearLevel, entry.section);
+                // 2. Re-fetch the schedule to update the grid.
+                await refreshScheduleData(entry.yearLevel, entry.section, entry.programId);
         
-        return true;
-      } 
-      return false; // Error toast handled inside postNewSchedule
+                return true;
+            }
+            return false; // Error toast handled inside postNewSchedule
       
-    } catch (error: any) {
-      console.error("Error during Add Schedule:", error);
-      return false;
-    }
-  }, [refreshScheduleData, savedSections]);
+        } catch (error: any) {
+            console.error("Error during Add Schedule:", error);
+            return false;
+        }
+    }, [refreshScheduleData, savedSections]);
 
 
   // 3b. MOCK HANDLER (If user cannot add schedule)
   const noPermissionAddSchedule = useCallback(async (_entry: any) => {
-      toast.error("Permission Denied: You do not have rights to add new schedules.");
+      toast.error("Permission Denied: You do not have rights to add new schedules.", { duration: 10000 });
       return false;
   }, []);
 
@@ -332,8 +347,9 @@ function ClassroomScheduleLayout() {
                 savedSections={savedSections}
                 isInitialLoading={isLoadingInitialData}
                 // Conditionally pass the API handler or the permission denied handler
-                onAddSchedule={finalAddScheduleHandler} 
+                onAddSchedule={finalAddScheduleHandler}
                 onFilterApply={handleFilterApply}
+                authToken={getToken()}
             />
         </div>
     );

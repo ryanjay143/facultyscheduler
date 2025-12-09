@@ -11,7 +11,7 @@ import {
 import { FacultyLoadingReport } from "./reports/FacultyLoadingReport"; 
 import { FacultySchedulesView } from "./reports/FacultySchedulesView"; 
 import { FacultyWorkloadsView } from "./reports/FacultyWorkloadsView"; 
-
+import { FacultyStudyLoadView } from "./reports/FacultyStudyLoadView"; // NEW IMPORT
 
 // --- KPI DATA STRUCTURE ---
 interface KpiData {
@@ -20,9 +20,12 @@ interface KpiData {
     totalUnitsLoaded: number;
 }
 
+// --- TAB ID TYPE UPDATE ---
+type TabId = "loading" | "schedules" | "workloads" | "studyload";
+
 // --- MAIN REPORTS PAGE COMPONENT ---
 function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<"loading" | "schedules" | "workloads">("loading");
+  const [activeTab, setActiveTab] = useState<TabId>("loading");
   const [kpiData, setKpiData] = useState<KpiData>({
     totalFaculty: 0,
     assignedSubjects: 0,
@@ -149,6 +152,7 @@ function ReportsPage() {
           <TabButton id="loading" activeTab={activeTab} setActiveTab={setActiveTab} icon={<FileText size={16} />}>Loading</TabButton>
           <TabButton id="schedules" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Calendar size={16} />}>Schedules</TabButton>
           <TabButton id="workloads" activeTab={activeTab} setActiveTab={setActiveTab} icon={<BarChart3 size={16} />}>Workloads</TabButton>
+          <TabButton id="studyload" activeTab={activeTab} setActiveTab={setActiveTab} icon={<BookOpen size={16} />}>Study Load</TabButton>
         </div>
       </div>
 
@@ -164,6 +168,7 @@ function ReportsPage() {
           {activeTab === "loading" && <FacultyLoadingReport />} 
           {activeTab === "schedules" && <FacultySchedulesView />} 
           {activeTab === "workloads" && <FacultyWorkloadsView />}
+          {activeTab === "studyload" && <FacultyStudyLoadView />}
         </motion.div>
       </AnimatePresence>
     </>
@@ -171,7 +176,6 @@ function ReportsPage() {
 }
 
 // --- HELPER COMPONENT FOR TABS ---
-type TabId = "loading" | "schedules" | "workloads";
 const TabButton = ({ id, activeTab, setActiveTab, icon, children }: { id: TabId; activeTab: TabId; setActiveTab: (id: TabId) => void; icon: React.ReactNode; children: React.ReactNode; }) => {
   return (
     <Button

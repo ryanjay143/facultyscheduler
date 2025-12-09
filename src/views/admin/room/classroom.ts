@@ -68,6 +68,7 @@ export interface FacultyLoading {
 export interface ScheduleEntry {
   id: number; 
   faculty_loading_id: number;
+    program_id?: number;
   year_level: number;
   section: string;
   created_at: string;
