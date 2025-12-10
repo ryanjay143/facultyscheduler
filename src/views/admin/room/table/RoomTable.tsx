@@ -20,7 +20,7 @@ type RoomTableProps = {
   scheduleData: ScheduleEntry[];
   subjectsData: Subject[];
   onEdit: (room: Room) => void;
-  onDelete: (roomId: number) => void;
+  onDelete: (roomId: number) => void; // This prop triggers the delete confirmation
   onManageAvailability: (room: Room) => void;
   isLoading: boolean;
 };
@@ -174,7 +174,12 @@ function RoomTable({ roomsData, scheduleData, onEdit, onDelete, onManageAvailabi
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={() => onDelete(room.id)} className="text-destructive hover:text-destructive/90">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            onClick={() => onDelete(room.id)} // This calls the delete confirmation handler
+                                            className="text-destructive hover:text-destructive/90"
+                                        >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </TooltipTrigger>

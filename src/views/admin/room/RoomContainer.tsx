@@ -257,16 +257,23 @@ function RoomContainer() {
   const openDeleteConfirm = (roomId: number) => { setConfirmDialog({ open: true, roomId: roomId }); };
   const handleManageAvailability = (room: Room) => { setSelectedRoomForAvailability(room); setIsAvailabilityModalOpen(true); };
 
+  /**
+   * *** IMPLEMENTATION: handleDeleteRoom for permanent deletion ***
+   */
   const handleDeleteRoom = async () => {
     if (confirmDialog.roomId === null) return;
     const token = localStorage.getItem('accessToken');
     if (!token) { toast.error("Authentication required."); return; }
     try {
       const response = await axios.delete(`/rooms/${confirmDialog.roomId}`, { headers: { 'Authorization': `Bearer ${token}` } });
-      toast.success(response.data.message || 'Room deleted successfully!');
+      
+      // Updated success message to reflect the backend deletion of room and availabilities
+      toast.success(response.data.message || 'Room and related availability slots deleted successfully!');
+      
       fetchRooms();
     } catch (error) {
-      toast.error("Failed to delete room.");
+      // General error message in case of foreign key failure from other tables (e.g., Faculty Loading)
+      toast.error("Failed to delete room. It might be currently in use for class schedules.");
     } finally {
       setConfirmDialog({ open: false, roomId: null });
     }
@@ -398,7 +405,7 @@ function RoomContainer() {
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Are you absolutely sure?</DialogTitle>
-                  <DialogDescription>This action cannot be undone. This will permanently delete the room.</DialogDescription>
+                  <DialogDescription>This action cannot be undone. This will permanently delete the room and all its saved availability data.</DialogDescription>
               </DialogHeader>
               <DialogFooter>
                   <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
