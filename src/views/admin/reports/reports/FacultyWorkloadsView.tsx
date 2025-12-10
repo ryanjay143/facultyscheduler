@@ -1,19 +1,39 @@
 import { useState, useEffect } from "react";
-import { Progress } from "@/components/ui/progress";
-import { User, BarChartHorizontal } from "lucide-react";
+// Progress replaced by segmented bar, keep import removed
+import { User, BarChartHorizontal, Loader2 } from "lucide-react"; // <--- Import Loader2 here
 import axios from "../../../../plugin/axios"; 
 
-// 1. Define the API data structure
-interface FacultyLoad {
-  name: string;
-  load: number; // Corresponds to t_load_units from the API
+// 1. Local types for API response (faculty-loading rows)
+interface ApiLoadingRow {
+  id: number;
+  faculty_id: number;
+  type: string; // 'LEC' | 'LAB' etc.
+  faculty: {
+    id: number;
+    user: { id: number; name: string };
+    t_load_units?: number;
+    overload_units?: number;
+  };
+  subject: {
+    lec_units?: number;
+    lab_units?: number;
+    total_lec_hrs?: number | null;
+    total_lab_hrs?: number | null;
+  };
 }
 
-// 2. Define the API response structure
-interface FacultyLoadApiResponse {
+interface GetFacultyLoadingResponse {
   success: boolean;
-  data: FacultyLoad[];
-  message?: string; // Added message for error response
+  data: ApiLoadingRow[];
+}
+
+// 2. Define the UI model for workloads
+interface FacultyLoad {
+  facultyId: number;
+  name: string;
+  t_load_units: number; // computed assigned teaching hours (sum of paying hours)
+  limit: number; // teaching load limit for this faculty (from faculty record or default)
+  overloadUnits: number; // allowed overload units for this faculty
 }
 
 export function FacultyWorkloadsView() {
@@ -21,49 +41,89 @@ export function FacultyWorkloadsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const MAX_UNITS = 20; 
+  // --- POLICY LIMITS (Constants) ---
+  const BASE_LOAD = 21;       // Standard Full Load (Base Teaching Load Limit)
+  const OVERLOAD_LIMIT = 3;   // Maximum Allowed Overload Units
+  const TOTAL_MAX_LOAD = BASE_LOAD + OVERLOAD_LIMIT; // 24 Units (Policy Absolute Maximum)
+  // ---------------------------------
 
-  // 3. Fetch data from the API endpoint with Authorization header
+  // 3. Fetch data from the faculty-loading endpoint and compute assigned loads per faculty
   useEffect(() => {
     const fetchWorkloads = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // --- AUTHENTICATION LOGIC START ---
-        // 1. Get the accessToken from localStorage
         const accessToken = localStorage.getItem('accessToken');
-
         if (!accessToken) {
-          // If no token, set an error and stop
           setError("Authentication token not found. Please log in.");
           setLoading(false);
           return;
         }
 
-        // 2. Define the headers config for the API request
         const config = {
           headers: {
             'Authorization': `Bearer ${accessToken}`
           }
         };
-        // --- AUTHENTICATION LOGIC END ---
 
-        // 3. Make the API request with the config
-        const response = await axios.get<FacultyLoadApiResponse>('faculty-load', config); 
-        
-        if (response.data.success) {
-          setFacultyWorkloads(response.data.data);
-        } else {
-          // Use response.data.message or a default failure message
-          setError(response.data.message || "Failed to load faculty data.");
+        // Use the faculty-loading endpoint which returns individual load rows
+        const response = await axios.get<GetFacultyLoadingResponse>('get-faculty-loading', config);
+
+        if (!response.data || !response.data.success || !Array.isArray(response.data.data)) {
+          setError('Invalid response from server when fetching faculty loading.');
+          setLoading(false);
+          return;
         }
+
+        const rows = response.data.data;
+
+        // Group by faculty and sum paying hours per row. Also capture each faculty's configured limits.
+        const facultyMap = new Map<number, { name: string; sum: number; limit: number; overloadUnits: number }>();
+
+        rows.forEach((row) => {
+          const facultyId = row.faculty?.id ?? row.faculty_id;
+          const name = row.faculty?.user?.name ?? `Faculty ${facultyId}`;
+
+          let payingHours = 0;
+          if (row.type === 'LEC') {
+            payingHours = row.subject.total_lec_hrs ?? row.subject.lec_units ?? 0;
+          } else if (row.type === 'LAB') {
+            payingHours = row.subject.total_lab_hrs ?? row.subject.lab_units ?? 0;
+          } else {
+            // This is likely wrong logic if type is neither LEC nor LAB, but keeping it as is based on original code
+            payingHours = (row.subject.total_lec_hrs ?? row.subject.lec_units ?? 0) + (row.subject.total_lab_hrs ?? row.subject.lab_units ?? 0);
+          }
+
+          // Determine faculty limits from the row (fallback to BASE_LOAD/OVERLOAD_LIMIT)
+          const facultyLimit = (row.faculty && typeof row.faculty.t_load_units === 'number') ? row.faculty.t_load_units : BASE_LOAD; // Adjusted to BASE_LOAD
+          const facultyOverload = (row.faculty && typeof (row.faculty as any).overload_units === 'number') ? (row.faculty as any).overload_units : OVERLOAD_LIMIT;
+
+          const entry = facultyMap.get(facultyId);
+          if (entry) {
+            entry.sum += payingHours;
+          } else {
+            facultyMap.set(facultyId, { name, sum: payingHours, limit: facultyLimit, overloadUnits: facultyOverload });
+          }
+        });
+
+        // Build array for UI
+        const workloads: FacultyLoad[] = Array.from(facultyMap.entries()).map(([facultyId, v]) => ({
+          facultyId,
+          name: v.name,
+          t_load_units: v.sum,
+          limit: v.limit,
+          overloadUnits: v.overloadUnits,
+        }));
+
+        workloads.sort((a, b) => a.name.localeCompare(b.name));
+
+        setFacultyWorkloads(workloads);
       } catch (err) {
-        // Handle network or server error (including 401 unauthenticated response)
         const errorMessage = axios.isAxiosError(err) && err.response?.data?.message
             ? err.response.data.message 
             : "Could not connect to the server or fetch data.";
-        
+
         console.error("Error fetching faculty workload data:", err);
         setError(errorMessage);
       } finally {
@@ -74,18 +134,21 @@ export function FacultyWorkloadsView() {
     fetchWorkloads();
   }, []);
   
-  // --- Loading, Error, and Empty State Handlers ---
+  // --- Loading State Handler (UPDATED) ---
 
   if (loading) {
     return (
       <div className="space-y-6 pt-4">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Faculty Workload Management</h1>
-        <div className="bg-card p-6 rounded-lg shadow-sm border text-center text-muted-foreground">
-          <div className="animate-pulse">Loading Faculty Workloads...</div>
+        <div className="bg-card p-6 rounded-lg shadow-sm border text-center text-muted-foreground flex flex-col items-center justify-center"> {/* Added flex classes */}
+          <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" /> {/* <--- Added Spinner */}
+          <p>Loading Faculty Workloads...</p> {/* <--- Optional text below spinner */}
         </div>
       </div>
     );
   }
+
+  // --- Error State Handler (unchanged) ---
 
   if (error) {
     return (
@@ -98,6 +161,8 @@ export function FacultyWorkloadsView() {
     );
   }
   
+  // --- Empty State Handler (unchanged) ---
+
   if (facultyWorkloads.length === 0) {
     return (
       <div className="space-y-6 pt-4">
@@ -109,7 +174,7 @@ export function FacultyWorkloadsView() {
     );
   }
 
-  // --- Main Render with Header ---
+  // --- Main Render Logic (unchanged) ---
 
   return (
     <div className="space-y-6"> 
@@ -120,21 +185,39 @@ export function FacultyWorkloadsView() {
                 Faculty Workload Management
             </h1>
             <p className="text-muted-foreground text-sm mt-1 ml-9">
-                Overview of current unit loads vs. a standard cap of <span className="font-semibold">{MAX_UNITS} units/hours.</span>
+                Overview of current unit loads vs. a standard teaching load of <span className="font-semibold">{BASE_LOAD} units</span> with an allowed overload of <span className="font-semibold">{OVERLOAD_LIMIT} units</span> (Total: {TOTAL_MAX_LOAD} units).
             </p>
         </header>
 
-        {/* Existing Content Card */}
+        {/* Workload Cards */}
         <div className="bg-card p-4 md:p-6 rounded-lg shadow-sm border border-border">
           <div className="space-y-6">
             {facultyWorkloads.map((faculty) => {
-              const loadPercentage = Math.min(100, (faculty.load / MAX_UNITS) * 100);
-              
-              let progressBarColor = "bg-primary";
-              if (faculty.load > MAX_UNITS) progressBarColor = "bg-red-600"; // Exceeds max
-              else if (loadPercentage > 90) progressBarColor = "bg-destructive"; // Near full load
-              else if (loadPercentage > 70) progressBarColor = "bg-yellow-500"; // Medium load
-              else progressBarColor = "bg-primary";
+              const assignedLoad = faculty.t_load_units; // Current assigned teaching load (computed sum)
+              const facultyLimit = faculty.limit || BASE_LOAD; // per-faculty teaching load limit
+              const allowedOverload = faculty.overloadUnits ?? OVERLOAD_LIMIT; // allowed extra units
+              const allowedMax = facultyLimit + allowedOverload;
+
+              let loadTextColor = "text-primary";
+              let statusText = "";
+
+              // Determine status text and colors based on allowed overload
+              if (assignedLoad > allowedMax) {
+                // Beyond allowed overload -> excessive (red)
+                loadTextColor = "text-red-600";
+                statusText = `(EXCESSIVE OVERLOAD +${assignedLoad - allowedMax})`;
+              } else if (assignedLoad > facultyLimit) {
+                // Within allowed overload -> overload (yellow)
+                loadTextColor = "text-yellow-500";
+                statusText = `(OVERLOAD +${assignedLoad - facultyLimit} of ${allowedOverload})`;
+              } else if (assignedLoad === facultyLimit) {
+                loadTextColor = "text-primary";
+                statusText = "(FULL LOAD)";
+              } else {
+                // Below limit
+                loadTextColor = "text-muted-foreground";
+                statusText = `(${facultyLimit - assignedLoad} units left)`;
+              }
 
 
               return (
@@ -144,12 +227,36 @@ export function FacultyWorkloadsView() {
                       <User className="h-4 w-4 text-muted-foreground" />
                       <span className="font-semibold text-foreground">{faculty.name}</span>
                     </div>
-                    <span className={`font-mono font-bold ${faculty.load > MAX_UNITS ? 'text-red-600' : 'text-primary'}`}>
-                      {faculty.load}h 
-                      {faculty.load > MAX_UNITS && <span className="ml-1">(OVER)</span>}
+                    {/* Display load and status text. Use assignedLoad here. */}
+                    <span className={`font-mono font-bold ${loadTextColor}`}>
+                      {assignedLoad}/{facultyLimit}
+                      {statusText && <span className={`ml-1 text-sm ${loadTextColor}`}>{statusText}</span>}
                     </span>
                   </div>
-                  <Progress value={loadPercentage} className={progressBarColor} />
+                  {/* Segmented progress bar: base (primary), overload (yellow), excess (red) */}
+                  <div className="w-full h-3 rounded overflow-hidden bg-border">
+                    {(() => {
+                      const baseLimit = facultyLimit; // primary ends at facultyLimit
+                      const overloadLimit = allowedMax; // yellow ends at allowedMax
+                      const totalCap = Math.max(assignedLoad, overloadLimit, 1); // ensure non-zero
+
+                      const primaryFilled = Math.max(0, Math.min(assignedLoad, baseLimit));
+                      const yellowFilled = Math.max(0, Math.min(assignedLoad, overloadLimit) - baseLimit);
+                      const redFilled = Math.max(0, assignedLoad - overloadLimit);
+
+                      const primaryPct = (primaryFilled / totalCap) * 100;
+                      const yellowPct = (yellowFilled / totalCap) * 100;
+                      const redPct = (redFilled / totalCap) * 100;
+
+                      return (
+                        <div className="flex h-3 w-full">
+                          <div style={{ width: `${primaryPct}%` }} className="bg-primary" />
+                          <div style={{ width: `${yellowPct}%` }} className="bg-yellow-500" />
+                          <div style={{ width: `${redPct}%` }} className="bg-red-600" />
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               );
             })}

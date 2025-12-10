@@ -30,8 +30,8 @@ interface Subject {
   lec_units: number;
   lab_units: number;
   total_hrs: number;
-  total_lec_hrs: number; // Used for LEC Paying Hours
-  total_lab_hrs: number; // Used for LAB Paying Hours
+  total_lec_hrs: number | null; // Used for LEC Paying Hours, can be null
+  total_lab_hrs: number | null; // Used for LAB Paying Hours, can be null
 }
 
 interface Room {
@@ -44,6 +44,7 @@ interface BackendLoading {
   faculty_id: number;
   subject_id: number;
   room_id: number;
+  section: string | null; // Section from PHP Accessor
   type: 'LEC' | 'LAB' | string;
   day: string;
   start_time: string;
@@ -61,6 +62,7 @@ interface BackendResponse {
 interface SubjectItem {
     loadCode: string; 
     payingHours: number; // This is now total_lec_hrs or total_lab_hrs
+    section: string | null; // Section for the load row
     day: string;
     time: string;
     room: string;
@@ -108,11 +110,6 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
     const facultyId = faculty.id;
     const facultyName = faculty.user.name;
 
-    // Calculate Preps (Count of unique subject descriptions/remarks)
-    const uniqueSubjectTitles = new Set<string>();
-    loadings.forEach(loading => uniqueSubjectTitles.add(loading.subject.des_title));
-    const calculatedPreps = uniqueSubjectTitles.size; 
-
     // 2. Map loadings to raw SubjectItem list
     const rawSubjectList = loadings.map(loading => {
         
@@ -126,9 +123,7 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
             // Use total_lab_hrs for LAB type, fallback to lab_units if null/undefined
             payingHours = loading.subject.total_lab_hrs ?? loading.subject.lab_units ?? 0;
         } 
-        // For any other type, payingHours remains 0.
-        // payingHours is calculated per specific load row based on its type.
-
+        
         const startTime = formatTime(loading.start_time);
         const endTime = formatTime(loading.end_time);
         const remarksTitle = loading.subject.des_title;
@@ -136,6 +131,7 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
         const subjectItem: SubjectItem = {
             loadCode: `${loading.subject.subject_code} ${loading.type}`,
             payingHours: payingHours,
+            section: loading.section, 
             day: loading.day,
             time: `${startTime}-${endTime}`,
             room: loading.room.roomNumber,
@@ -144,6 +140,10 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
         };
         return subjectItem;
     });
+    
+    // Sort rawSubjectList to ensure correct row grouping for remarks
+    rawSubjectList.sort((a, b) => a.remarks.localeCompare(b.remarks));
+
 
     // 3. Calculate the actual rowSpan for the Remarks column
     const subjectList: SubjectItem[] = [];
@@ -169,6 +169,8 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
     }
 
     const calculatedLoad = faculty.t_load_units;
+    // Calculate Preps as the number of distinct remark blocks (rows that start a remark group)
+    const calculatedPreps = subjectList.reduce((count, item) => count + (item.remarkRowSpan > 0 ? 1 : 0), 0);
     // total paying hours (sum of contact hours for this faculty)
     const totalPayingHours = rawSubjectList.reduce((sum, item) => sum + item.payingHours, 0);
     // overload is the amount by which total paying hours exceed the calculated load
@@ -186,6 +188,9 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
         subjects: subjectList,
     });
   });
+  
+  // Sort faculties by name
+  grouped.sort((a, b) => a.name.localeCompare(b.name));
 
   return grouped;
 };
@@ -204,6 +209,7 @@ export function FacultyLoadingReport() {
   
   // 1. Data Fetching
   useEffect(() => {
+    // ... (Data Fetching code remains the same)
     const fetchData = async () => {
       setIsLoading(true);
       setIsError(false);
@@ -264,10 +270,15 @@ export function FacultyLoadingReport() {
   
   // List of unique faculty for the Select dropdown
   const facultyDropdownOptions = useMemo(() => {
-    // Only unique faculties who actually have a load
+    // Only unique faculties who actually have a load, sorted by name
     const uniqueFaculties = new Map<number, string>();
     allGroupedData.forEach(block => uniqueFaculties.set(block.facultyId, block.name));
-    return Array.from(uniqueFaculties.entries()).map(([id, name]) => ({ id, name }));
+    
+    const options = Array.from(uniqueFaculties.entries())
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+        
+    return options;
   }, [allGroupedData]);
 
 
@@ -308,10 +319,11 @@ export function FacultyLoadingReport() {
       <div className="rounded-lg border overflow-x-auto">
         <div>
           <Table className="w-full">
-            <TableHeader>
+            <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
                 <TableHead className="w-[100px] border-r">Name of Faculty</TableHead>
                 <TableHead className="w-[100px] border-r">Load</TableHead>
+                <TableHead className="w-[80px] border-r">Section</TableHead> 
                 <TableHead className="text-center w-[100px] border-r">Paying Hours</TableHead>
                 <TableHead className="w-[80px]">Day</TableHead>
                 <TableHead className="w-[150px]">Time</TableHead>
@@ -325,7 +337,8 @@ export function FacultyLoadingReport() {
               {filteredLoadData.map((facultyBlock, fIndex) => {
                 const rowCount = facultyBlock.subjects.length;
                 const hasOverload = facultyBlock.overload > 0;
-                const bgColor = fIndex % 2 === 1 ? 'bg-accent/10' : '';
+                // Alternate background color for faculty blocks
+                const bgColor = fIndex % 2 === 1 ? 'bg-accent/10' : ''; 
 
                 if (rowCount === 0) return null;
 
@@ -334,7 +347,10 @@ export function FacultyLoadingReport() {
                     {facultyBlock.subjects.map((subject, sIndex) => {
                       const isLastRow = sIndex === rowCount - 1;
                       const isFirstRow = sIndex === 0;
+                      // Only display the Remarks cell if it's the first row of its remark group
                       const showRemark = subject.remarkRowSpan > 0; 
+                      
+                      const isSectionAssigned = subject.section && subject.section.trim() !== '';
 
                       return (
                         <TableRow 
@@ -351,24 +367,36 @@ export function FacultyLoadingReport() {
                           {/* 2. Load (Subject Code per row) */}
                           <TableCell className="text-sm font-medium border-r uppercase">{subject.loadCode}</TableCell>
                           
-                          {/* 3. Paying Hours, Day, Time, Room */}
+                          {/* 3. Section - Conditional rendering for 'Not Assigned' badge */}
+                          <TableCell className="text-sm border-r whitespace-nowrap">
+                              {isSectionAssigned ? (
+                                  subject.section
+                              ) : (
+                                  <span className="inline-flex items-center rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive ring-1 ring-inset ring-destructive/20">
+                                      Unassigned <br />Section
+                                  </span>
+                              )}
+                          </TableCell> 
+                          
+                          {/* 4. Paying Hours, Day, Time, Room */}
                           <TableCell className="text-center font-medium border-r">{subject.payingHours || ""}</TableCell>
                           <TableCell className="text-sm">{subject.day}</TableCell>
                           <TableCell className="text-sm">{subject.time}</TableCell>
                           <TableCell className="text-sm border-r">{subject.room}</TableCell>
                           
-                          {/* 4. Remarks (Subject Description) - Uses dynamic RowSpan */}
+                          {/* 5. Remarks (Subject Description) - Uses dynamic RowSpan */}
                           {showRemark && (
                               <TableCell rowSpan={subject.remarkRowSpan} className="text-sm text-muted-foreground border-r whitespace-normal align-top">
                                   {subject.remarks}
                               </TableCell>
                           )}
                           
-                          {/* 5. Total Load (RowSpan) */}
+                          {/* 6. Total Load (RowSpan) */}
                           {isFirstRow && (
                             <TableCell rowSpan={rowCount} className="text-center font-bold text-lg align-top border-r">
                               <div className="py-1">
                                 <span className="text-xl font-bold">{facultyBlock.loadString}</span>
+                                {/* Check for overload and display if > 0 */}
                                 {hasOverload && (
                                     <div className="text-destructive font-semibold text-xs mt-1">overload {facultyBlock.overload}</div>
                                 )}
@@ -376,15 +404,10 @@ export function FacultyLoadingReport() {
                             </TableCell>
                           )}
 
-                          {/* 6. Preps (RowSpan) - MODIFIED LOGIC HERE */}
+                          {/* 7. Preps (RowSpan) */}
                           {isFirstRow && (
                             <TableCell rowSpan={rowCount} className="text-center align-top">
-                              {/* Only display Preps count if it is GREATER THAN 2 */}
-                              {facultyBlock.preps > 2 ? (
-                                  `${facultyBlock.preps} preps`
-                              ) : (
-                                  ''
-                              )}
+                              {facultyBlock.preps === 1 ? 'prep' : `${facultyBlock.preps} preps`}
                             </TableCell>
                           )}
                         </TableRow>
@@ -397,7 +420,7 @@ export function FacultyLoadingReport() {
               {/* No Data Row */}
               {filteredLoadData.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                         No faculty load data found for the selected filter.
                     </TableCell>
                 </TableRow>

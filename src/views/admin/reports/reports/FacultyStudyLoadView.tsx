@@ -31,6 +31,8 @@ interface BackendResponse {
 // Data structure for the table rows
 interface SubjectSchedule {
     course: string; 
+    section: string; 
+    type: 'LEC' | 'LAB' | string; // <--- ADDED: Type (LEC/LAB) for the row
     day: string;    
     time: string;   
     room: string;   
@@ -69,7 +71,7 @@ export const FacultyStudyLoadView = () => {
     const [selectedSection, setSelectedSection] = useState<string>("all");
     const [selectedFaculty, setSelectedFaculty] = useState<string>("all"); 
 
-    // --- Data Fetching ---
+    // --- Data Fetching (unchanged) ---
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
@@ -101,7 +103,7 @@ export const FacultyStudyLoadView = () => {
         fetchData();
     }, []); 
 
-    // --- Filter Options Extraction ---
+    // --- Filter Options Extraction (unchanged) ---
 
     const uniquePrograms = useMemo(() => {
         const programs = new Set<string>();
@@ -139,7 +141,7 @@ export const FacultyStudyLoadView = () => {
     }, [backendData]);
 
 
-    // --- Data Filtering and Transformation ---
+    // --- Data Filtering and Transformation (UPDATED) ---
 
     const filteredReportData: SubjectSchedule[] = useMemo(() => {
         
@@ -155,8 +157,10 @@ export const FacultyStudyLoadView = () => {
                 return matchesProgram && matchesYear && matchesSection && matchesFaculty;
             })
             .map((entry) => ({
-                // Format: SubjectCode Section LEC/LAB
-                course: `${entry.faculty_loading.subject.subject_code} ${entry.section} ${entry.faculty_loading.type === 'LEC' ? 'lec' : entry.faculty_loading.type === 'LAB' ? 'lab' : ''}`.trim(),
+                // Format: SubjectCode YearLevel
+                course: `${entry.faculty_loading.subject.subject_code} ${entry.year_level}`.trim(),
+                section: entry.section, 
+                type: entry.faculty_loading.type, // <--- ADDED
                 day: entry.faculty_loading.day,
                 time: formatTimeRange(entry.faculty_loading.start_time, entry.faculty_loading.end_time),
                 room: entry.faculty_loading.room?.roomNumber || 'N/A', 
@@ -164,7 +168,7 @@ export const FacultyStudyLoadView = () => {
             }));
     }, [backendData, selectedProgram, selectedYearLevel, selectedSection, selectedFaculty]);
 
-    // --- Current Section Header ---
+    // --- Current Section Header (unchanged) ---
     const currentSectionHeader = useMemo(() => {
         const program = selectedProgram !== 'all' ? selectedProgram : '';
         const year = selectedYearLevel !== 'all' ? `${selectedYearLevel} Year` : '';
@@ -188,7 +192,7 @@ export const FacultyStudyLoadView = () => {
     }, [selectedProgram, selectedYearLevel, selectedSection, selectedFaculty]);
 
 
-    // --- Render Logic for Loading/Error ---
+    // --- Render Logic for Loading/Error (unchanged) ---
     if (isLoading) {
         return (
             <div className="p-10 text-center flex flex-col items-center justify-center text-primary bg-card rounded-xl shadow-lg border border-border min-h-[300px]">
@@ -207,7 +211,7 @@ export const FacultyStudyLoadView = () => {
     }
 
 
-    // --- Main Component Render ---
+    // --- Main Component Render (UPDATED) ---
     return (
         <AnimatePresence mode="wait">
             <motion.div
@@ -302,19 +306,25 @@ export const FacultyStudyLoadView = () => {
                     <Table className="w-full border-collapse">
                         <TableHeader className="bg-primary sticky top-0 z-10">
                             <TableRow className="border-b-0">
-                                <TableHead className="w-1/4 border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase">
+                                <TableHead className="w-[18%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase"> {/* Adjusted width */}
                                     Subject / Course
                                 </TableHead>
-                                <TableHead className="w-[15%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase">
+                                <TableHead className="w-[8%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase"> 
+                                    Section
+                                </TableHead>
+                                <TableHead className="w-[8%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase"> {/* <--- NEW HEADER */}
+                                    Type
+                                </TableHead>
+                                <TableHead className="w-[10%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase"> 
                                     Day
                                 </TableHead>
-                                <TableHead className="w-1/4 border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase">
+                                <TableHead className="w-[15%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase"> 
                                     Time
                                 </TableHead>
-                                <TableHead className="w-[15%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase">
+                                <TableHead className="w-[10%] border-r border-primary-foreground/30 text-center font-extrabold text-primary-foreground text-sm uppercase"> 
                                     Room
                                 </TableHead>
-                                <TableHead className="w-1/4 text-center font-extrabold text-primary-foreground text-sm uppercase">
+                                <TableHead className="w-[20%] text-center font-extrabold text-primary-foreground text-sm uppercase"> 
                                     Teacher
                                 </TableHead>
                             </TableRow>
@@ -326,6 +336,12 @@ export const FacultyStudyLoadView = () => {
                                     <TableRow key={index} className="border-b border-gray-200 hover:bg-muted/50 transition-colors"> 
                                         <TableCell className="border-r border-gray-300 align-middle p-2 text-sm font-medium text-gray-800">
                                             {schedule.course}
+                                        </TableCell>
+                                        <TableCell className="border-r border-gray-300 align-middle p-2 text-center text-sm font-semibold text-gray-700">
+                                            {schedule.section}
+                                        </TableCell>
+                                        <TableCell className="border-r border-gray-300 align-middle p-2 text-center text-sm font-semibold text-gray-700 uppercase"> {/* <--- NEW CELL */}
+                                            {schedule.type === 'LEC' ? 'Lecture' : schedule.type === 'LAB' ? 'Laboratory' : schedule.type}
                                         </TableCell>
                                         <TableCell className="border-r border-gray-300 align-middle p-2 text-center text-sm font-semibold text-gray-700">
                                             {schedule.day}
@@ -343,7 +359,7 @@ export const FacultyStudyLoadView = () => {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground"> {/* <--- UPDATED COLSPAN to 7 */}
                                         No study load data found for the selected filters.
                                     </TableCell>
                                 </TableRow>

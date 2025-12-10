@@ -6,11 +6,11 @@ import { Search, Loader2, CalendarX2, CheckCircle, AlertTriangle, Check, Chevron
 import { toast } from 'sonner';
 import axios from '../../../../plugin/axios'; 
 import type { Faculty, Subject } from '../type'; 
-import { FacultyScheduleDisplay } from './FacultyScheduleDisplay';
+// import { FacultyScheduleDisplay } from './FacultyScheduleDisplay'; // This remains removed
 import { Label } from '@/components/ui/label';
 import type { Room } from '../../room/classroom';
 
-// --- HELPER FUNCTIONS ---
+// --- HELPER FUNCTIONS (No change) ---
 const timeToMinutes = (timeStr: string): number => {
     if (!timeStr) return 0;
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -61,6 +61,8 @@ const matchesRoomType = (roomType: string | undefined, expectedType: string) => 
         return false;
     }
 };
+
+// --- INTERFACE (No change from original) ---
 interface SubjectWithTotalUnits extends Subject {
     total_units: number;
 }
@@ -73,10 +75,14 @@ interface AssignSubjectDialogProps {
 }
 
 interface Schedule { [day: string]: { start: string; end: string }[]; }
-interface LoadingState { lec: boolean; lab: boolean; } 
+interface LoadingState { lec: boolean; lab: boolean; }
+
+// Local schedule shape used for the form state
+// UPDATED: Added pairedDays array
+interface LocalSchedule { day: string; startTime: string; endTime: string; pairedDays?: string[] } 
 
 // ----------------------------------------------------------------------
-// ScheduleInputGroup (small presentational helper)
+// ScheduleInputGroup (Logic for disabling unavailable/selected days in pairedDays checkbox)
 // ----------------------------------------------------------------------
 const ScheduleInputGroup = ({ 
     type, 
@@ -84,6 +90,7 @@ const ScheduleInputGroup = ({
     schedules, 
     facultySchedule, 
     onScheduleChange, 
+    onTogglePairedDay,
     timeError 
 }: { 
     type: 'lec' | 'lab', 
@@ -91,6 +98,7 @@ const ScheduleInputGroup = ({
     schedules: any, 
     facultySchedule: Schedule, 
     onScheduleChange: (type: 'lec' | 'lab', field: string, value: string) => void,
+    onTogglePairedDay: (type: 'lec' | 'lab', day: string) => void,
     timeError: string | null
 }) => {
     const timeBounds = useMemo(() => {
@@ -102,6 +110,8 @@ const ScheduleInputGroup = ({
         return { min, max };
     }, [schedules[type].day, facultySchedule, type, schedules]);
 
+    const selectedDay = schedules[type].day; // Get the currently selected day
+
     return (
         <div className="pt-4 border-t space-y-4">
             <h4 className="font-semibold text-md text-foreground">{type === 'lec' ? 'Lecture' : 'Laboratory'} Schedule ({hours} hours)</h4>
@@ -110,8 +120,41 @@ const ScheduleInputGroup = ({
                     <Label htmlFor={`${type}-day`}>Day of Class</Label>
                     <select id={`${type}-day`} value={schedules[type].day} onChange={(e) => onScheduleChange(type, 'day', e.target.value)} className="w-full mt-1 p-2 border rounded-md bg-background disabled:opacity-50">
                         <option value="" disabled>Select a day</option>
+                        {/* Option disabled if faculty has no availability on that day */}
                         {daysOfWeek.map((d: string) => <option key={d} value={d} disabled={!facultySchedule[d]?.length}>{d} {!facultySchedule[d]?.length && '(Unavailable)'}</option>)}
                     </select>
+
+                    {/* Paired days checkboxes (Monday - Saturday) - Logic for disabling is here */}
+                    {selectedDay && ( // Check if a day is selected before displaying the paired days option
+                        <div className="mt-2"> 
+                            <Label className="text-sm">Pair With (weekdays)</Label>
+                            <div className="grid grid-cols-6 gap-2 mt-2">
+                                {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d) => {
+                                    const checked = Array.isArray(schedules[type].pairedDays) && schedules[type].pairedDays.includes(d);
+                                    
+                                    // LOGIC: Disable if faculty is unavailable OR if it's the selected Day of Class
+                                    const isSelectedDay = d === selectedDay;
+                                    const isUnavailable = !facultySchedule[d]?.length; // Check if facultySchedule[d] has entries
+                                    const disabled = isUnavailable || isSelectedDay;
+                                    
+                                    return (
+                                        <label key={d} className="inline-flex items-center gap-2 text-xs">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={checked} 
+                                                onChange={() => onTogglePairedDay(type, d)} 
+                                                disabled={disabled} 
+                                                className="h-4 w-4" 
+                                            />
+                                            <span className="truncate">{d.slice(0,3)}</span>
+                                            {isSelectedDay && <span className='text-[10px] text-primary/70'>(Main)</span>}
+                                            {isUnavailable && !isSelectedDay && <span className='text-[10px] text-destructive/70'>(X)</span>}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -176,7 +219,7 @@ const ScheduleInputGroup = ({
 };
 
 // ----------------------------------------------------------------------
-// 2. EXTRACTED COMPONENT: RoomSelectionGroup
+// RoomSelectionGroup (No change)
 // ----------------------------------------------------------------------
 const RoomSelectionGroup = ({ 
     type, 
@@ -299,6 +342,8 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSubject, setSelectedSubject] = useState<SubjectWithTotalUnits | null>(null); 
     
+    // REMOVED: const [section, setSection] = useState(''); 
+
     const [currentAssignedUnits, setCurrentAssignedUnits] = useState<number>(0);
     const [isLoadingCurrentLoad, setIsLoadingCurrentLoad] = useState(true);
     const [_assignedSubjectIds, setAssignedSubjectIds] = useState<number[]>([]); 
@@ -307,33 +352,34 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     const [isSearchingSubject, setIsSearchingSubject] = useState(false);
     const [allSubjects, setAllSubjects] = useState<SubjectWithTotalUnits[] | null>(null);
 
-    const [schedules, setSchedules] = useState({
-        lec: { day: '', startTime: '', endTime: '' },
-        lab: { day: '', startTime: '', endTime: '' },
+    const [schedules, setSchedules] = useState<{ lec: LocalSchedule; lab: LocalSchedule }>({
+        lec: { day: '', startTime: '', endTime: '', pairedDays: [] },
+        lab: { day: '', startTime: '', endTime: '', pairedDays: [] },
     });
     const [selectedRooms, setSelectedRooms] = useState<{ lec: number | null, lab: number | null }>({ lec: null, lab: null });
     const [availableRooms, setAvailableRooms] = useState<{ lec: Room[], lab: Room[] }>({ lec: [], lab: [] });
     const [isLoadingRooms, setIsLoadingRooms] = useState<LoadingState>({ lec: false, lab: false }); 
     const [timeErrors, setTimeErrors] = useState<{ lec: string | null; lab: string | null }>({ lec: null, lab: null });
     const [facultySchedule, setFacultySchedule] = useState<Schedule>({});
-    const [facultyAssignedSchedules, setFacultyAssignedSchedules] = useState<any[]>([]); // assigned class schedules (LEC/LAB)
+    const [facultyAssignedSchedules, setFacultyAssignedSchedules] = useState<any[]>([]); 
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [activeScheduleType, setActiveScheduleType] = useState<'lec' | 'lab' | null>(null);
-    const [serverErrors, setServerErrors] = useState<{ general?: string; lec?: string; lab?: string }>({}); // Added server errors state
+    const [serverErrors, setServerErrors] = useState<{ general?: string; lec?: string; lab?: string }>({}); 
 
     // --- FIX: Wrapped in useCallback and used as a dependency ---
     const resetAllStates = useCallback(() => {
         setStep(1);
         setSearchQuery('');
         setSelectedSubject(null);
-        setSchedules({ lec: { day: '', startTime: '', endTime: '' }, lab: { day: '', startTime: '', endTime: '' } });
+        // REMOVED: setSection('');
+        setSchedules({ lec: { day: '', startTime: '', endTime: '', pairedDays: [] }, lab: { day: '', startTime: '', endTime: '', pairedDays: [] } });
         setSelectedRooms({ lec: null, lab: null });
         setAvailableRooms({ lec: [], lab: [] });
         setTimeErrors({ lec: null, lab: null });
         setActiveScheduleType(null);
         setIsSubmitting(false);
-        setServerErrors({}); // Ensure server errors are reset
+        setServerErrors({}); 
     }, []);
     // --- END FIX ---
 
@@ -343,7 +389,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
             setSearchQuery(''); 
             resetAllStates(); 
 
-            // Subject fetching logic, prioritizing total_hrs and L+L sum
+            // Subject fetching logic... (no change)
             if (availableSubjects && Array.isArray(availableSubjects)) {
                 const mappedFromProp: SubjectWithTotalUnits[] = availableSubjects.map((s: any) => {
                     const lec = s.total_lec_hrs ?? s.lec_units ?? 0;
@@ -397,7 +443,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
             }
             
             if (faculty) {
-                // Fetch Current Assigned Units
+                // Fetch Current Assigned Units (no change)
                 const fetchCurrentLoad = async () => {
                     setIsLoadingCurrentLoad(true);
                     const token = localStorage.getItem('accessToken');
@@ -414,7 +460,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                         setIsLoadingCurrentLoad(false); 
                     }
                 }
-                // Fetch Availability
+                // Fetch Availability (no change)
                 const fetchAvailability = async () => {
                     setIsLoadingSchedule(true);
                     const token = localStorage.getItem('accessToken');
@@ -425,7 +471,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                     } catch (e) { setFacultySchedule({}); }
                     finally { setIsLoadingSchedule(false); }
                 };
-                // Fetch assigned schedules to perform client-side conflict detection
+                // Fetch assigned schedules to perform client-side conflict detection (no change)
                 const fetchAssignedSchedules = async () => {
                     const token = localStorage.getItem('accessToken');
                     if (!token) { setFacultyAssignedSchedules([]); return; }
@@ -445,8 +491,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         }
     }, [isOpen, faculty, availableSubjects, resetAllStates]); 
 
-    // --- Load Calculation (Memoized) ---
-    // UPDATED LOGIC HERE to include isOverloadApplied
+    // --- Load Calculation (Memoized - No change) ---
     const { 
         maxNormalLoad,
         maxOverload,
@@ -476,7 +521,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
 
     const newSubjectUnits = selectedSubject?.total_hrs ?? selectedSubject?.total_units ?? 0;
 
-    // --- MANUAL SEARCH HANDLER ---
+    // --- MANUAL SEARCH HANDLER (No change) ---
     const handleSearchClick = async () => {
         const q = searchQuery.trim();
         if (!q) { if (allSubjects) { setDisplayedSubjects(allSubjects); } return; }
@@ -517,10 +562,10 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         }
     };
 
-    // Step Transition
+    // Step Transition (No change)
     useEffect(() => { if (selectedSubject) setStep(2); }, [selectedSubject]);
 
-    // Validation 
+    // Validation (No change)
     useEffect(() => {
         const validate = (type: 'lec' | 'lab', hours: number) => {
             const { day, startTime, endTime } = schedules[type];
@@ -547,7 +592,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         }
     }, [schedules, selectedSubject, facultySchedule]);
 
-    // Fetch Rooms Logic 
+    // Fetch Rooms Logic (No change)
     const fetchAvailableRooms = useCallback(async (type: 'lec' | 'lab') => {
         const schedule = schedules[type];
         if (!schedule.day || !schedule.startTime || !schedule.endTime || timeErrors[type]) {
@@ -566,13 +611,12 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                     day: schedule.day,
                     start_time: schedule.startTime, 
                     end_time: schedule.endTime,
-                    type: type === 'lec' ? 'Lecture' : 'Laboratory', // Ensures only correct type is fetched
+                    type: type === 'lec' ? 'Lecture' : 'Laboratory', 
                 }
             });
             const rooms: any[] = response.data.rooms || [];
             const roomsWithAvail = await Promise.all(rooms.map(async (room) => {
                 try {
-                    // This fetches the room's general availability blocks for local filtering/display
                     const r = await axios.get(`/rooms/${room.id}/availabilities`, { headers: { Authorization: `Bearer ${token}` } });
                     return { ...room, availabilities: r.data.availabilities || [] }; 
                 } catch (e) { return { ...room, availabilities: [] }; }
@@ -603,7 +647,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
 
     useEffect(() => { if (!selectedSubject) { setStep(1); setActiveScheduleType(null); } }, [selectedSubject]);
 
-    // WRAPPER Handlers 
+    // WRAPPER Handlers (No change)
     const handleScheduleChange = (type: 'lec' | 'lab', field: string, value: string) => {
         setSchedules(prev => ({ ...prev, [type]: { ...prev[type], [field]: value } }));
         setSelectedRooms(prev => ({...prev, [type]: null}));
@@ -618,7 +662,17 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         setServerErrors(prev => ({ ...prev, general: undefined, [type]: undefined }));
     };
 
-    // Count unique total subjects (combine lecture+lab of same subject into one)
+    const handleTogglePairedDay = (type: 'lec' | 'lab', day: string) => {
+        setSchedules(prev => {
+            const cur = prev[type].pairedDays ?? [];
+            const next = cur.includes(day) ? cur.filter(d => d !== day) : [...cur, day];
+            return { ...prev, [type]: { ...prev[type], pairedDays: next } };
+        });
+        setActiveScheduleType(type);
+        setServerErrors(prev => ({ ...prev, general: undefined, [type]: undefined }));
+    };
+
+    // Count unique total subjects (No change)
     const uniqueTotalSubjectCount = useMemo(() => {
         try {
             const src = allSubjects && allSubjects.length ? allSubjects : displayedSubjects || [];
@@ -633,48 +687,55 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
         }
     }, [allSubjects, displayedSubjects]);
 
+    // UPDATED: Added pairedDays to the payload for backend
     const handleAssignClick = async () => {
         if (!selectedSubject) return;
         
-        // This check correctly uses the combined totalAllowedLoad (TLoad + Overload)
         if (isLoadExceeded) {
              toast.error(`Assignment blocked: Potential load of ${potentialTotalLoad} exceeds maximum allowed load of ${totalAllowedLoad} units.`);
              return;
         }
 
-        const schedulesToAssign: { type: 'LEC' | 'LAB', day: string, time: string, roomId: number }[] = [];
+        const schedulesToAssign: { type: 'LEC' | 'LAB', day: string, time: string, roomId: number, pairedDays?: string[] }[] = [];
+
         if ((selectedSubject.total_lec_hrs ?? 0) > 0) {
-            const { day, startTime, endTime } = schedules.lec;
+            const { day, startTime, endTime, pairedDays } = schedules.lec;
             if (!day || !startTime || !endTime || !selectedRooms.lec) { toast.error("Incomplete lecture schedule or room selection."); return; }
-            schedulesToAssign.push({ type: 'LEC', day, time: `${startTime}-${endTime}`, roomId: selectedRooms.lec });
+            schedulesToAssign.push({ type: 'LEC', day, time: `${startTime}-${endTime}`, roomId: selectedRooms.lec, pairedDays });
         }
         if ((selectedSubject.total_lab_hrs ?? 0) > 0) {
-            const { day, startTime, endTime } = schedules.lab;
+            const { day, startTime, endTime, pairedDays } = schedules.lab;
             if (!day || !startTime || !endTime || !selectedRooms.lab) { toast.error("Incomplete laboratory schedule or room selection."); return; }
-            schedulesToAssign.push({ type: 'LAB', day, time: `${startTime}-${endTime}`, roomId: selectedRooms.lab });
+            schedulesToAssign.push({ type: 'LAB', day, time: `${startTime}-${endTime}`, roomId: selectedRooms.lab, pairedDays });
         }
 
         setIsSubmitting(true);
-        // Client-side conflict detection against already assigned schedules
+        // Client-side conflict detection against already assigned schedules (simplified since backend handles it better now, but kept as first line defense)
         try {
+            // Simplified check only for the main day schedule in the frontend
             for (const s of schedulesToAssign) {
                 const [sStart, sEnd] = s.time.split('-');
-                for (const existing of facultyAssignedSchedules) {
-                    if (!existing.day) continue;
-                    if (existing.day.toString().toLowerCase() !== s.day.toString().toLowerCase()) continue;
-                    const eStart = existing.start_time ?? existing.start ?? '';
-                    const eEnd = existing.end_time ?? existing.end ?? '';
-                    if (timesOverlap(sStart, sEnd, eStart, eEnd)) {
-                        const msg = `Conflict: Faculty is already assigned a class on ${s.day} from ${formatTime12(eStart)} to ${formatTime12(eEnd)}. Assignment failed.`;
-                        toast.error(msg);
-                        setIsSubmitting(false);
-                        return;
+                const daysToCheck = [s.day, ...(s.pairedDays || [])]; // Include paired days for F/E check
+                
+                for(const day of daysToCheck) {
+                    for (const existing of facultyAssignedSchedules) {
+                        if (!existing.day) continue;
+                        if (existing.day.toString().toLowerCase() !== day.toString().toLowerCase()) continue;
+                        const eStart = existing.start_time ?? existing.start ?? '';
+                        const eEnd = existing.end_time ?? existing.end ?? '';
+                        if (timesOverlap(sStart, sEnd, eStart, eEnd)) {
+                            const msg = `Conflict: Faculty is already assigned a class on ${day} from ${formatTime12(eStart)} to ${formatTime12(eEnd)}. Assignment failed.`;
+                            toast.error(msg);
+                            setIsSubmitting(false);
+                            return;
+                        }
                     }
                 }
             }
         } catch (e) { const error = e as any;
             console.error('Conflict check failed', error);
         }
+        
         try {
             const token = localStorage.getItem('accessToken');
             const payload = {
@@ -692,42 +753,36 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
 
             if (response.data.success) {
                 toast.success(response.data.message || "Subject assigned successfully!");
-                onAssign(faculty.id, selectedSubject.id, schedulesToAssign);
+                // Note: onAssign signature remains the same as it handles post-assignment UI logic
+                onAssign(faculty.id, selectedSubject.id, schedulesToAssign.map(s => ({ type: s.type, day: s.day, time: s.time, roomId: s.roomId }))); // Simple schedule structure for UI
                 onClose();
             }
         } catch (err) {
             const error = err as any;
             console.error("Assignment Error:", error);
             
-            // --- UPDATED ERROR HANDLING TO READ STRUCTURED ERRORS ---
             const backendErrors = error?.response?.data?.errors;
             const errorMessage = error?.response?.data?.message || "Failed to assign subject. Please check conflicts.";
             
             const mappedErrors: { general?: string; lec?: string; lab?: string } = {};
 
             if (backendErrors) {
-                // Prioritize the structured LEC/LAB errors if available
                 if (backendErrors.LEC) {
                     mappedErrors.lec = backendErrors.LEC;
                 }
                 if (backendErrors.LAB) {
                     mappedErrors.lab = backendErrors.LAB;
                 }
-                // Fallback to general message if structured errors object is there but no LEC/LAB keys
                 if (!mappedErrors.lec && !mappedErrors.lab) {
                     mappedErrors.general = errorMessage; 
                 }
             } else {
-                // Use the top-level message as the general error
                 mappedErrors.general = errorMessage;
             }
             
-            // Show toast with the main error message
             toast.error(errorMessage);
             
-            // Set the state for component display
             setServerErrors(mappedErrors);
-            // --- END UPDATED ERROR HANDLING ---
         } finally {
             setIsSubmitting(false);
         }
@@ -736,7 +791,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
     const isLecRoomSelected = (selectedSubject?.total_lec_hrs ?? 0) > 0 ? !!selectedRooms.lec : true;
     const isLabRoomSelected = (selectedSubject?.total_lab_hrs ?? 0) > 0 ? !!selectedRooms.lab : true;
     
-    // Check against totalAllowedLoad (TLoad + Overload)
+    // UPDATED: Removed !section.trim() check from isButtonDisabled
     const isButtonDisabled = !selectedSubject || !isLecScheduleValid || !isLabScheduleValid || !isLecRoomSelected || !isLabRoomSelected || isSubmitting || isLoadExceeded || isLoadingCurrentLoad;
     
     const hasAvailability = Object.values(facultySchedule).some(slots => slots.length > 0);
@@ -761,7 +816,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                         </div>
                     </div>
                     
-                    {/* NEW: Load Status Display */}
+                    {/* Load Status Display (No change) */}
                     <div className="mt-4 p-3 bg-white border rounded-lg shadow-sm">
                         <h4 className="font-semibold text-sm mb-2">Faculty Load Status</h4>
                         {isLoadingCurrentLoad ? (
@@ -790,7 +845,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                             </div>
                         )}
                         
-                        {/* WARNING MESSAGE WHEN OVERLOAD IS APPLIED BUT NOT EXCEEDED */}
+                        {/* WARNING MESSAGE WHEN OVERLOAD IS APPLIED BUT NOT EXCEEDED (No change) */}
                         {!isLoadExceeded && isOverloadApplied && (
                             <div className="mt-3 flex items-center gap-2 p-2 bg-yellow-100 border-yellow-300 rounded-lg text-yellow-800 text-sm">
                                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -798,7 +853,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                             </div>
                         )}
 
-                        {/* ERROR MESSAGE WHEN TOTAL ALLOWED LOAD IS EXCEEDED */}
+                        {/* ERROR MESSAGE WHEN TOTAL ALLOWED LOAD IS EXCEEDED (No change) */}
                         {isLoadExceeded && (
                             <div className="mt-3 flex items-center gap-2 p-2 bg-destructive/10 border-destructive/30 rounded-lg text-destructive text-sm">
                                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -809,7 +864,7 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow overflow-y-auto px-6 py-6 bg-muted/30">
-                    {/* --- STEP 1: SELECT SUBJECT (Searchable) --- */}
+                    {/* --- STEP 1: SELECT SUBJECT (Searchable) (No functional change) --- */}
                     <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
@@ -886,41 +941,48 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                         </div>
                         {step >= 2 && (
                             <div className="flex-grow overflow-y-auto -mr-2 pr-2">
-                                {isLoadingSchedule ? <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> :
-                                !hasAvailability ? (
-                                    <div className="flex items-center gap-3 p-3 bg-destructive/10 border-destructive/30 rounded-lg text-destructive">
-                                        <CalendarX2 className="h-5 w-5 flex-shrink-0" /><p className="text-sm font-medium">No faculty availability found.</p>
-                                    </div>
+                                {isLoadingSchedule ? (
+                                    <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                                 ) : (
-                                <div className="space-y-4">
-                                    <FacultyScheduleDisplay schedule={facultySchedule} />
-                                    {(selectedSubject?.total_lec_hrs ?? 0) > 0 && 
-                                        <ScheduleInputGroup 
-                                            type="lec" 
-                                            hours={selectedSubject?.total_lec_hrs ?? 0} 
-                                            schedules={schedules} 
-                                            facultySchedule={facultySchedule}
-                                            onScheduleChange={handleScheduleChange}
-                                            timeError={timeErrors.lec}
-                                        />
-                                    }
-                                    {(selectedSubject?.total_lab_hrs ?? 0) > 0 && 
-                                        <ScheduleInputGroup 
-                                            type="lab" 
-                                            hours={selectedSubject?.total_lab_hrs ?? 0} 
-                                            schedules={schedules} 
-                                            facultySchedule={facultySchedule}
-                                            onScheduleChange={handleScheduleChange}
-                                            timeError={timeErrors.lab}
-                                        />
-                                    }
-                                </div>
-                            )}
+                                    <div className="space-y-4">
+                                        
+                                        {!hasAvailability ? (
+                                            <div className="flex items-center gap-3 p-3 bg-destructive/10 border-destructive/30 rounded-lg text-destructive">
+                                                <CalendarX2 className="h-5 w-5 flex-shrink-0" /><p className="text-sm font-medium">No faculty availability found. Schedules may not be valid.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4 pt-2">
+                                                {(selectedSubject?.total_lec_hrs ?? 0) > 0 && 
+                                                    <ScheduleInputGroup 
+                                                        type="lec" 
+                                                        hours={selectedSubject?.total_lec_hrs ?? 0} 
+                                                        schedules={schedules} 
+                                                        facultySchedule={facultySchedule}
+                                                        onScheduleChange={handleScheduleChange}
+                                                        onTogglePairedDay={handleTogglePairedDay}
+                                                        timeError={timeErrors.lec}
+                                                    />
+                                                }
+                                                {(selectedSubject?.total_lab_hrs ?? 0) > 0 && 
+                                                    <ScheduleInputGroup 
+                                                        type="lab" 
+                                                        hours={selectedSubject?.total_lab_hrs ?? 0} 
+                                                        schedules={schedules} 
+                                                        facultySchedule={facultySchedule}
+                                                        onScheduleChange={handleScheduleChange}
+                                                        onTogglePairedDay={handleTogglePairedDay}
+                                                        timeError={timeErrors.lab}
+                                                    />
+                                                }
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* --- STEP 3: SELECT ROOM --- */}
+                    {/* --- STEP 3: SELECT ROOM (No functional change) --- */}
                     <div className={`flex flex-col gap-4 h-full ${step < 2 && 'opacity-50 pointer-events-none'}`}>
                         
                         {/* 3A: LECTURE ROOM CARD */}
@@ -937,7 +999,6 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                 </div>
                                 {step >= 2 && (
                                     <div className="flex-grow overflow-y-auto -mr-2 pr-2">
-                                        {/* Display LEC error right above the Lecture Room Selection Group */}
                                         {serverErrors.lec && (
                                             <div className="mb-3 flex items-center gap-2 p-2 bg-destructive/10 border-destructive/30 rounded-lg text-destructive text-sm">
                                                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -971,7 +1032,6 @@ export function AssignSubjectDialog({ isOpen, onClose, faculty, availableSubject
                                 </div>
                                 {step >= 2 && (
                                     <div className="flex-grow overflow-y-auto -mr-2 pr-2">
-                                            {/* Display LAB error right above the Laboratory Room Selection Group */}
                                             {serverErrors.lab && (
                                                 <div className="mb-3 flex items-center gap-2 p-2 bg-destructive/10 border-destructive/30 rounded-lg text-destructive text-sm">
                                                     <AlertTriangle className="h-4 w-4 flex-shrink-0" />

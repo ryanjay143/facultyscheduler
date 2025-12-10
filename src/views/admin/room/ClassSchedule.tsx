@@ -970,7 +970,7 @@ const ClassSchedule: React.FC<Props> = ({
                             {getYearLabel(viewYearLevel)}
                         </Badge>
                         <ChevronRight className="w-4 h-4 text-slate-400" />
-                        <h2 className="text-2xl font-bold tracking-tight">{viewSection}</h2>
+                        <h2 className="text-2xl font-bold tracking-tight"> {viewSection}</h2>
                     </div>
                 )}
 
