@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import type { Faculty } from "../table/FacultyTable";
+// Assuming Faculty type is now simplified to only the necessary fields
+import type { Faculty } from "../table/FacultyTable"; 
 
 import { toast } from "sonner";
 import axios from "../../../../plugin/axios";
@@ -48,12 +49,14 @@ function getStringHash(str: string): number {
 }
 
 export function FacultyFormModal({ isOpen, onClose, onSave, initialData, expertiseOptions }: FacultyFormModalProps) {
-  type FacultyFormData = Omit<Faculty, "id" | "role"> & {
+  
+  // NOTE: Status field is explicitly removed from the FormData type
+  type FacultyFormData = Omit<Faculty, "id" | "role" | "status"> & {
     avatar?: string;
-    deload_units: number | string; // Updated to allow string (for empty input state)
-    teaching_load_units: number | string; // Updated to allow string
-    overload_units: number | string; // Updated to allow string
-    t_load_units: number | string; // Updated to allow string
+    deload_units: number | string;
+    teaching_load_units: number | string;
+    overload_units: number | string;
+    t_load_units: number | string;
   };
 
   const [formData, setFormData] = useState<FacultyFormData>({
@@ -62,13 +65,13 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
     designation: "",
     department: "",
     expertise: [],
-    status: "Active",
+    // status: "Active", // REMOVED: Status
     avatar: "",
     profile_picture: "",
     deload_units: 0,
     teaching_load_units: 0,
     overload_units: 0,
-    t_load_units: 0, // Keeping original `t_load_units` for compatibility
+    t_load_units: 0,
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
@@ -105,12 +108,15 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
       // Coerce existing number fields back to number state, if they exist
       const initialLoadData = {
           deload_units: initialData.deload_units || 0,
-          teaching_load_units: initialData.t_load_units || 0, // Using t_load_units from Faculty interface for initial value
+          teaching_load_units: initialData.t_load_units || 0,
           overload_units: initialData.overload_units || 0,
-          t_load_units: initialData.t_load_units || 0, // Ensure t_load_units is also set
+          t_load_units: initialData.t_load_units || 0,
       };
+      
+      // Manually omitting 'status' for type compatibility
+      const { status, ...restOfInitialData } = initialData; 
 
-      setFormData({ ...initialData, ...initialLoadData });
+      setFormData({ ...restOfInitialData as Omit<Faculty, "id" | "role" | "status">, ...initialLoadData });
       setImagePreview(initialData.profile_picture || null);
       setAvailableExpertise(expertiseOptions.filter(opt => !initialData.expertise.includes(opt)));
     } else {
@@ -121,7 +127,7 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
         expertise: [],
         department: "",
         email: "",
-        status: "Active",
+        // status: "Active", // REMOVED: Status
         avatar: defaultAvatar,
         profile_picture: "",
         deload_units: 0,
@@ -144,8 +150,6 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
     if (['deload_units', 'teaching_load_units', 'overload_units'].includes(name)) {
         let numericValue = Number(value);
         
-        // This logic allows the input field to be empty (finalValue='') for easier typing,
-        // but forces non-negative values when a number is present.
         if (value === '') {
              finalValue = '';
         } else {
@@ -246,6 +250,7 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
         toast.success(response.data.message || 'Faculty saved successfully!');
         
         const savedApiData = response.data.faculty;
+        // Cast the final result to the Faculty interface expected by onSave
         const resultFaculty: Faculty = {
             id: savedApiData.id,
             name: savedApiData.user?.name || 'N/A',
@@ -253,7 +258,8 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
             role: savedApiData.user?.role,
             designation: savedApiData.designation || '',
             department: savedApiData.department || '',
-            status: savedApiData.status === 0 ? "Active" : "Inactive",
+            // NOTE: Must ensure the Faculty interface is compatible with this save structure
+            status: "Active", // Assuming new/updated faculty are always Active in the permanent deletion context
             profile_picture: savedApiData.profile_picture ? `${import.meta.env.VITE_URL}/${savedApiData.profile_picture}` : `https://avatar.iran.liara.run/public/boy?username=${(savedApiData.user?.name || '').replace(/\s/g, '')}`,
             expertise: savedApiData.expertises?.map((exp: any) => exp.list_of_expertise) || [],
             deload_units: savedApiData.deload_units || 0,
@@ -302,17 +308,15 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2"><Label htmlFor="name">Full Name</Label><Input id="name" name="name" value={formData.name} onChange={handleChange} required /></div>
                   
-                  {/* FIX: Changed type to 'text' and added a pattern to explicitly allow 'ñ' */}
                   <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
                       <Input 
                           id="email" 
                           name="email" 
-                          type="text" // Changed from 'email' to 'text' to allow 'ñ'
+                          type="text"
                           value={formData.email} 
                           onChange={handleChange} 
                           required 
-                          // Pattern for basic email structure, explicitly allowing 'ñ' and 'Ñ'
                           pattern="[a-zA-Z0-9._%+-ñÑ]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
                           title="Please enter a valid email address. The 'ñ' character is allowed."
                       />
@@ -354,7 +358,6 @@ export function FacultyFormModal({ isOpen, onClose, onSave, initialData, experti
                       <Label htmlFor="teaching_load_units">Teaching Load</Label>
                       {/* UPDATED: Value set to String(value) to display 0 */}
                       <Input id="teaching_load_units" name="teaching_load_units" type="number" value={String(formData.teaching_load_units)} onChange={handleChange} placeholder="e.g. 18" />
-                      {/* REMOVED: Max load warning text */}
                   </div>
                   
                   {/* UPDATED: Value set to String(value) to display 0 */}
