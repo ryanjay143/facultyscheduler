@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Filter, Loader2 } from "lucide-react"; 
 
-// --- TYPESCRIPT INTERFACES --- 
+// --- TYPESCRIPT INTERFACES (Unchanged) --- 
 interface User {
     id: number;
     name: string;
@@ -26,12 +26,12 @@ interface Subject {
   id: number;
   subject_code: string;
   des_title: string;
-  total_units: number;
+  total_units: number; 
   lec_units: number;
   lab_units: number;
-  total_hrs: number;
-  total_lec_hrs: number | null; // Used for LEC Paying Hours, can be null
-  total_lab_hrs: number | null; // Used for LAB Paying Hours, can be null
+  total_hrs: number; 
+  total_lec_hrs: number | null; 
+  total_lab_hrs: number | null; 
 }
 
 interface Room {
@@ -44,7 +44,7 @@ interface BackendLoading {
   faculty_id: number;
   subject_id: number;
   room_id: number;
-  section: string | null; // Section from PHP Accessor
+  section: string | null; 
   type: 'LEC' | 'LAB' | string;
   day: string;
   start_time: string;
@@ -60,23 +60,27 @@ interface BackendResponse {
 }
 
 interface SubjectItem {
-    loadCode: string; 
-    payingHours: number; // This is now total_lec_hrs or total_lab_hrs
-    section: string | null; // Section for the load row
+    subjectCode: string;
+    type: 'LEC' | 'LAB' | string;
+    payingHours: number; // This will now store the scheduled duration
+    section: string | null; 
     day: string;
     time: string;
     room: string;
     remarks: string; 
     remarkRowSpan: number; 
+    totalUnits: number; 
+    totalHours: number; 
 }
 
 interface GroupedFacultyLoad {
   facultyId: number;
   name: string;
-  loadString: string; // Total calculated paying hours (string for display)
-  calculatedLoad: number; // t_load_units
+  loadString: string; 
+  calculatedLoad: number; 
   preps: number; 
   overload: number;
+  totalUnitsSum: number;
   subjects: SubjectItem[];
 }
 
@@ -92,7 +96,45 @@ const formatTime = (timeString: string): string => {
     }
 };
 
+/**
+ * Calculates the duration in hours between start_time and end_time.
+ * @param startTime time string (e.g., "07:30:00")
+ * @param endTime time string (e.g., "09:00:00")
+ * @returns duration in hours (e.g., 1.5)
+ */
+const calculateDurationInHours = (startTime: string, endTime: string): number => {
+    try {
+        const [startH, startM, startS] = startTime.split(':').map(Number);
+        const [endH, endM, endS] = endTime.split(':').map(Number);
+
+        // Calculate total minutes for start and end
+        const totalStartMinutes = startH * 60 + startM + (startS / 60);
+        const totalEndMinutes = endH * 60 + endM + (endS / 60);
+
+        let diffMinutes = totalEndMinutes - totalStartMinutes;
+
+        // If end time is before start time (e.g., overnight class), add 24 hours (1440 minutes)
+        if (diffMinutes < 0) {
+            diffMinutes += 1440; 
+        }
+
+        // Convert minutes to hours and return a fixed-point number for safety
+        return parseFloat((diffMinutes / 60).toFixed(2));
+    } catch (e) {
+        console.error("Error calculating duration:", e);
+        return 0; // Return 0 on error
+    }
+};
+
 const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLoad[] => {
+  // NOTE: componentCount is kept for the 'remarkRowSpan' logic, but is not used for payingHours.
+  const componentCount = new Map<string, number>();
+
+  backendData.forEach(loading => {
+    const key = `${loading.faculty_id}-${loading.subject_id}-${loading.type}`;
+    componentCount.set(key, (componentCount.get(key) || 0) + 1);
+  });
+    
   const facultyMap = new Map<number, BackendLoading[]>();
 
   // 1. Group by Faculty
@@ -113,23 +155,17 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
     // 2. Map loadings to raw SubjectItem list
     const rawSubjectList = loadings.map(loading => {
         
-        // **FIXED LOGIC for Paying hours:**
-        let payingHours: number = 0;
-        
-        if (loading.type === 'LEC') {
-            // Use total_lec_hrs for LEC type, fallback to lec_units if null/undefined
-            payingHours = loading.subject.total_lec_hrs ?? loading.subject.lec_units ?? 0;
-        } else if (loading.type === 'LAB') {
-            // Use total_lab_hrs for LAB type, fallback to lab_units if null/undefined
-            payingHours = loading.subject.total_lab_hrs ?? loading.subject.lab_units ?? 0;
-        } 
+        // --- NEW LOGIC: Paying Hours = Scheduled Duration (end_time - start_time) ---
+        const payingHours: number = calculateDurationInHours(loading.start_time, loading.end_time);
+        // -----------------------------------------------------------------------------
         
         const startTime = formatTime(loading.start_time);
         const endTime = formatTime(loading.end_time);
         const remarksTitle = loading.subject.des_title;
         
         const subjectItem: SubjectItem = {
-            loadCode: `${loading.subject.subject_code} ${loading.type}`,
+            subjectCode: loading.subject.subject_code,
+            type: loading.type,
             payingHours: payingHours,
             section: loading.section, 
             day: loading.day,
@@ -137,6 +173,8 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
             room: loading.room.roomNumber,
             remarks: remarksTitle, 
             remarkRowSpan: 0, 
+            totalUnits: loading.subject.total_units,
+            totalHours: loading.subject.total_hrs,
         };
         return subjectItem;
     });
@@ -144,18 +182,15 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
     // Sort rawSubjectList to ensure correct row grouping for remarks
     rawSubjectList.sort((a, b) => a.remarks.localeCompare(b.remarks));
 
-
     // 3. Calculate the actual rowSpan for the Remarks column
     const subjectList: SubjectItem[] = [];
     for (let i = 0; i < rawSubjectList.length; i++) {
         const currentItem = rawSubjectList[i];
         
-        // Check if a new Remark block starts
         if (i === 0 || rawSubjectList[i].remarks !== rawSubjectList[i-1].remarks) {
             const currentRemark = currentItem.remarks;
             let remarkRowspan = 1;
             
-            // Count subsequent rows with the same remark
             for (let j = i + 1; j < rawSubjectList.length; j++) {
                 if (rawSubjectList[j].remarks === currentRemark) {
                     remarkRowspan++;
@@ -163,20 +198,20 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
                     break;
                 }
             }
-            currentItem.remarkRowSpan = remarkRowspan; // Set the rowspan for the first row of the block
+            currentItem.remarkRowSpan = remarkRowspan; 
         }
         subjectList.push(currentItem);
     }
 
     const calculatedLoad = faculty.t_load_units;
-    // Calculate Preps as the number of distinct remark blocks (rows that start a remark group)
     const calculatedPreps = subjectList.reduce((count, item) => count + (item.remarkRowSpan > 0 ? 1 : 0), 0);
-    // total paying hours (sum of contact hours for this faculty)
     const totalPayingHours = rawSubjectList.reduce((sum, item) => sum + item.payingHours, 0);
-    // overload is the amount by which total paying hours exceed the calculated load
+    
+    const totalUnitsSum = rawSubjectList.reduce((sum, item) => sum + item.totalUnits, 0);
+    
+    // Overload calculation still uses the new totalPayingHours
     const overload = Math.max(0, totalPayingHours - calculatedLoad);
-    // loadString is the sum of all 'payingHours' (contact hours) for the faculty
-    const loadString = totalPayingHours.toString();
+    const loadString = totalPayingHours.toFixed(1).toString();
 
     grouped.push({
         facultyId,
@@ -185,6 +220,7 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
         calculatedLoad: calculatedLoad, 
         preps: calculatedPreps,
         overload: overload,
+        totalUnitsSum: totalUnitsSum,
         subjects: subjectList,
     });
   });
@@ -196,7 +232,7 @@ const transformToGroupedData = (backendData: BackendLoading[]): GroupedFacultyLo
 };
 
 
-// --- REACT COMPONENT ---
+// --- REACT COMPONENT (Rendering logic unchanged, only data is different) ---
 export function FacultyLoadingReport() {
   const [selectedFacultyId, setSelectedFacultyId] = useState<string>("all");
   const [backendData, setBackendData] = useState<BackendLoading[]>([]);
@@ -207,9 +243,8 @@ export function FacultyLoadingReport() {
   const API_URL = 'get-facultyLoading-reports';
   const TOKEN_KEY = 'accessToken'; 
   
-  // 1. Data Fetching
+  // 1. Data Fetching (Unchanged)
   useEffect(() => {
-    // ... (Data Fetching code remains the same)
     const fetchData = async () => {
       setIsLoading(true);
       setIsError(false);
@@ -255,12 +290,12 @@ export function FacultyLoadingReport() {
     fetchData();
   }, []); 
 
-  // 2. Data Transformation
+  // 2. Data Transformation (Unchanged)
   const allGroupedData = useMemo(() => {
     return transformToGroupedData(backendData);
   }, [backendData]);
 
-  // 3. Filtering
+  // 3. Filtering (Unchanged)
   const filteredLoadData = useMemo(() => {
     if (selectedFacultyId === "all") {
       return allGroupedData;
@@ -268,9 +303,8 @@ export function FacultyLoadingReport() {
     return allGroupedData.filter(block => block.facultyId.toString() === selectedFacultyId);
   }, [selectedFacultyId, allGroupedData]);
   
-  // List of unique faculty for the Select dropdown
+  // List of unique faculty for the Select dropdown (Unchanged)
   const facultyDropdownOptions = useMemo(() => {
-    // Only unique faculties who actually have a load, sorted by name
     const uniqueFaculties = new Map<number, string>();
     allGroupedData.forEach(block => uniqueFaculties.set(block.facultyId, block.name));
     
@@ -302,7 +336,7 @@ export function FacultyLoadingReport() {
   
   return (
     <div className="bg-card p-4 md:p-6 rounded-lg shadow-sm border border-border">
-      {/* Faculty Selection Filter */}
+      {/* Faculty Selection Filter (Unchanged) */}
       <div className="flex justify-end mb-6">
         <Select value={selectedFacultyId} onValueChange={setSelectedFacultyId}>
           <SelectTrigger className="w-full md:w-64">
@@ -322,14 +356,20 @@ export function FacultyLoadingReport() {
             <TableHeader className="bg-card sticky top-0 z-10">
               <TableRow>
                 <TableHead className="w-[100px] border-r">Name of Faculty</TableHead>
-                <TableHead className="w-[100px] border-r">Load</TableHead>
+                {/* Subject Code Header */}
+                <TableHead className="w-[80px] border-r">Subject Code</TableHead> 
+                {/* Type Header */}
+                <TableHead className="w-[50px] border-r">Type</TableHead> 
                 <TableHead className="w-[80px] border-r">Section</TableHead> 
                 <TableHead className="text-center w-[100px] border-r">Paying Hours</TableHead>
                 <TableHead className="w-[80px]">Day</TableHead>
                 <TableHead className="w-[150px]">Time</TableHead>
                 <TableHead className="w-[80px] border-r">Room</TableHead>
                 <TableHead className="min-w-[250px] border-r">Remarks</TableHead>
-                <TableHead className="w-[80px] text-right border-r">Total Load</TableHead>
+                
+                {/* <TableHead className="text-center w-[80px] border-r">Total Load Units</TableHead> */}
+
+                <TableHead className="w-[100px] text-right border-r">Total Load Units</TableHead>
                 <TableHead className="w-[100px] text-center">Preps</TableHead>
               </TableRow>
             </TableHeader>
@@ -337,7 +377,6 @@ export function FacultyLoadingReport() {
               {filteredLoadData.map((facultyBlock, fIndex) => {
                 const rowCount = facultyBlock.subjects.length;
                 const hasOverload = facultyBlock.overload > 0;
-                // Alternate background color for faculty blocks
                 const bgColor = fIndex % 2 === 1 ? 'bg-accent/10' : ''; 
 
                 if (rowCount === 0) return null;
@@ -347,7 +386,6 @@ export function FacultyLoadingReport() {
                     {facultyBlock.subjects.map((subject, sIndex) => {
                       const isLastRow = sIndex === rowCount - 1;
                       const isFirstRow = sIndex === 0;
-                      // Only display the Remarks cell if it's the first row of its remark group
                       const showRemark = subject.remarkRowSpan > 0; 
                       
                       const isSectionAssigned = subject.section && subject.section.trim() !== '';
@@ -364,10 +402,17 @@ export function FacultyLoadingReport() {
                             </TableCell>
                           )}
                           
-                          {/* 2. Load (Subject Code per row) */}
-                          <TableCell className="text-sm font-medium border-r uppercase">{subject.loadCode}</TableCell>
+                          {/* Subject Code Cell with uppercase class */}
+                          <TableCell className="text-sm border-r whitespace-nowrap uppercase"> 
+                              {subject.subjectCode}
+                          </TableCell> 
                           
-                          {/* 3. Section - Conditional rendering for 'Not Assigned' badge */}
+                          {/* Type Cell */}
+                          <TableCell className="text-center font-semibold text-xs border-r whitespace-nowrap">
+                              {subject.type}
+                          </TableCell> 
+                          
+                          {/* 5. Section */}
                           <TableCell className="text-sm border-r whitespace-nowrap">
                               {isSectionAssigned ? (
                                   subject.section
@@ -378,25 +423,31 @@ export function FacultyLoadingReport() {
                               )}
                           </TableCell> 
                           
-                          {/* 4. Paying Hours, Day, Time, Room */}
-                          <TableCell className="text-center font-medium border-r">{subject.payingHours || ""}</TableCell>
+                          {/* 6. Paying Hours, Day, Time, Room */}
+                          <TableCell className="text-center font-medium border-r">{subject.payingHours.toFixed(1) || ""}</TableCell>
                           <TableCell className="text-sm">{subject.day}</TableCell>
                           <TableCell className="text-sm">{subject.time}</TableCell>
                           <TableCell className="text-sm border-r">{subject.room}</TableCell>
                           
-                          {/* 5. Remarks (Subject Description) - Uses dynamic RowSpan */}
+                          {/* 10. Remarks */}
                           {showRemark && (
                               <TableCell rowSpan={subject.remarkRowSpan} className="text-sm text-muted-foreground border-r whitespace-normal align-top">
                                   {subject.remarks}
                               </TableCell>
                           )}
+
+                          {/* Total Units (Consolidated RowSpan) */}
+                          {/* {isFirstRow && (
+                             <TableCell rowSpan={rowCount} className="text-center font-bold text-lg align-top border-r">
+                               <span className="text-xl font-bold">{facultyBlock.totalUnitsSum}</span>
+                             </TableCell>
+                          )} */}
                           
-                          {/* 6. Total Load (RowSpan) */}
+                          {/* 11. Fac. Total Load Hrs */}
                           {isFirstRow && (
                             <TableCell rowSpan={rowCount} className="text-center font-bold text-lg align-top border-r">
                               <div className="py-1">
                                 <span className="text-xl font-bold">{facultyBlock.loadString}</span>
-                                {/* Check for overload and display if > 0 */}
                                 {hasOverload && (
                                     <div className="text-destructive font-semibold text-xs mt-1">overload {facultyBlock.overload}</div>
                                 )}
@@ -404,7 +455,7 @@ export function FacultyLoadingReport() {
                             </TableCell>
                           )}
 
-                          {/* 7. Preps (RowSpan) */}
+                          {/* 12. Preps */}
                           {isFirstRow && (
                             <TableCell rowSpan={rowCount} className="text-center align-top">
                               {facultyBlock.preps === 1 ? 'prep' : `${facultyBlock.preps} preps`}
@@ -417,10 +468,9 @@ export function FacultyLoadingReport() {
                 );
               })}
               
-              {/* No Data Row */}
               {filteredLoadData.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                         No faculty load data found for the selected filter.
                     </TableCell>
                 </TableRow>
